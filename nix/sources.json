@@ -1,0 +1,80 @@
+{
+    "albert-base-v2": {
+        "sha256": "19ky0rixm3y9g74wix3n2hzp7bjmmjniyf4jgacz32zmi69m9ys6",
+        "type": "file",
+        "url": "https://s3.tensordot.com/syntaxdot/pretrained/albert-base-v2.hdf5",
+        "url_template": "https://s3.tensordot.com/syntaxdot/pretrained/albert-base-v2.hdf5",
+        "version": "1"
+    },
+    "albert-base-v2-sentencepiece": {
+        "sha256": "0dh35nh493bwiqw6yzcwp1mgca1lzgjjhbb04zzc5id6cyv05yzy",
+        "type": "file",
+        "url": "https://s3.amazonaws.com/models.huggingface.co/bert/albert-base-v2-spiece.model",
+        "url_template": "https://s3.amazonaws.com/models.huggingface.co/bert/albert-base-v2-spiece.model",
+        "version": "1"
+    },
+    "bert-base-german-cased": {
+        "sha256": "17lps2a0j0im5maz2rrblcj9kn3xr329jd9h1a04czz4g0xncdzv",
+        "type": "file",
+        "url": "https://s3.tensordot.com/syntaxdot/pretrained/bert-base-german-cased.hdf5",
+        "url_template": "https://s3.tensordot.com/syntaxdot/pretrained/bert-base-german-cased.hdf5",
+        "version": "1"
+    },
+    "bert-base-german-cased-vocab": {
+        "sha256": "0g91w3nlq9li113lvw73j4b5v00kpml6wlhk71qlzih6wzw2gqbj",
+        "type": "file",
+        "url": "https://s3.tensordot.com/sticker2/pretrained/bert-base-german-cased-vocab.txt",
+        "url_template": "https://s3.tensordot.com/sticker2/pretrained/bert-base-german-cased-vocab.txt",
+        "version": "1"
+    },
+    "crate2nix": {
+        "branch": "0.8.0",
+        "description": "nix build file generator for rust crates",
+        "homepage": "",
+        "owner": "kolloch",
+        "repo": "crate2nix",
+        "rev": "0fd65ca7def611ad9d0ee532be0954d4b0bbb4d4",
+        "sha256": "17mmf5sqn0fmpqrf52icq92nf1sy5yacwx9vafk43piaq433ba56",
+        "type": "tarball",
+        "url": "https://github.com/kolloch/crate2nix/archive/0fd65ca7def611ad9d0ee532be0954d4b0bbb4d4.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "niv": {
+        "branch": "master",
+        "description": "Easy dependency management for Nix projects",
+        "homepage": "https://github.com/nmattia/niv",
+        "owner": "nmattia",
+        "repo": "niv",
+        "rev": "444c1ad4896ace10b97ab5becede1ceeced0a90c",
+        "sha256": "199nhdwlnk4wn4kgqyjq9z5cwlajjq7j3i4f54ihc1l9b9rggfd8",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/niv/archive/444c1ad4896ace10b97ab5becede1ceeced0a90c.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "nixos-unstable",
+        "description": "A read-only mirror of NixOS/nixpkgs tracking the released channels. Send issues and PRs to",
+        "homepage": "https://github.com/NixOS/nixpkgs",
+        "owner": "nixos",
+        "repo": "nixpkgs-channels",
+        "rev": "61525137fd1002f6f2a5eb0ea27d480713362cd5",
+        "sha256": "1gzwz9jvfcf0is6zma7qlgszkngfb2aa4kam0nhs0qnwb4nqn7mg",
+        "type": "tarball",
+        "url": "https://github.com/nixos/nixpkgs-channels/archive/61525137fd1002f6f2a5eb0ea27d480713362cd5.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "xlm-roberta-base": {
+        "sha256": "1nij54y735aj1lmxqcpi4ibymswhkybn8hv0aldk6sprja83ww23",
+        "type": "file",
+        "url": "https://s3.tensordot.com/syntaxdot/pretrained/xlm-roberta-base.hdf5",
+        "url_template": "https://s3.tensordot.com/syntaxdot/pretrained/xlm-roberta-base.hdf5",
+        "version": "1"
+    },
+    "xlm-roberta-base-sentencepiece": {
+        "sha256": "0r98vghgqykj19d19jly0nmi2z1gjpknvid0wblqh11aprm19j6g",
+        "type": "file",
+        "url": "https://s3.amazonaws.com/models.huggingface.co/bert/xlm-roberta-base-sentencepiece.bpe.model",
+        "url_template": "https://s3.amazonaws.com/models.huggingface.co/bert/xlm-roberta-base-sentencepiece.bpe.model",
+        "version": "1"
+    }
+}

@@ -1,0 +1,2 @@
+[workspace]
+members = ["syntaxdot-encoders", "syntaxdot-transformers", "syntaxdot", "syntaxdot-cli"]

@@ -1,0 +1,40 @@
+[package]
+name = "syntaxdot"
+version = "0.1.0"
+edition = "2018"
+authors = ["Daniël de Kok <me@danieldk.eu>"]
+description = "Neural sequence labeler"
+
+[dependencies]
+conllu = "0.5"
+edit_tree = "0.1.1"
+hdf5 = { version = "0.7", optional = true }
+ndarray = "0.13"
+numberer = "0.2"
+ordered-float = "1"
+rand = "0.7"
+rand_xorshift = "0.2"
+sentencepiece = "0.5"
+serde = { version = "1", features = [ "derive" ] }
+serde_json = "1"
+syntaxdot-encoders = { path = "../syntaxdot-encoders" }
+syntaxdot-transformers = { path = "../syntaxdot-transformers", default-features = false }
+tch = "0.2.1"
+thiserror = "1"
+toml = "0.5"
+wordpieces = "0.4"
+
+[dev-dependencies]
+approx = "0.3"
+criterion = "0.3"
+maplit = "1"
+ndarray-rand = "0.11"
+
+[features]
+default = ["load-hdf5"]
+load-hdf5 = ["syntaxdot-transformers/load-hdf5", "hdf5"]
+model-tests = []
+
+[[bench]]
+name = "mst"
+harness = false
