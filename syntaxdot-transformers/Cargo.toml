@@ -1,0 +1,22 @@
+[package]
+name = "syntaxdot-transformers"
+version = "0.1.0"
+authors = ["Daniël de Kok <me@danieldk.eu>"]
+edition = "2018"
+description = "Transformer architectures, such as BERT"
+
+[dependencies]
+hdf5 = { version = "0.7", optional = true }
+serde = { version = "1", features = ["derive"] }
+tch = "0.2"
+thiserror = "1"
+
+[dev-dependencies]
+approx = "0.3"
+maplit = "1"
+ndarray = { version = "0.13", features = ["approx"] }
+
+[features]
+default = ["load-hdf5"]
+load-hdf5 = ["hdf5"]
+model-tests = []

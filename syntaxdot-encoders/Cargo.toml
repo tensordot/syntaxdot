@@ -1,0 +1,18 @@
+[package]
+name = "syntaxdot-encoders"
+version = "0.1.0"
+authors = ["Daniël de Kok <me@danieldk.eu>"]
+edition = "2018"
+description = "Encoders for linguistic features"
+
+[dependencies]
+conllu = "0.5"
+edit_tree = "0.1.1"
+numberer = "0.2"
+lazy_static = "1"
+ohnomore = "0.2.2"
+ordered-float = "1"
+petgraph = "0.5"
+serde = "1"
+serde_derive = "1"
+thiserror = "1"

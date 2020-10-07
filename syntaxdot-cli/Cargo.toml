@@ -1,0 +1,31 @@
+[package]
+name = "syntaxdot-cli"
+version = "0.1.0"
+edition = "2018"
+authors = ["Daniël de Kok <me@danieldk.eu>"]
+description = "Neural sequence labeler"
+
+[[bin]]
+name = "syntaxdot"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = "2"
+conllu = "0.5"
+indicatif = "0.13"
+itertools = "0.9"
+ordered-float = { version = "1", features = ["serde"] }
+serde_yaml = "0.8"
+stdinout = "0.4"
+syntaxdot = { path = "../syntaxdot", version = "0.1", default-features = false }
+syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.1" }
+syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.1", default-features = false }
+tfrecord = { version = "0.4", features = ["summary"], optional = true }
+tch = "0.2.1"
+threadpool = "1"
+
+[features]
+default = ["load-hdf5", "tensorboard"]
+load-hdf5 = ["syntaxdot-transformers/load-hdf5", "syntaxdot/load-hdf5"]
+tensorboard = ["tfrecord"]
