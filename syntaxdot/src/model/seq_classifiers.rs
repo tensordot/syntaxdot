@@ -12,12 +12,18 @@ use crate::config::PretrainConfig;
 use crate::encoders::Encoders;
 use crate::model::bert::PretrainBertConfig;
 
+/// A set of sequence classifiers.
+///
+/// This data type stores a set of scalar weight-based sequence classifiers,
+/// and implements common options for them, such as computing the loss and
+/// top-k labels.
 #[derive(Debug)]
 pub struct SequenceClassifiers {
     classifiers: HashMap<String, ScalarWeightClassifier>,
 }
 
 impl SequenceClassifiers {
+    /// Create a set of sequence classifiers.
     pub fn new<'a>(
         vs: impl Borrow<Path<'a>>,
         pretrain_config: &PretrainConfig,
@@ -53,6 +59,7 @@ impl SequenceClassifiers {
         SequenceClassifiers { classifiers }
     }
 
+    /// Perform a forward pass of sequence classifiers.
     pub fn forward_t(&self, layers: &[impl LayerOutput], train: bool) -> HashMap<String, Tensor> {
         self.classifiers
             .iter()
@@ -62,6 +69,19 @@ impl SequenceClassifiers {
             .collect()
     }
 
+    /// Compute the loss of each sequence classifier.
+    ///
+    /// This method computes the loss of each sequence classifier. Each
+    /// classifier performs predictions using the given layer outputs,
+    /// masking the tokens in `token_mask`. Then the of the predicted
+    /// labels and `targets` is computed.
+    ///
+    /// If `label_smoothing` is enabled, a the given amount of probability
+    /// mass of `targets` is redistributed among other classes than the
+    /// targets.
+    ///
+    /// If `include_continuations` is set to `true`, the loss is also
+    /// computed over continuation pieces.
     #[allow(clippy::too_many_arguments)]
     pub fn loss(
         &self,
@@ -104,7 +124,12 @@ impl SequenceClassifiers {
         }
     }
 
-    pub fn top_k(&self, layers: &[impl LayerOutput]) -> HashMap<String, (Tensor, Tensor)> {
+    /// Predict for each classifier the top-K labels and their probabilities.
+    ///
+    /// This method computes the top-k labels and their probabilities for
+    /// each sequence classifier, given the output of each layer. The function
+    /// returns a mapping for the classifier name to `(probabilities, labels)`.
+    pub fn top_k(&self, layers: &[impl LayerOutput], k: usize) -> HashMap<String, TopK> {
         self.classifiers
             .iter()
             .map(|(encoder_name, classifier)| {
@@ -112,16 +137,12 @@ impl SequenceClassifiers {
                     .forward(&layers, false)
                     // Exclude first two classes (padding and continuation).
                     .slice(-1, 2, -1, 1)
-                    .topk(3, -1, true, true);
+                    .topk(k as i64, -1, true, true);
 
                 // Fix label offsets.
                 labels += 2;
 
-                (
-                    encoder_name.to_string(),
-                    // XXX: make k configurable
-                    (probs, labels),
-                )
+                (encoder_name.to_string(), TopK { labels, probs })
             })
             .collect()
     }
@@ -131,4 +152,13 @@ pub struct SequenceClassifiersLoss {
     pub summed_loss: Tensor,
     pub encoder_losses: HashMap<String, Tensor>,
     pub encoder_accuracies: HashMap<String, Tensor>,
+}
+
+/// The top-K results for a classifier.
+pub struct TopK {
+    /// Labels.
+    pub labels: Tensor,
+
+    /// Probabilities.
+    pub probs: Tensor,
 }
