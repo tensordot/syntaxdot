@@ -76,7 +76,7 @@ where
 
     fn tag_buffered_sentences(&mut self) -> Result<()> {
         // Sort sentences by length.
-        let mut sent_refs: Vec<_> = self.buffer.iter_mut().map(|s| s).collect();
+        let mut sent_refs: Vec<_> = self.buffer.iter_mut().collect();
         sent_refs.sort_unstable_by_key(|s| s.pieces.len());
 
         // Split in batches, tag, and merge results.
