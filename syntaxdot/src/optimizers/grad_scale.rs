@@ -91,7 +91,6 @@ where
         }
     }
 
-
     /// Update the scale for the next step.
     fn update(&mut self) {
         if !self.enabled {
