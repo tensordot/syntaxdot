@@ -218,7 +218,7 @@ mod tests {
     use crate::layer::Layer;
     use crate::layer::LayerEncoder;
 
-    static NON_PROJECTIVE_DATA: &'static str = "testdata/lassy-small-dev.conllu";
+    static NON_PROJECTIVE_DATA: &str = "testdata/lassy-small-dev.conllu";
 
     fn test_encoding<P, E, C>(path: P, encoder_decoder: E)
     where
