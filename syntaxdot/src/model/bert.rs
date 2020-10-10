@@ -21,7 +21,7 @@ use tch::{self, Tensor};
 use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
 use crate::error::SyntaxDotError;
-use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss};
+use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
 
 pub trait PretrainBertConfig {
     fn bert_config(&self) -> Cow<BertConfig>;
@@ -380,11 +380,7 @@ impl BertModel {
     ///
     /// * `attention_mask`: specifies which sequence elements should
     ///    be masked when applying the encoder.
-    pub fn top_k(
-        &self,
-        inputs: &Tensor,
-        attention_mask: &Tensor,
-    ) -> HashMap<String, (Tensor, Tensor)> {
+    pub fn top_k(&self, inputs: &Tensor, attention_mask: &Tensor) -> HashMap<String, TopK> {
         let encoding = self.encode(
             inputs,
             attention_mask,
@@ -396,7 +392,7 @@ impl BertModel {
             },
         );
 
-        self.seq_classifiers.top_k(&encoding)
+        self.seq_classifiers.top_k(&encoding, 3)
     }
 }
 
