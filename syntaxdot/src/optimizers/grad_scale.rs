@@ -3,6 +3,22 @@ use tch::{Kind, Tensor};
 
 use super::{Optimizer, ZeroGrad};
 
+/// Gradient scaler
+///
+/// This data type implements gradient scaling.
+///
+/// In mixed-precision training, gradients underflow more quickly in FP16
+/// as they become smaller, stopping backpropagation. Gradient scaling
+/// counters this by scaling up the loss, to increase the magnitude of
+/// gradients. The gradients are then unscaled in FP32. Since loss
+/// scaling can also lead to overflow of gradients, the gradients are
+/// checked for infinites before performing an optimizer step. If one or
+/// more infinite gradients are found, the optimizer step is skipped and
+/// the scale is reduced for the next step.
+///
+/// `GradientScaler` wraps an optimizer and implements the `Optimizer`
+/// trait, so that it can be used in the same contexts as an optimizer
+/// can be used.
 pub struct GradScaler<O> {
     enabled: bool,
     growth_factor: f64,
@@ -44,23 +60,30 @@ where
         }
     }
 
+    /// Construct a new gradient scaler.
+    ///
+    /// The gradient scaler wraps the given optimizer.
     pub fn new_with_defaults(enabled: bool, optimizer: O) -> Self {
         GradScaler::new(enabled, optimizer, 2f64.powi(16), 2., 0.5, 2000)
     }
 
+    /// Get the current scale.
     pub fn current_scale(&self) -> f32 {
         Vec::<f32>::from(&self.scale)[0]
     }
 
+    /// Get a reference to the wrapped optimizer.
     pub fn optimizer(&self) -> &O {
         &self.optimizer
     }
 
+    /// Get a mutable reference to the wrapped optimizer.
     pub fn optimizer_mut(&mut self) -> &mut O {
         &mut self.optimizer
     }
 
-    pub fn scale(&mut self, t: &Tensor) -> Tensor {
+    /// Scale the given tensor.
+    fn scale(&mut self, t: &Tensor) -> Tensor {
         if !self.enabled {
             t.shallow_clone()
         } else {
@@ -68,7 +91,9 @@ where
         }
     }
 
-    pub fn update(&mut self) {
+
+    /// Update the scale for the next step.
+    fn update(&mut self) {
         if !self.enabled {
             return;
         };
