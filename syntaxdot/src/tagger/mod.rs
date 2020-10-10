@@ -105,9 +105,8 @@ impl Tagger {
             &tensors.inputs.to_device(self.device),
             &mask.to_device(self.device),
         ) {
-            let (top_k_probs, top_k_labels) = top_k;
-            let top_k_labels: ArrayD<i32> = (&top_k_labels).try_into()?;
-            let top_k_probs: ArrayD<f32> = (&top_k_probs).try_into()?;
+            let top_k_labels: ArrayD<i32> = (&top_k.labels).try_into()?;
+            let top_k_probs: ArrayD<f32> = (&top_k.probs).try_into()?;
 
             top_k_tensors.insert(encoder_name, (top_k_labels, top_k_probs));
         }
