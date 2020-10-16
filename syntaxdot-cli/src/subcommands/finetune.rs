@@ -10,8 +10,9 @@ use syntaxdot::encoders::Encoders;
 use syntaxdot::input::Tokenize;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule, PlateauLearningRate};
 use syntaxdot::model::bert::{BertModel, FreezeLayers};
-use syntaxdot::optimizers::{AdamW, AdamWConfig, GradScaler, Optimizer};
+use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::util::seq_len_to_mask;
+use tch::nn::{self, adamw, AdamW, OptimizerConfig};
 use tch::{self, Device, Kind};
 
 use crate::io::Model;
@@ -41,6 +42,11 @@ const TRAIN_DATA: &str = "TRAIN_DATA";
 const VALIDATION_DATA: &str = "VALIDATION_DATA";
 const WARMUP: &str = "WARMUP";
 const WEIGHT_DECAY: &str = "WEIGHT_DECAY";
+
+const ENCODER_GROUP: usize = 0;
+const CLASSIFIER_GROUP: usize = 1;
+const ENCODER_LAYER_NORM_GROUP: usize = 2;
+const CLASSIFIER_LAYER_NORM_GROUP: usize = 3;
 
 pub struct LrSchedule {
     pub initial_lr_encoder: NotNan<f32>,
@@ -77,6 +83,35 @@ pub struct LearningRateSchedules {
 }
 
 impl FinetuneApp {
+    fn build_group_fun() -> fn(&str) -> usize {
+        let group_fun = |name: &str| {
+            if name.starts_with("classifiers") {
+                if name.contains("layer_norm") {
+                    CLASSIFIER_LAYER_NORM_GROUP
+                } else {
+                    CLASSIFIER_GROUP
+                }
+            } else if name.starts_with("encoder") || name.starts_with("embeddings") {
+                if name.contains("layer_norm") {
+                    ENCODER_LAYER_NORM_GROUP
+                } else {
+                    ENCODER_GROUP
+                }
+            } else {
+                unreachable!();
+            }
+        };
+        group_fun
+    }
+
+    fn build_optimizer(&self, model: &Model) -> Result<GradScaler<impl Optimizer>> {
+        let opt = adamw(0.9, 0.999, self.weight_decay).build(&model.vs, 1e-3)?;
+        let mut grad_scaler = GradScaler::new_with_defaults(self.mixed_precision, opt)?;
+        grad_scaler.set_weight_decay_group(ENCODER_LAYER_NORM_GROUP, 0.);
+        grad_scaler.set_weight_decay_group(CLASSIFIER_LAYER_NORM_GROUP, 0.);
+        Ok(grad_scaler)
+    }
+
     pub fn lr_schedules(&self) -> LearningRateSchedules {
         let exp_decay = ExponentialDecay::new(
             self.lr_schedule.initial_lr_classifier.into_inner(),
@@ -108,7 +143,7 @@ impl FinetuneApp {
         tokenizer: &dyn Tokenize,
         model: &BertModel,
         file: &mut File,
-        mut grad_scaler: Option<&mut GradScaler<AdamW>>,
+        mut grad_scaler: Option<&mut GradScaler<impl Optimizer>>,
         lr_schedulers: &mut LearningRateSchedules,
         global_step: &mut usize,
         epoch: usize,
@@ -190,26 +225,15 @@ impl FinetuneApp {
             let scalar_loss: f32 = model_loss.summed_loss.sum(Kind::Float).into();
 
             if let Some(scaler) = &mut grad_scaler {
-                scaler.backward_step(&model_loss.summed_loss.sum(Kind::Float), |name| {
-                    let mut config = AdamWConfig::default();
+                let optimizer = scaler.optimizer_mut();
 
-                    // Use weight decay for all variables, except for
-                    // layer norm variables.
-                    if !name.contains("layer_norm") {
-                        config.weight_decay = self.weight_decay;
-                    }
+                // Todo: set weight decay to 0 for layer norms.
+                optimizer.set_lr_group(ENCODER_GROUP, lr_encoder.into());
+                optimizer.set_lr_group(ENCODER_LAYER_NORM_GROUP, lr_encoder.into());
+                optimizer.set_lr_group(CLASSIFIER_GROUP, lr_classifier.into());
+                optimizer.set_lr_group(CLASSIFIER_LAYER_NORM_GROUP, lr_classifier.into());
 
-                    // Use separate learning rates for the encoder and classifiers.
-                    if name.starts_with("classifiers") {
-                        config.lr = lr_classifier.into();
-                    } else if name.starts_with("encoder") || name.starts_with("embeddings") {
-                        config.lr = lr_encoder.into();
-                    } else {
-                        unreachable!();
-                    }
-
-                    config
-                });
+                scaler.backward_step(&model_loss.summed_loss.sum(Kind::Float));
 
                 if epoch != 0 {
                     self.summary_writer.write_scalar(
@@ -521,10 +545,23 @@ impl SyntaxDotApp for FinetuneApp {
 
     fn run(&self) -> Result<()> {
         let model = if self.continue_finetune {
-            Model::load_from(&self.config, &self.pretrained_model, self.device, false)?
+            Model::load_from(
+                &self.config,
+                &self.pretrained_model,
+                self.device,
+                false,
+                Self::build_group_fun(),
+            )?
         } else {
-            Model::load_from_hdf5(&self.config, &self.pretrained_model, self.device)?
+            Model::load_from_hdf5(
+                &self.config,
+                &self.pretrained_model,
+                self.device,
+                Self::build_group_fun(),
+            )?
         };
+
+        eprintln!("vs: {:?}", model.vs);
 
         let mut train_file = File::open(&self.train_data)
             .context(format!("Cannot open train data file: {}", self.train_data))?;
@@ -534,8 +571,7 @@ impl SyntaxDotApp for FinetuneApp {
         ))?;
 
         let mut saver = self.saver.clone();
-        let opt = AdamW::new(&model.vs);
-        let mut grad_scaler = GradScaler::new_with_defaults(self.mixed_precision, opt);
+        let mut grad_scaler = self.build_optimizer(&model)?;
 
         let mut lr_schedules = self.lr_schedules();
 
@@ -573,7 +609,7 @@ impl SyntaxDotApp for FinetuneApp {
                     &*model.tokenizer,
                     &model.model,
                     &mut validation_file,
-                    None,
+                    None as Option<&mut GradScaler<nn::Optimizer<AdamW>>>,
                     &mut lr_schedules,
                     &mut global_step,
                     epoch,

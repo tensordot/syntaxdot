@@ -1,7 +1,8 @@
 use std::borrow::Borrow;
 
-use tch::nn::{Init, Linear, Module, ModuleT, Path};
+use tch::nn::{Init, Linear, Module, ModuleT};
 use tch::{self, Tensor};
+use tch_ext::PathExt;
 
 /// Trait to place layer tensors in the var store.
 pub trait PlaceInVarStore
@@ -12,17 +13,17 @@ where
     ///
     /// This method replaces a layer's tensors by tensors that are
     /// in the given var store.
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<Path<'a>>);
+    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>);
 
     /// Place layer tensors in the var store.
-    fn place_in_var_store<'a>(mut self, vs: impl Borrow<Path<'a>>) -> Self {
+    fn place_in_var_store<'a>(mut self, vs: impl Borrow<PathExt<'a>>) -> Self {
         self.place_in_var_store_inplace(vs);
         self
     }
 }
 
 impl PlaceInVarStore for Linear {
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<Path<'a>>) {
+    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>) {
         let vs = vs.borrow();
         self.ws = vs.var_copy("weight", &self.ws);
         self.bs = vs.var_copy("bias", &self.bs);
@@ -52,7 +53,7 @@ pub struct Embedding(pub Tensor);
 
 impl Embedding {
     pub fn new<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         name: &str,
         num_embeddings: i64,
         embedding_dim: i64,
@@ -66,7 +67,7 @@ impl Embedding {
 }
 
 impl PlaceInVarStore for Embedding {
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<Path<'a>>) {
+    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>) {
         self.0 = vs.borrow().var_copy("embeddings", &self.0)
     }
 }
@@ -122,7 +123,7 @@ impl LayerNorm {
     /// learnable affine transformation of the shape
     /// `normalized_shape` is added after normalization.
     pub fn new<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         normalized_shape: impl Into<Vec<i64>>,
         eps: f64,
         elementwise_affine: bool,
@@ -166,7 +167,7 @@ impl Module for LayerNorm {
 }
 
 impl PlaceInVarStore for LayerNorm {
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<Path<'a>>) {
+    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>) {
         let vs = vs.borrow();
 
         self.weight = self

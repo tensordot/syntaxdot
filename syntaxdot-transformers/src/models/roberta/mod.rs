@@ -16,8 +16,9 @@
 
 use std::borrow::Borrow;
 
-use tch::nn::{ModuleT, Path};
+use tch::nn::ModuleT;
 use tch::{Kind, Tensor};
+use tch_ext::PathExt;
 
 use crate::cow::CowTensor;
 use crate::models::bert::{BertConfig, BertEmbeddings};
@@ -33,7 +34,7 @@ pub struct RobertaEmbeddings {
 impl RobertaEmbeddings {
     /// Construct new RoBERTa embeddings with the given variable store
     /// and Bert configuration.
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
         RobertaEmbeddings {
             inner: BertEmbeddings::new(vs, config),
         }
@@ -75,7 +76,7 @@ mod hdf5_impl {
     use std::borrow::Borrow;
 
     use hdf5::Group;
-    use tch::nn::Path;
+    use tch_ext::PathExt;
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEmbeddings, BertError};
@@ -87,7 +88,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             file: Group,
         ) -> Result<Self, Self::Error> {
@@ -108,6 +109,7 @@ mod tests {
     use ndarray::{array, ArrayD};
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
+    use tch_ext::RootExt;
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEncoder};
@@ -140,7 +142,7 @@ mod tests {
 
         let vs = VarStore::new(Device::Cpu);
         let embeddings = RobertaEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             roberta_file.group("bert/embeddings").unwrap(),
         )
@@ -179,14 +181,14 @@ mod tests {
 
         let vs = VarStore::new(Device::Cpu);
         let embeddings = RobertaEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             roberta_file.group("bert/embeddings").unwrap(),
         )
         .unwrap();
 
         let encoder = BertEncoder::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             roberta_file.group("bert/encoder").unwrap(),
         )

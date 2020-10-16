@@ -1,7 +1,7 @@
-use tch::nn::VarStore;
 use tch::{Kind, Tensor};
 
 use super::{Optimizer, ZeroGrad};
+use crate::error::SyntaxDotError;
 
 /// Gradient scaler
 ///
@@ -43,10 +43,13 @@ where
         growth_factor: f64,
         backoff_factor: f64,
         growth_interval: i64,
-    ) -> Self {
-        let device = optimizer.var_store().device();
+    ) -> Result<Self, SyntaxDotError> {
+        let device = match optimizer.trainable_variables().first() {
+            Some(tensor) => tensor.device(),
+            None => return Err(SyntaxDotError::NoTrainableVariables),
+        };
 
-        GradScaler {
+        Ok(GradScaler {
             enabled,
             growth_factor,
             backoff_factor,
@@ -57,13 +60,13 @@ where
             found_inf: Tensor::full(&[1], 0.0, (Kind::Float, device)),
             growth_tracker: Tensor::full(&[1], 0, (Kind::Int, device)),
             scale: Tensor::full(&[1], init_scale, (Kind::Float, device)),
-        }
+        })
     }
 
     /// Construct a new gradient scaler.
     ///
     /// The gradient scaler wraps the given optimizer.
-    pub fn new_with_defaults(enabled: bool, optimizer: O) -> Self {
+    pub fn new_with_defaults(enabled: bool, optimizer: O) -> Result<Self, SyntaxDotError> {
         GradScaler::new(enabled, optimizer, 2f64.powi(16), 2., 0.5, 2000)
     }
 
@@ -115,29 +118,29 @@ impl<O> Optimizer for GradScaler<O>
 where
     O: Optimizer,
 {
-    type Config = O::Config;
-
-    fn backward_step<F>(&mut self, loss: &Tensor, config_fun: F)
-    where
-        F: Fn(&str) -> Self::Config,
-    {
-        self.var_store().zero_grad();
+    fn backward_step(&mut self, loss: &Tensor) {
+        self.optimizer.trainable_variables().zero_grad();
         self.scale(loss).backward();
-        tch::no_grad(|| self.step(config_fun));
+        tch::no_grad(|| self.step());
         self.update();
     }
 
-    fn step<F>(&mut self, config_fun: F)
-    where
-        F: Fn(&str) -> Self::Config,
-    {
+    fn set_lr_group(&mut self, group: usize, learning_rate: f64) {
+        self.optimizer.set_lr_group(group, learning_rate)
+    }
+
+    fn set_weight_decay_group(&mut self, group: usize, weight_decay: f64) {
+        self.optimizer.set_weight_decay_group(group, weight_decay)
+    }
+
+    fn step(&mut self) {
         if !self.enabled {
-            return self.optimizer.step(config_fun);
+            return self.optimizer.step();
         }
 
         let inv_scale = self.scale.reciprocal().to_kind(Kind::Float);
 
-        for (_, tensor) in self.optimizer.var_store().variables() {
+        for tensor in &mut self.optimizer.trainable_variables() {
             if !tensor.grad().defined() {
                 continue;
             }
@@ -151,11 +154,11 @@ where
 
         // Only step when there are no infinite gradients.
         if !found_inf {
-            self.optimizer.step(config_fun)
+            self.optimizer.step()
         }
     }
 
-    fn var_store(&self) -> &VarStore {
-        self.optimizer.var_store()
+    fn trainable_variables(&self) -> Vec<Tensor> {
+        self.optimizer.trainable_variables()
     }
 }
