@@ -56,14 +56,14 @@ impl<R> ConlluDataSet<R> {
     /// sequence without filtering them.
     ///
     /// If `max_len` == `None`, no filtering is performed.
-    fn get_sentence_iter<'ds, 'a: 'ds>(
+    fn get_sentence_iter<'a>(
         reader: R,
         tokenizer: &'a dyn Tokenize,
         max_len: Option<SequenceLength>,
         shuffle_buffer_size: Option<usize>,
-    ) -> Box<dyn Iterator<Item = Result<SentenceWithPieces, conllu::IOError>> + 'ds>
+    ) -> Box<dyn Iterator<Item = Result<SentenceWithPieces, conllu::IOError>> + 'a>
     where
-        R: ReadSentence + 'ds,
+        R: ReadSentence + 'a,
     {
         let tokenized_sentences = reader
             .sentences()
@@ -82,12 +82,12 @@ impl<R> ConlluDataSet<R> {
     }
 }
 
-impl<'ds, 'a: 'ds, R> DataSet<'a> for &'ds mut ConlluDataSet<R>
+impl<'a, R> DataSet<'a> for &'a mut ConlluDataSet<R>
 where
     R: Read + Seek,
 {
     type Iter =
-        ConlluIter<'a, Box<dyn Iterator<Item = Result<SentenceWithPieces, conllu::IOError>> + 'ds>>;
+        ConlluIter<'a, Box<dyn Iterator<Item = Result<SentenceWithPieces, conllu::IOError>> + 'a>>;
 
     fn batches(
         self,
