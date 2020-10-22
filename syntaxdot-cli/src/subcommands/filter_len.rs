@@ -82,9 +82,9 @@ impl SyntaxDotApp for FilterLenApp {
 
             let sentence_with_pieces = tokenizer.tokenize(sentence);
 
-            if sentence_with_pieces.pieces.len() <= self.max_len {
+            if sentence_with_pieces.pieces().len() <= self.max_len {
                 treebank_writer
-                    .write_sentence(&sentence_with_pieces.sentence)
+                    .write_sentence(sentence_with_pieces.sentence())
                     .context("Cannot write sentence")?;
             }
         }

@@ -1,7 +1,8 @@
 use conllu::graph::{Node, Sentence};
 use wordpieces::WordPieces;
 
-use crate::input::{SentenceWithPieces, Tokenize};
+use crate::input::pieces::PiecesWithOffsets;
+use crate::input::Tokenize;
 
 /// BERT word piece tokenizer.
 ///
@@ -35,7 +36,7 @@ impl BertTokenizer {
 }
 
 impl Tokenize for BertTokenizer {
-    fn tokenize(&self, sentence: Sentence) -> SentenceWithPieces {
+    fn tokenize_(&self, sentence: &Sentence) -> PiecesWithOffsets {
         // An average of three pieces per token ought to enough for
         // everyone ;).
         let mut pieces = Vec::with_capacity((sentence.len() - 1) * 3);
@@ -59,9 +60,8 @@ impl Tokenize for BertTokenizer {
             }
         }
 
-        SentenceWithPieces {
+        PiecesWithOffsets {
             pieces: pieces.into(),
-            sentence,
             token_offsets,
         }
     }

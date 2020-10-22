@@ -1,7 +1,8 @@
 use conllu::graph::{Node, Sentence};
 use sentencepiece::SentencePieceProcessor;
 
-use crate::input::{SentenceWithPieces, Tokenize};
+use crate::input::pieces::PiecesWithOffsets;
+use crate::input::Tokenize;
 
 const FAIRSEQ_BOS_ID: i64 = 0;
 const FAIRSEQ_EOS_ID: i64 = 2;
@@ -31,7 +32,7 @@ impl From<SentencePieceProcessor> for XlmRobertaTokenizer {
 }
 
 impl Tokenize for XlmRobertaTokenizer {
-    fn tokenize(&self, sentence: Sentence) -> SentenceWithPieces {
+    fn tokenize_(&self, sentence: &Sentence) -> PiecesWithOffsets {
         // An average of three pieces per token ought to be enough for
         // everyone ;).
         let mut pieces = Vec::with_capacity((sentence.len() - 1) * 3);
@@ -67,9 +68,8 @@ impl Tokenize for XlmRobertaTokenizer {
 
         pieces.push(FAIRSEQ_EOS_ID);
 
-        SentenceWithPieces {
+        PiecesWithOffsets {
             pieces: pieces.into(),
-            sentence,
             token_offsets,
         }
     }

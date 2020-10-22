@@ -15,7 +15,7 @@ where
     batch_size: usize,
     max_len: Option<usize>,
     read_ahead: usize,
-    buffer: Vec<SentenceWithPieces>,
+    buffer: Vec<SentenceWithPieces<'static>>,
 }
 
 impl<'a, W> SentProcessor<'a, W>
@@ -60,7 +60,7 @@ where
         if let Some(max_len) = self.max_len {
             // sent.len() includes the root node, whereas max_len is
             // the actual sentence length without the root node.
-            if (tokenized_sentence.pieces.len() - 1) > max_len {
+            if (tokenized_sentence.pieces().len() - 1) > max_len {
                 return Ok(());
             }
         }
@@ -77,7 +77,7 @@ where
     fn tag_buffered_sentences(&mut self) -> Result<()> {
         // Sort sentences by length.
         let mut sent_refs: Vec<_> = self.buffer.iter_mut().collect();
-        sent_refs.sort_unstable_by_key(|s| s.pieces.len());
+        sent_refs.sort_unstable_by_key(|s| s.pieces().len());
 
         // Split in batches, tag, and merge results.
         for batch in sent_refs.chunks_mut(self.batch_size) {
@@ -88,7 +88,7 @@ where
         let mut sents = Vec::with_capacity(self.read_ahead * self.batch_size);
         std::mem::swap(&mut sents, &mut self.buffer);
         for sent in sents {
-            self.writer.write_sentence(&sent.sentence)?;
+            self.writer.write_sentence(sent.sentence())?;
         }
 
         Ok(())

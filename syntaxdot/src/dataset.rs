@@ -61,7 +61,7 @@ impl<R> ConlluDataSet<R> {
         tokenizer: &'a dyn Tokenize,
         max_len: Option<SequenceLength>,
         shuffle_buffer_size: Option<usize>,
-    ) -> Box<dyn Iterator<Item = Result<SentenceWithPieces, conllu::IOError>> + 'a>
+    ) -> Box<dyn Iterator<Item = Result<SentenceWithPieces<'static>, conllu::IOError>> + 'a>
     where
         R: ReadSentence + 'a,
     {
@@ -86,8 +86,10 @@ impl<'a, R> DataSet<'a> for &'a mut ConlluDataSet<R>
 where
     R: Read + Seek,
 {
-    type Iter =
-        ConlluIter<'a, Box<dyn Iterator<Item = Result<SentenceWithPieces, conllu::IOError>> + 'a>>;
+    type Iter = ConlluIter<
+        'a,
+        Box<dyn Iterator<Item = Result<SentenceWithPieces<'static>, conllu::IOError>> + 'a>,
+    >;
 
     fn batches(
         self,
@@ -119,7 +121,7 @@ where
 
 pub struct ConlluIter<'a, I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces<'static>, conllu::IOError>>,
 {
     batch_size: usize,
     labels: bool,
@@ -129,7 +131,7 @@ where
 
 impl<'a, I> ConlluIter<'a, I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces<'static>, conllu::IOError>>,
 {
     fn next_with_labels(
         &mut self,
@@ -143,21 +145,21 @@ where
         );
 
         for sentence in tokenized_sentences {
-            let input = sentence.pieces;
+            let input = sentence.pieces();
             let mut token_mask = Array1::zeros((input.len(),));
-            for token_idx in &sentence.token_offsets {
+            for token_idx in sentence.token_offsets() {
                 token_mask[*token_idx] = 1;
             }
 
             let mut encoder_labels = HashMap::with_capacity(self.encoders.len());
             for encoder in self.encoders {
-                let encoding = match encoder.encoder().encode(&sentence.sentence) {
+                let encoding = match encoder.encoder().encode(sentence.sentence()) {
                     Ok(encoding) => encoding,
                     Err(err) => return Some(Err(err.into())),
                 };
 
                 let mut labels = Array1::from_elem((input.len(),), 1i64);
-                for (encoding, offset) in encoding.into_iter().zip(&sentence.token_offsets) {
+                for (encoding, offset) in encoding.into_iter().zip(sentence.token_offsets()) {
                     labels[*offset] = encoding as i64;
                 }
 
@@ -182,9 +184,9 @@ where
         );
 
         for sentence in tokenized_sentences {
-            let input = sentence.pieces;
+            let input = sentence.pieces();
             let mut token_mask = Array1::zeros((input.len(),));
-            for token_idx in &sentence.token_offsets {
+            for token_idx in sentence.token_offsets() {
                 token_mask[*token_idx] = 1;
             }
 
@@ -197,7 +199,7 @@ where
 
 impl<'a, I> Iterator for ConlluIter<'a, I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces<'static>, conllu::IOError>>,
 {
     type Item = Result<Tensors, SyntaxDotError>;
 
@@ -221,7 +223,7 @@ where
 
         let max_seq_len = batch_sentences
             .iter()
-            .map(|s| s.pieces.len())
+            .map(|s| s.pieces().len())
             .max()
             .unwrap_or(0);
 
@@ -241,7 +243,7 @@ pub trait SentenceIter: Sized {
 
 impl<I> SentenceIter for I
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces<'static>, conllu::IOError>>,
 {
     fn filter_by_len(self, max_len: SequenceLength) -> LengthFilter<Self> {
         LengthFilter {
@@ -277,9 +279,9 @@ pub struct LengthFilter<I> {
 
 impl<I> Iterator for LengthFilter<I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces<'static>, conllu::IOError>>,
 {
-    type Item = Result<SentenceWithPieces, conllu::IOError>;
+    type Item = Result<SentenceWithPieces<'static>, conllu::IOError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(sent) = self.inner.next() {
@@ -287,10 +289,10 @@ where
             // will properly return the Error at a later point.
             let too_long = match self.max_len {
                 SequenceLength::Pieces(max_len) => {
-                    sent.as_ref().map(|s| s.pieces.len()).unwrap_or(0) > max_len
+                    sent.as_ref().map(|s| s.pieces().len()).unwrap_or(0) > max_len
                 }
                 SequenceLength::Tokens(max_len) => {
-                    sent.as_ref().map(|s| s.token_offsets.len()).unwrap_or(0) > max_len
+                    sent.as_ref().map(|s| s.token_offsets().len()).unwrap_or(0) > max_len
                 }
             };
 
@@ -311,15 +313,15 @@ where
 /// and pick a random element from the buffer.
 pub struct Shuffled<I> {
     inner: I,
-    buffer: RandomRemoveVec<SentenceWithPieces, XorShiftRng>,
+    buffer: RandomRemoveVec<SentenceWithPieces<'static>, XorShiftRng>,
     buffer_size: usize,
 }
 
 impl<I> Iterator for Shuffled<I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces<'static>, conllu::IOError>>,
 {
-    type Item = Result<SentenceWithPieces, conllu::IOError>;
+    type Item = Result<SentenceWithPieces<'static>, conllu::IOError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.buffer.is_empty() {

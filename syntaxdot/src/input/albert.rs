@@ -1,7 +1,8 @@
 use conllu::graph::{Node, Sentence};
 use sentencepiece::SentencePieceProcessor;
 
-use crate::input::{SentenceWithPieces, Tokenize};
+use crate::input::pieces::PiecesWithOffsets;
+use crate::input::Tokenize;
 
 /// Tokenizer for ALBERT models.
 ///
@@ -27,7 +28,7 @@ impl From<SentencePieceProcessor> for AlbertTokenizer {
 }
 
 impl Tokenize for AlbertTokenizer {
-    fn tokenize(&self, sentence: Sentence) -> SentenceWithPieces {
+    fn tokenize_(&self, sentence: &Sentence) -> PiecesWithOffsets {
         // An average of three pieces per token ought to be enough for
         // everyone ;).
         let mut pieces = Vec::with_capacity((sentence.len() + 1) * 3);
@@ -69,9 +70,8 @@ impl Tokenize for AlbertTokenizer {
                 .expect("ALBERT model does not have a [SEP] token") as i64,
         );
 
-        SentenceWithPieces {
+        PiecesWithOffsets {
             pieces: pieces.into(),
-            sentence,
             token_offsets,
         }
     }

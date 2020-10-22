@@ -33,7 +33,7 @@ impl Tagger {
     /// Tag sentences.
     pub fn tag_sentences(
         &self,
-        sentences: &mut [impl BorrowMut<SentenceWithPieces>],
+        sentences: &mut [impl BorrowMut<SentenceWithPieces<'static>>],
     ) -> Result<(), SyntaxDotError> {
         let top_k_numeric = self.top_k_numeric_(sentences)?;
 
@@ -44,7 +44,7 @@ impl Tagger {
                 let encoder_top_k = &top_k[encoder.name()];
                 encoder
                     .encoder()
-                    .decode(&encoder_top_k, &mut sentence.sentence)?;
+                    .decode(&encoder_top_k, sentence.sentence_mut())?;
             }
         }
 
@@ -54,11 +54,11 @@ impl Tagger {
     /// Construct the tensor representations of a batch of sentences.
     fn prepare_batch(
         &self,
-        sentences: &[impl Borrow<SentenceWithPieces>],
+        sentences: &[impl Borrow<SentenceWithPieces<'static>>],
     ) -> Result<Tensors, SyntaxDotError> {
         let max_seq_len = sentences
             .iter()
-            .map(|sentence| sentence.borrow().pieces.len())
+            .map(|sentence| sentence.borrow().pieces().len())
             .max()
             .unwrap_or(0);
 
@@ -70,9 +70,9 @@ impl Tagger {
 
         for sentence in sentences {
             let sentence = sentence.borrow();
-            let input = sentence.pieces.view();
+            let input = sentence.pieces();
             let mut token_mask = Array1::zeros((input.len(),));
-            for token_idx in &sentence.token_offsets {
+            for token_idx in sentence.token_offsets() {
                 token_mask[*token_idx] = 1;
             }
 
@@ -89,7 +89,7 @@ impl Tagger {
         sentences: &'a [S],
     ) -> Result<Vec<HashMap<String, Vec<Vec<EncodingProb<usize>>>>>, SyntaxDotError>
     where
-        S: Borrow<SentenceWithPieces>,
+        S: Borrow<SentenceWithPieces<'static>>,
     {
         let tensors = self.prepare_batch(sentences)?;
 
@@ -115,7 +115,7 @@ impl Tagger {
         let mut labels = Vec::new();
         for (idx, sentence) in sentences.iter().enumerate() {
             let mut sent_labels = HashMap::new();
-            let token_offsets = &sentence.borrow().token_offsets;
+            let token_offsets = &sentence.borrow().token_offsets();
 
             for (encoder_name, (top_k_labels, top_k_probs)) in &top_k_tensors {
                 let sent_top_k_labels = top_k_labels
