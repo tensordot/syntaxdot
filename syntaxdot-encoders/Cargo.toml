@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
 edition = "2018"
 description = "Encoders for linguistic features"
+homepage = "https://github.com/tensordot/syntaxdot"
+repository = "https://github.com/tensordot/syntaxdot.git"
+documentation = "https://docs.rs/syntaxdot-encoders/"
+license = "BlueOak-1.0.0"
 
 [dependencies]
 conllu = "0.5"
