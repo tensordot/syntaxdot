@@ -28,6 +28,9 @@ pub enum SyntaxDotError {
     #[error(transparent)]
     IOError(#[from] io::Error),
 
+    #[error("The optimizer does not have any associated trainable variables")]
+    NoTrainableVariables,
+
     #[error("{0}: {1}")]
     JSonSerialization(String, serde_json::Error),
 

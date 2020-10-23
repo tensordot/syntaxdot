@@ -1,10 +1,19 @@
 use anyhow::Result;
 use clap::{App, AppSettings, ArgMatches};
+use syntaxdot::optimizers::{GradScaler, Optimizer};
+use tch::nn::{adamw, AdamW, Optimizer as TchOptimizer, OptimizerConfig, VarStore};
 
 pub static DEFAULT_CLAP_SETTINGS: &[AppSettings] = &[
     AppSettings::DontCollapseArgsInUsage,
     AppSettings::UnifiedHelpMessage,
 ];
+
+pub enum ParameterGroup {
+    Encoder = 0,
+    Classifier = 1,
+    EncoderLayerNorm = 2,
+    ClassifierLayerNorm = 3,
+}
 
 pub trait SyntaxDotApp
 where
@@ -15,6 +24,40 @@ where
     fn parse(matches: &ArgMatches) -> Result<Self>;
 
     fn run(&self) -> Result<()>;
+}
+
+pub trait SyntaxDotTrainApp: SyntaxDotApp {
+    fn build_parameter_group_fun() -> fn(&str) -> usize {
+        |name: &str| {
+            if name.starts_with("classifiers") {
+                if name.contains("layer_norm") {
+                    ParameterGroup::ClassifierLayerNorm as usize
+                } else {
+                    ParameterGroup::Classifier as usize
+                }
+            } else if name.starts_with("encoder") || name.starts_with("embeddings") {
+                if name.contains("layer_norm") {
+                    ParameterGroup::EncoderLayerNorm as usize
+                } else {
+                    ParameterGroup::Encoder as usize
+                }
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    fn build_optimizer(&self, var_store: &VarStore) -> Result<GradScaler<TchOptimizer<AdamW>>> {
+        let opt = adamw(0.9, 0.999, self.weight_decay()).build(&var_store, 1e-3)?;
+        let mut grad_scaler = GradScaler::new_with_defaults(self.mixed_precision(), opt)?;
+        grad_scaler.set_weight_decay_group(ParameterGroup::EncoderLayerNorm as usize, 0.);
+        grad_scaler.set_weight_decay_group(ParameterGroup::ClassifierLayerNorm as usize, 0.);
+        Ok(grad_scaler)
+    }
+
+    fn mixed_precision(&self) -> bool;
+
+    fn weight_decay(&self) -> f64;
 }
 
 pub trait SyntaxDotOption {

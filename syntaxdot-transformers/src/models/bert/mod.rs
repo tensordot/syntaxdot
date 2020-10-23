@@ -20,8 +20,9 @@ use std::borrow::Borrow;
 use std::iter;
 
 use serde::{Deserialize, Serialize};
-use tch::nn::{Init, Linear, Module, ModuleT, Path};
+use tch::nn::{Init, Linear, Module, ModuleT};
 use tch::{Kind, Tensor};
+use tch_ext::PathExt;
 use thiserror::Error;
 
 use crate::activations;
@@ -40,7 +41,7 @@ pub struct BertAttention {
 }
 
 impl BertAttention {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
         let vs = vs.borrow();
 
         BertAttention {
@@ -142,7 +143,7 @@ pub struct BertEmbeddings {
 impl BertEmbeddings {
     /// Construct new Bert embeddings with the given variable store
     /// and Bert configuration.
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
         let vs = vs.borrow();
 
         let normal_init = Init::Randn {
@@ -241,7 +242,7 @@ pub struct BertEncoder {
 }
 
 impl BertEncoder {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Result<Self, BertError> {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Result<Self, BertError> {
         let vs = vs.borrow();
 
         let layers = (0..config.num_hidden_layers)
@@ -286,7 +287,7 @@ pub struct BertIntermediate {
 }
 
 impl BertIntermediate {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Result<Self, BertError> {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Result<Self, BertError> {
         let vs = vs.borrow();
 
         let activation = match bert_activations(&config.hidden_act) {
@@ -323,7 +324,7 @@ pub struct BertLayer {
 }
 
 impl BertLayer {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Result<Self, BertError> {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Result<Self, BertError> {
         let vs = vs.borrow();
 
         Ok(BertLayer {
@@ -382,7 +383,7 @@ pub struct BertOutput {
 }
 
 impl BertOutput {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
         let vs = vs.borrow();
 
         let dense = bert_linear(
@@ -429,7 +430,7 @@ pub struct BertSelfAttention {
 }
 
 impl BertSelfAttention {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
         let vs = vs.borrow();
 
         let attention_head_size = config.hidden_size / config.num_attention_heads;
@@ -535,7 +536,7 @@ pub struct BertSelfOutput {
 }
 
 impl BertSelfOutput {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
         let vs = vs.borrow();
 
         let dense = bert_linear(
@@ -578,7 +579,7 @@ fn bert_activations(activation_name: &str) -> Option<Box<dyn Module>> {
 }
 
 pub(crate) fn bert_linear<'a>(
-    vs: impl Borrow<Path<'a>>,
+    vs: impl Borrow<PathExt<'a>>,
     config: &BertConfig,
     in_features: i64,
     out_features: i64,
@@ -630,7 +631,8 @@ mod hdf5_impl {
     use std::borrow::Borrow;
 
     use hdf5::Group;
-    use tch::nn::{Linear, Path};
+    use tch::nn::Linear;
+    use tch_ext::PathExt;
 
     use crate::hdf5_model::{load_affine, load_tensor, LoadFromHDF5};
     use crate::layers::{Dropout, Embedding, LayerNorm, PlaceInVarStore};
@@ -645,7 +647,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, Self::Error> {
@@ -672,7 +674,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, Self::Error> {
@@ -722,7 +724,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, BertError> {
@@ -748,7 +750,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, Self::Error> {
@@ -782,7 +784,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, BertError> {
@@ -812,7 +814,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, Self::Error> {
@@ -857,7 +859,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, Self::Error> {
@@ -919,7 +921,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, Self::Error> {
@@ -971,6 +973,7 @@ mod tests {
     use ndarray::{array, ArrayD};
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
+    use tch_ext::RootExt;
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEmbeddings, BertEncoder, BertLayer};
@@ -1041,7 +1044,7 @@ mod tests {
 
         let vs = VarStore::new(Device::Cpu);
         let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &german_bert_config,
             german_bert_file.group("bert/embeddings").unwrap(),
         )
@@ -1078,7 +1081,7 @@ mod tests {
 
         let vs = VarStore::new(Device::Cpu);
         BertEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             german_bert_file.group("bert/embeddings").unwrap(),
         )
@@ -1099,7 +1102,7 @@ mod tests {
 
         // Compare against fresh embeddings layer.
         let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = BertEmbeddings::new(vs_fresh.root(), &config);
+        let _ = BertEmbeddings::new(vs_fresh.root_ext(|_| 0), &config);
         assert_eq!(variables, varstore_variables(&vs_fresh));
     }
 
@@ -1111,14 +1114,14 @@ mod tests {
         let vs = VarStore::new(Device::Cpu);
 
         let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             german_bert_file.group("/bert/embeddings").unwrap(),
         )
         .unwrap();
 
         let encoder = BertEncoder::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             german_bert_file.group("bert/encoder").unwrap(),
         )
@@ -1160,14 +1163,14 @@ mod tests {
         let vs = VarStore::new(Device::Cpu);
 
         let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             german_bert_file.group("/bert/embeddings").unwrap(),
         )
         .unwrap();
 
         let encoder = BertEncoder::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             german_bert_file.group("bert/encoder").unwrap(),
         )
@@ -1215,7 +1218,7 @@ mod tests {
 
         let vs_loaded = VarStore::new(Device::Cpu);
         BertEncoder::load_from_hdf5(
-            vs_loaded.root(),
+            vs_loaded.root_ext(|_| 0),
             &config,
             german_bert_file.group("bert/encoder").unwrap(),
         )
@@ -1234,7 +1237,7 @@ mod tests {
 
         // Compare against fresh encoder.
         let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = BertEncoder::new(vs_fresh.root(), &config).unwrap();
+        let _ = BertEncoder::new(vs_fresh.root_ext(|_| 0), &config).unwrap();
         assert_eq!(loaded_variables, varstore_variables(&vs_fresh));
     }
 
@@ -1246,14 +1249,14 @@ mod tests {
         let vs = VarStore::new(Device::Cpu);
 
         let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             german_bert_file.group("bert/embeddings").unwrap(),
         )
         .unwrap();
 
         let layer0 = BertLayer::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             german_bert_file.group("bert/encoder/layer_0").unwrap(),
         )
@@ -1291,7 +1294,7 @@ mod tests {
 
         let vs_loaded = VarStore::new(Device::Cpu);
         BertLayer::load_from_hdf5(
-            vs_loaded.root(),
+            vs_loaded.root_ext(|_| 0),
             &config,
             german_bert_file.group("bert/encoder/layer_0").unwrap(),
         )
@@ -1299,7 +1302,7 @@ mod tests {
         let loaded_variables = varstore_variables(&vs_loaded);
 
         let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = BertLayer::new(vs_fresh.root(), &config);
+        let _ = BertLayer::new(vs_fresh.root_ext(|_| 0), &config);
 
         assert_eq!(loaded_variables, layer_variables());
         assert_eq!(loaded_variables, varstore_variables(&vs_fresh));

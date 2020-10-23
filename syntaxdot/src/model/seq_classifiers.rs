@@ -5,8 +5,8 @@ use syntaxdot_transformers::scalar_weighting::{
     ScalarWeightClassifier, ScalarWeightClassifierConfig,
 };
 use syntaxdot_transformers::traits::LayerOutput;
-use tch::nn::Path;
 use tch::{Kind, Tensor};
+use tch_ext::PathExt;
 
 use crate::config::PretrainConfig;
 use crate::encoders::Encoders;
@@ -25,7 +25,7 @@ pub struct SequenceClassifiers {
 impl SequenceClassifiers {
     /// Create a set of sequence classifiers.
     pub fn new<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         n_layers: i64,
         encoders: &Encoders,

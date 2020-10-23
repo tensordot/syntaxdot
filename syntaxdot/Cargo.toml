@@ -24,6 +24,7 @@ serde_json = "1"
 syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.1" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", default-features = false, version = "0.1" }
 tch = "0.2.1"
+tch-ext = { path = "../tch-ext" }
 thiserror = "1"
 toml = "0.5"
 wordpieces = "0.4"

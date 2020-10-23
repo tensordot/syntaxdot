@@ -173,7 +173,7 @@ impl SyntaxDotApp for ServerApp {
     }
 
     fn run(&self) -> Result<()> {
-        let model = Model::load(&self.config, self.device, true)?;
+        let model = Model::load(&self.config, self.device, true, |_| 0)?;
         let tagger = Tagger::new(self.device, model.model, model.encoders);
 
         let pool = ThreadPool::new(self.n_threads);
