@@ -2,8 +2,9 @@
 
 use std::borrow::Borrow;
 
-use tch::nn::{Init, Module, ModuleT, Path};
+use tch::nn::{Init, Module, ModuleT};
 use tch::{Kind, Tensor};
+use tch_ext::PathExt;
 
 use crate::layers::{Dropout, Embedding, LayerNorm};
 use crate::models::traits::WordEmbeddingsConfig;
@@ -27,7 +28,7 @@ impl SinusoidalEmbeddings {
     /// If a `p_norm` is specified position embeddings are normalized
     /// using this norm.
     pub fn new<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         config: &impl WordEmbeddingsConfig,
         p_norm: Option<f64>,
     ) -> Self {

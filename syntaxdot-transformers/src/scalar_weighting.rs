@@ -1,7 +1,8 @@
 use std::borrow::Borrow;
 
-use tch::nn::{Init, Linear, Module, ModuleT, Path};
+use tch::nn::{Init, Linear, Module, ModuleT};
 use tch::{Kind, Reduction, Tensor};
+use tch_ext::PathExt;
 
 use crate::cow::CowTensor;
 use crate::layers::{Dropout, LayerNorm};
@@ -17,7 +18,7 @@ struct NonLinearWithLayerNorm {
 
 impl NonLinearWithLayerNorm {
     fn new<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         in_size: i64,
         out_size: i64,
         dropout: f64,
@@ -63,7 +64,7 @@ pub struct ScalarWeight {
 }
 
 impl ScalarWeight {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, n_layers: i64, layer_dropout_prob: f64) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, n_layers: i64, layer_dropout_prob: f64) -> Self {
         assert!(
             n_layers > 0,
             "Number of layers ({}) should be larger than 0",
@@ -143,7 +144,7 @@ pub struct ScalarWeightClassifier {
 }
 
 impl ScalarWeightClassifier {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &ScalarWeightClassifierConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &ScalarWeightClassifierConfig) -> Self {
         assert!(
             config.n_labels > 0,
             "The number of labels should be larger than 0",
@@ -296,6 +297,7 @@ mod tests {
 
     use super::{cross_entropy_loss, ScalarWeightClassifier, ScalarWeightClassifierConfig};
     use crate::models::bert::BertLayerOutput;
+    use tch_ext::RootExt;
 
     fn varstore_variables(vs: &VarStore) -> BTreeSet<String> {
         vs.variables()
@@ -330,7 +332,7 @@ mod tests {
         let vs = VarStore::new(Device::Cpu);
 
         let classifier = ScalarWeightClassifier::new(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &ScalarWeightClassifierConfig {
                 hidden_size: 10,
                 input_size: 8,
@@ -362,7 +364,7 @@ mod tests {
         let vs = VarStore::new(Device::Cpu);
 
         let _classifier = ScalarWeightClassifier::new(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &ScalarWeightClassifierConfig {
                 hidden_size: 10,
                 input_size: 8,

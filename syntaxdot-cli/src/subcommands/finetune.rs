@@ -10,15 +10,18 @@ use syntaxdot::encoders::Encoders;
 use syntaxdot::input::Tokenize;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule, PlateauLearningRate};
 use syntaxdot::model::bert::{BertModel, FreezeLayers};
-use syntaxdot::optimizers::{AdamW, AdamWConfig, GradScaler, Optimizer};
+use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::util::seq_len_to_mask;
+use tch::nn::{self, AdamW};
 use tch::{self, Device, Kind};
 
 use crate::io::Model;
 use crate::progress::ReadProgress;
 use crate::save::{BestEpochSaver, CompletedUnit, Save};
 use crate::summary::{SummaryOption, SummaryWriter};
-use crate::traits::{SyntaxDotApp, SyntaxDotOption, DEFAULT_CLAP_SETTINGS};
+use crate::traits::{
+    ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
+};
 use crate::util::autocast_or_preserve;
 
 const BATCH_SIZE: &str = "BATCH_SIZE";
@@ -108,7 +111,7 @@ impl FinetuneApp {
         tokenizer: &dyn Tokenize,
         model: &BertModel,
         file: &mut File,
-        mut grad_scaler: Option<&mut GradScaler<AdamW>>,
+        mut grad_scaler: Option<&mut GradScaler<impl Optimizer>>,
         lr_schedulers: &mut LearningRateSchedules,
         global_step: &mut usize,
         epoch: usize,
@@ -190,26 +193,18 @@ impl FinetuneApp {
             let scalar_loss: f32 = model_loss.summed_loss.sum(Kind::Float).into();
 
             if let Some(scaler) = &mut grad_scaler {
-                scaler.backward_step(&model_loss.summed_loss.sum(Kind::Float), |name| {
-                    let mut config = AdamWConfig::default();
+                let optimizer = scaler.optimizer_mut();
 
-                    // Use weight decay for all variables, except for
-                    // layer norm variables.
-                    if !name.contains("layer_norm") {
-                        config.weight_decay = self.weight_decay;
-                    }
+                optimizer.set_lr_group(ParameterGroup::Encoder as usize, lr_encoder.into());
+                optimizer
+                    .set_lr_group(ParameterGroup::EncoderLayerNorm as usize, lr_encoder.into());
+                optimizer.set_lr_group(ParameterGroup::Classifier as usize, lr_classifier.into());
+                optimizer.set_lr_group(
+                    ParameterGroup::ClassifierLayerNorm as usize,
+                    lr_classifier.into(),
+                );
 
-                    // Use separate learning rates for the encoder and classifiers.
-                    if name.starts_with("classifiers") {
-                        config.lr = lr_classifier.into();
-                    } else if name.starts_with("encoder") || name.starts_with("embeddings") {
-                        config.lr = lr_encoder.into();
-                    } else {
-                        unreachable!();
-                    }
-
-                    config
-                });
+                scaler.backward_step(&model_loss.summed_loss.sum(Kind::Float));
 
                 if epoch != 0 {
                     self.summary_writer.write_scalar(
@@ -521,10 +516,23 @@ impl SyntaxDotApp for FinetuneApp {
 
     fn run(&self) -> Result<()> {
         let model = if self.continue_finetune {
-            Model::load_from(&self.config, &self.pretrained_model, self.device, false)?
+            Model::load_from(
+                &self.config,
+                &self.pretrained_model,
+                self.device,
+                false,
+                Self::build_parameter_group_fun(),
+            )?
         } else {
-            Model::load_from_hdf5(&self.config, &self.pretrained_model, self.device)?
+            Model::load_from_hdf5(
+                &self.config,
+                &self.pretrained_model,
+                self.device,
+                Self::build_parameter_group_fun(),
+            )?
         };
+
+        eprintln!("vs: {:?}", model.vs);
 
         let mut train_file = File::open(&self.train_data)
             .context(format!("Cannot open train data file: {}", self.train_data))?;
@@ -534,8 +542,7 @@ impl SyntaxDotApp for FinetuneApp {
         ))?;
 
         let mut saver = self.saver.clone();
-        let opt = AdamW::new(&model.vs);
-        let mut grad_scaler = GradScaler::new_with_defaults(self.mixed_precision, opt);
+        let mut grad_scaler = self.build_optimizer(&model.vs)?;
 
         let mut lr_schedules = self.lr_schedules();
 
@@ -573,7 +580,7 @@ impl SyntaxDotApp for FinetuneApp {
                     &*model.tokenizer,
                     &model.model,
                     &mut validation_file,
-                    None,
+                    None as Option<&mut GradScaler<nn::Optimizer<AdamW>>>,
                     &mut lr_schedules,
                     &mut global_step,
                     epoch,
@@ -608,5 +615,15 @@ impl SyntaxDotApp for FinetuneApp {
         }
 
         Ok(())
+    }
+}
+
+impl SyntaxDotTrainApp for FinetuneApp {
+    fn mixed_precision(&self) -> bool {
+        self.mixed_precision
+    }
+
+    fn weight_decay(&self) -> f64 {
+        self.weight_decay
     }
 }

@@ -1655,6 +1655,7 @@ dependencies = [
  "syntaxdot-encoders",
  "syntaxdot-transformers",
  "tch",
+ "tch-ext",
  "thiserror",
  "toml",
  "wordpieces",
@@ -1676,6 +1677,7 @@ dependencies = [
  "syntaxdot-encoders",
  "syntaxdot-transformers",
  "tch",
+ "tch-ext",
  "tfrecord",
  "threadpool",
 ]
@@ -1706,6 +1708,7 @@ dependencies = [
  "ndarray",
  "serde",
  "tch",
+ "tch-ext",
  "thiserror",
 ]
 
@@ -1723,9 +1726,8 @@ dependencies = [
 
 [[package]]
 name = "tch"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57756d8b38ed254fbb9ed7cf47fdd0eb93ffe4d1aa927fd5ffa6b019d0fa4efd"
+version = "0.2.2"
+source = "git+https://github.com/LaurentMazare/tch-rs.git#7a3f71f8abe7f1896e9099a2cae25854d3b4dcc7"
 dependencies = [
  "half",
  "lazy_static",
@@ -1735,6 +1737,14 @@ dependencies = [
  "thiserror",
  "torch-sys",
  "zip",
+]
+
+[[package]]
+name = "tch-ext"
+version = "0.1.0"
+dependencies = [
+ "itertools 0.9.0",
+ "tch",
 ]
 
 [[package]]
@@ -1909,9 +1919,8 @@ dependencies = [
 
 [[package]]
 name = "torch-sys"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69bad0036396fded468d8f6ea3105b99282dbb65d5da498f65c65e0816738417"
+version = "0.2.2"
+source = "git+https://github.com/LaurentMazare/tch-rs.git#7a3f71f8abe7f1896e9099a2cae25854d3b4dcc7"
 dependencies = [
  "cc",
  "cmake",

@@ -1,2 +1,5 @@
 [workspace]
-members = ["syntaxdot-encoders", "syntaxdot-transformers", "syntaxdot", "syntaxdot-cli"]
+members = ["syntaxdot-encoders", "syntaxdot-transformers", "syntaxdot", "syntaxdot-cli", "tch-ext"]
+
+[patch.crates-io]
+tch = { git = "https://github.com/LaurentMazare/tch-rs.git" }

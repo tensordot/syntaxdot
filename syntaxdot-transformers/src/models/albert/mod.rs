@@ -3,8 +3,9 @@
 use std::borrow::Borrow;
 
 use serde::{Deserialize, Serialize};
-use tch::nn::{Linear, Module, ModuleT, Path};
+use tch::nn::{Linear, Module, ModuleT};
 use tch::Tensor;
+use tch_ext::PathExt;
 
 use crate::models::bert::{
     bert_linear, BertConfig, BertEmbeddings, BertError, BertLayer, BertLayerOutput,
@@ -108,7 +109,7 @@ pub struct AlbertEmbeddings {
 impl AlbertEmbeddings {
     /// Construct new ALBERT embeddings with the given variable store
     /// and ALBERT configuration.
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &AlbertConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &AlbertConfig) -> Self {
         let vs = vs.borrow();
 
         // BERT uses the hidden size as the vocab size.
@@ -145,7 +146,7 @@ pub struct AlbertEmbeddingProjection {
 }
 
 impl AlbertEmbeddingProjection {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &AlbertConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &AlbertConfig) -> Self {
         let vs = vs.borrow();
 
         let projection = bert_linear(
@@ -181,7 +182,7 @@ pub struct AlbertEncoder {
 }
 
 impl AlbertEncoder {
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &AlbertConfig) -> Result<Self, BertError> {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &AlbertConfig) -> Result<Self, BertError> {
         assert!(
             config.num_hidden_groups > 0,
             "Need at least 1 hidden group, got: {}",
@@ -253,7 +254,8 @@ mod hdf5_impl {
     use std::borrow::Borrow;
 
     use hdf5::Group;
-    use tch::nn::{Linear, Path};
+    use tch::nn::Linear;
+    use tch_ext::PathExt;
 
     use crate::hdf5_model::{load_affine, LoadFromHDF5};
     use crate::layers::PlaceInVarStore;
@@ -268,7 +270,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, Self::Error> {
@@ -290,7 +292,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, Self::Error> {
@@ -318,7 +320,7 @@ mod hdf5_impl {
         type Error = BertError;
 
         fn load_from_hdf5<'a>(
-            vs: impl Borrow<Path<'a>>,
+            vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
         ) -> Result<Self, BertError> {
@@ -373,6 +375,7 @@ mod tests {
     use ndarray::{array, ArrayD};
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
+    use tch_ext::RootExt;
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::albert::{AlbertConfig, AlbertEmbeddings, AlbertEncoder};
@@ -446,14 +449,14 @@ mod tests {
         let vs = VarStore::new(Device::Cpu);
 
         let embeddings = AlbertEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             albert_file.group("albert/embeddings").unwrap(),
         )
         .unwrap();
 
         let encoder = AlbertEncoder::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             albert_file.group("albert/encoder").unwrap(),
         )
@@ -497,14 +500,14 @@ mod tests {
         let vs = VarStore::new(Device::Cpu);
 
         let embeddings = AlbertEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             albert_file.group("albert/embeddings").unwrap(),
         )
         .unwrap();
 
         let encoder = AlbertEncoder::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             albert_file.group("albert/encoder").unwrap(),
         )
@@ -549,7 +552,7 @@ mod tests {
 
         let vs = VarStore::new(Device::Cpu);
         AlbertEmbeddings::load_from_hdf5(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &config,
             albert_file.group("albert/embeddings").unwrap(),
         )
@@ -570,7 +573,7 @@ mod tests {
 
         // Compare against fresh embeddings layer.
         let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = AlbertEmbeddings::new(vs_fresh.root(), &config);
+        let _ = AlbertEmbeddings::new(vs_fresh.root_ext(|_| 0), &config);
         assert_eq!(variables, varstore_variables(&vs_fresh));
     }
 
@@ -583,7 +586,7 @@ mod tests {
 
         let vs_loaded = VarStore::new(Device::Cpu);
         AlbertEncoder::load_from_hdf5(
-            vs_loaded.root(),
+            vs_loaded.root_ext(|_| 0),
             &config,
             albert_file.group("albert/encoder").unwrap(),
         )
@@ -602,7 +605,7 @@ mod tests {
 
         // Compare against fresh encoder.
         let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = AlbertEncoder::new(vs_fresh.root(), &config).unwrap();
+        let _ = AlbertEncoder::new(vs_fresh.root_ext(|_| 0), &config).unwrap();
         assert_eq!(loaded_variables, varstore_variables(&vs_fresh));
     }
 }

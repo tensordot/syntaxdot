@@ -13,6 +13,7 @@ license = "BlueOak-1.0.0"
 hdf5 = { version = "0.7", optional = true }
 serde = { version = "1", features = ["derive"] }
 tch = "0.2"
+tch-ext = { path = "../tch-ext" }
 thiserror = "1"
 
 [dev-dependencies]

@@ -15,8 +15,9 @@ use syntaxdot_transformers::models::bert::{
 use syntaxdot_transformers::models::roberta::RobertaEmbeddings;
 use syntaxdot_transformers::models::sinusoidal::SinusoidalEmbeddings;
 use syntaxdot_transformers::models::Encoder as _;
-use tch::nn::{ModuleT, Path};
+use tch::nn::ModuleT;
 use tch::{self, Tensor};
+use tch_ext::PathExt;
 
 use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
@@ -47,7 +48,7 @@ enum BertEmbeddingLayer {
 
 impl BertEmbeddingLayer {
     fn new<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         position_embeddings: PositionEmbeddings,
     ) -> Self {
@@ -87,7 +88,7 @@ impl BertEmbeddingLayer {
 
     #[cfg(feature = "load-hdf5")]
     fn load_from_hdf5<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         pretrained_file: &File,
     ) -> Result<BertEmbeddingLayer, SyntaxDotError> {
@@ -142,7 +143,7 @@ enum Encoder {
 
 impl Encoder {
     fn new<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
     ) -> Result<Self, BertError> {
         let vs = vs.borrow() / "encoder";
@@ -158,7 +159,7 @@ impl Encoder {
 
     #[cfg(feature = "load-hdf5")]
     fn load_from_hdf5<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         pretrained_file: &File,
     ) -> Result<Encoder, BertError> {
@@ -220,7 +221,7 @@ impl BertModel {
     /// `layer_dropout` is the probability with which layers should
     /// be dropped out in scalar weighting during training.
     pub fn new<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         encoders: &Encoders,
         layers_dropout: f64,
@@ -248,7 +249,7 @@ impl BertModel {
     /// `layer_dropout` is the probability with which layers should
     /// be dropped out in scalar weighting during training.
     pub fn from_pretrained<'a>(
-        vs: impl Borrow<Path<'a>>,
+        vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         hdf_path: impl AsRef<path::Path>,
         encoders: &Encoders,

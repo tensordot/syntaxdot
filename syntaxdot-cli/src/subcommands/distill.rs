@@ -15,16 +15,19 @@ use syntaxdot::error::SyntaxDotError;
 use syntaxdot::input::Tokenize;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule};
 use syntaxdot::model::bert::{BertModel, FreezeLayers};
-use syntaxdot::optimizers::{AdamW, AdamWConfig, GradScaler, Optimizer};
+use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::tensor::Tensors;
 use syntaxdot::util::seq_len_to_mask;
 use tch::nn::VarStore;
 use tch::{self, Device, Kind, Reduction, Tensor};
+use tch_ext::RootExt;
 
 use crate::io::{load_config, load_pretrain_config, load_tokenizer, Model};
 use crate::progress::ReadProgress;
 use crate::summary::{SummaryOption, SummaryWriter};
-use crate::traits::{SyntaxDotApp, SyntaxDotOption, DEFAULT_CLAP_SETTINGS};
+use crate::traits::{
+    ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
+};
 use crate::util::{autocast_or_preserve, count_conllu_sentences};
 
 const BATCH_SIZE: &str = "BATCH_SIZE";
@@ -83,7 +86,7 @@ struct StudentModel {
 impl DistillApp {
     fn distill_model(
         &self,
-        grad_scaler: &mut GradScaler<AdamW>,
+        grad_scaler: &mut GradScaler<impl Optimizer>,
         teacher: &Model,
         student: &StudentModel,
         teacher_train_file: &File,
@@ -278,7 +281,7 @@ impl DistillApp {
         teacher_batches: impl Iterator<Item = Result<Tensors, SyntaxDotError>>,
         student_batches: impl Iterator<Item = Result<Tensors, SyntaxDotError>>,
         global_step: &mut usize,
-        grad_scaler: &mut GradScaler<AdamW>,
+        grad_scaler: &mut GradScaler<impl Optimizer>,
         teacher: &BertModel,
         student: &BertModel,
     ) -> Result<()> {
@@ -299,29 +302,17 @@ impl DistillApp {
                 .encoder
                 .compute_step_learning_rate(*global_step);
 
-            grad_scaler.backward_step(&distill_loss.loss, |name| {
-                let mut config = AdamWConfig::default();
+            let optimizer = grad_scaler.optimizer_mut();
 
-                // Use weight decay for all variables, except for
-                // layer norm variables.
-                if !name.contains("layer_norm") {
-                    config.weight_decay = self.weight_decay;
-                }
+            optimizer.set_lr_group(ParameterGroup::Encoder as usize, lr_encoder.into());
+            optimizer.set_lr_group(ParameterGroup::EncoderLayerNorm as usize, lr_encoder.into());
+            optimizer.set_lr_group(ParameterGroup::Classifier as usize, lr_classifier.into());
+            optimizer.set_lr_group(
+                ParameterGroup::ClassifierLayerNorm as usize,
+                lr_classifier.into(),
+            );
 
-                // Use discriminative learning rates, do not optimize
-                // position embeddings.
-                if name.contains("position_embeddings") {
-                    config.lr = 0.;
-                } else if name.starts_with("classifiers") {
-                    config.lr = lr_classifier.into();
-                } else if name.starts_with("encoder") || name.starts_with("embeddings") {
-                    config.lr = lr_encoder.into();
-                } else {
-                    unreachable!();
-                }
-
-                config
-            });
+            grad_scaler.backward_step(&distill_loss.loss);
 
             self.summary_writer.write_scalar(
                 "gradient_scale",
@@ -353,13 +344,18 @@ impl DistillApp {
         Ok(ConlluDataSet::new(read))
     }
 
-    fn fresh_student(&self, student_config: &Config, teacher: &Model) -> Result<StudentModel> {
+    fn fresh_student(
+        &self,
+        student_config: &Config,
+        teacher: &Model,
+        parameter_group_fun: impl Fn(&str) -> usize + 'static,
+    ) -> Result<StudentModel> {
         let pretrain_config = load_pretrain_config(student_config)?;
 
         let vs = VarStore::new(self.device);
 
         let inner = BertModel::new(
-            vs.root(),
+            vs.root_ext(parameter_group_fun),
             &pretrain_config,
             &teacher.encoders,
             0.1,
@@ -758,7 +754,7 @@ impl SyntaxDotApp for DistillApp {
 
     fn run(&self) -> Result<()> {
         let student_config = load_config(&self.student_config)?;
-        let teacher = Model::load(&self.teacher_config, self.device, true)?;
+        let teacher = Model::load(&self.teacher_config, self.device, true, |_| 0)?;
 
         let teacher_train_file = File::open(&self.train_data)
             .context(format!("Cannot open train data file: {}", self.train_data))?;
@@ -769,10 +765,10 @@ impl SyntaxDotApp for DistillApp {
             self.validation_data
         ))?;
 
-        let student = self.fresh_student(&student_config, &teacher)?;
+        let student =
+            self.fresh_student(&student_config, &teacher, Self::build_parameter_group_fun())?;
 
-        let optimizer = AdamW::new(&student.vs);
-        let mut grad_scaler = GradScaler::new_with_defaults(self.mixed_precision, optimizer);
+        let mut grad_scaler = self.build_optimizer(&student.vs)?;
 
         self.distill_model(
             &mut grad_scaler,
@@ -783,6 +779,16 @@ impl SyntaxDotApp for DistillApp {
             &mut validation_file,
         )
         .context("Model distillation failed")
+    }
+}
+
+impl SyntaxDotTrainApp for DistillApp {
+    fn mixed_precision(&self) -> bool {
+        self.mixed_precision
+    }
+
+    fn weight_decay(&self) -> f64 {
+        self.weight_decay
     }
 }
 

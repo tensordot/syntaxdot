@@ -7,6 +7,7 @@ use syntaxdot::input::Tokenize;
 use syntaxdot::model::bert::BertModel;
 use tch::nn::VarStore;
 use tch::Device;
+use tch_ext::RootExt;
 
 /// Wrapper around different parts of a model.
 pub struct Model {
@@ -21,9 +22,23 @@ impl Model {
     ///
     /// If `freeze` is true, gradient computation is disabled for the
     /// model parameters.
-    pub fn load(config_path: &str, device: Device, freeze: bool) -> Result<Self> {
+    pub fn load<F>(
+        config_path: &str,
+        device: Device,
+        freeze: bool,
+        parameter_group_fun: F,
+    ) -> Result<Self>
+    where
+        F: 'static + Fn(&str) -> usize,
+    {
         let config = load_config(config_path)?;
-        Self::load_from(config_path, &config.model.parameters, device, freeze)
+        Self::load_from(
+            config_path,
+            &config.model.parameters,
+            device,
+            freeze,
+            parameter_group_fun,
+        )
     }
 
     /// Load a model on the given device.
@@ -34,12 +49,16 @@ impl Model {
     ///
     /// If `freeze` is true, gradient computation is disabled for the
     /// model parameters.
-    pub fn load_from(
+    pub fn load_from<F>(
         config_path: &str,
         parameters_path: &str,
         device: Device,
         freeze: bool,
-    ) -> Result<Model> {
+        parameter_group_fun: F,
+    ) -> Result<Model>
+    where
+        F: 'static + Fn(&str) -> usize,
+    {
         let config = load_config(config_path)?;
         let encoders = load_encoders(&config)?;
         let tokenizer = load_tokenizer(&config)?;
@@ -48,7 +67,7 @@ impl Model {
         let mut vs = VarStore::new(device);
 
         let model = BertModel::new(
-            vs.root(),
+            vs.root_ext(parameter_group_fun),
             &pretrain_config,
             &encoders,
             0.0,
@@ -77,7 +96,15 @@ impl Model {
     /// specified in the configuration file, but the parameters from
     /// the HDF5 file at `hdf5_path`.
     #[cfg(feature = "load-hdf5")]
-    pub fn load_from_hdf5(config_path: &str, hdf5_path: &str, device: Device) -> Result<Model> {
+    pub fn load_from_hdf5<F>(
+        config_path: &str,
+        hdf5_path: &str,
+        device: Device,
+        parameter_group_fun: F,
+    ) -> Result<Model>
+    where
+        F: 'static + Fn(&str) -> usize,
+    {
         let config = load_config(config_path)?;
         let encoders = load_encoders(&config)?;
         let tokenizer = load_tokenizer(&config)?;
@@ -85,9 +112,14 @@ impl Model {
 
         let vs = VarStore::new(device);
 
-        let model =
-            BertModel::from_pretrained(vs.root(), &pretrain_config, hdf5_path, &encoders, 0.5)
-                .context("Cannot load pretrained model parameters")?;
+        let model = BertModel::from_pretrained(
+            vs.root_ext(parameter_group_fun),
+            &pretrain_config,
+            hdf5_path,
+            &encoders,
+            0.5,
+        )
+        .context("Cannot load pretrained model parameters")?;
 
         Ok(Model {
             encoders,
