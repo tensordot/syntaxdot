@@ -532,8 +532,6 @@ impl SyntaxDotApp for FinetuneApp {
             )?
         };
 
-        eprintln!("vs: {:?}", model.vs);
-
         let mut train_file = File::open(&self.train_data)
             .context(format!("Cannot open train data file: {}", self.train_data))?;
         let mut validation_file = File::open(&self.validation_data).context(format!(
