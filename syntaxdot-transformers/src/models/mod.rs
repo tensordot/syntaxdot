@@ -14,4 +14,6 @@ pub use roberta::RobertaEmbeddings;
 pub mod sinusoidal;
 pub use sinusoidal::SinusoidalEmbeddings;
 
+pub mod squeeze_bert;
+
 pub mod traits;

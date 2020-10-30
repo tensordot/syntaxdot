@@ -570,7 +570,7 @@ impl BertSelfOutput {
     }
 }
 
-fn bert_activations(activation_name: &str) -> Option<Box<dyn Module>> {
+pub(crate) fn bert_activations(activation_name: &str) -> Option<Box<dyn Module>> {
     match activation_name {
         "gelu" => Some(Box::new(activations::GELU)),
         "gelu_new" => Some(Box::new(activations::GELUNew)),
@@ -619,7 +619,7 @@ pub enum BertError {
 }
 
 impl BertError {
-    fn unknown_activation_function(activation: impl Into<String>) -> Self {
+    pub(crate) fn unknown_activation_function(activation: impl Into<String>) -> Self {
         BertError::UnknownActivationFunction {
             activation: activation.into(),
         }
