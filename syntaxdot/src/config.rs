@@ -12,6 +12,7 @@ use wordpieces::WordPieces;
 use crate::encoders::EncodersConfig;
 use crate::error::SyntaxDotError;
 use crate::input::{AlbertTokenizer, BertTokenizer, Tokenize, XlmRobertaTokenizer};
+use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertConfig;
 use syntaxdot_transformers::models::squeeze_bert::SqueezeBertConfig;
 
 /// Input configuration.
@@ -78,6 +79,17 @@ impl Model {
                     )
                 })?)
             }
+            PretrainModelType::SqueezeAlbert => {
+                PretrainConfig::SqueezeAlbert(serde_json::from_reader(reader).map_err(|err| {
+                    SyntaxDotError::JSonSerialization(
+                        format!(
+                            "Cannot read model SqueezeALBERT config file `{}`",
+                            self.pretrain_config
+                        ),
+                        err,
+                    )
+                })?)
+            }
             PretrainModelType::SqueezeBert => {
                 PretrainConfig::SqueezeBert(serde_json::from_reader(reader).map_err(|err| {
                     SyntaxDotError::JSonSerialization(
@@ -128,6 +140,7 @@ fn sinusoidal_normalize_default() -> bool {
 pub enum PretrainConfig {
     Albert(AlbertConfig),
     Bert(BertConfig),
+    SqueezeAlbert(SqueezeAlbertConfig),
     SqueezeBert(SqueezeBertConfig),
     XlmRoberta(BertConfig),
 }
@@ -137,6 +150,7 @@ pub enum PretrainConfig {
 pub enum PretrainModelType {
     Albert,
     Bert,
+    SqueezeAlbert,
     SqueezeBert,
     XlmRoberta,
 }
