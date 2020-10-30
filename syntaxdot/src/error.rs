@@ -25,6 +25,9 @@ pub enum SyntaxDotError {
     #[error(transparent)]
     HDF5Error(#[from] hdf5::Error),
 
+    #[error("Illegal configuration: {0}")]
+    IllegalConfigurationError(String),
+
     #[error(transparent)]
     IOError(#[from] io::Error),
 

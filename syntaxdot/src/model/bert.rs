@@ -8,7 +8,7 @@ use hdf5::File;
 #[cfg(feature = "load-hdf5")]
 use syntaxdot_transformers::hdf5_model::LoadFromHDF5;
 use syntaxdot_transformers::layers::Dropout;
-use syntaxdot_transformers::models::albert::{AlbertEmbeddings, AlbertEncoder};
+use syntaxdot_transformers::models::albert::{AlbertConfig, AlbertEmbeddings, AlbertEncoder};
 use syntaxdot_transformers::models::bert::{
     BertConfig, BertEmbeddings, BertEncoder, BertError, BertLayerOutput,
 };
@@ -23,6 +23,7 @@ use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
 use crate::error::SyntaxDotError;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
+use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertEncoder;
 use syntaxdot_transformers::models::squeeze_bert::SqueezeBertEncoder;
 
 pub trait PretrainBertConfig {
@@ -34,6 +35,7 @@ impl PretrainBertConfig for PretrainConfig {
         match self {
             PretrainConfig::Albert(config) => Cow::Owned(config.into()),
             PretrainConfig::Bert(config) => Cow::Borrowed(config),
+            PretrainConfig::SqueezeAlbert(config) => Cow::Owned(config.into()),
             PretrainConfig::SqueezeBert(config) => Cow::Owned(config.into()),
             PretrainConfig::XlmRoberta(config) => Cow::Borrowed(config),
         }
@@ -75,6 +77,21 @@ impl BertEmbeddingLayer {
                 let normalize = if normalize { Some(2.) } else { None };
                 BertEmbeddingLayer::Sinusoidal(SinusoidalEmbeddings::new(
                     vs / "encoder",
+                    config,
+                    normalize,
+                ))
+            }
+            (PretrainConfig::SqueezeAlbert(config), PositionEmbeddings::Model) => {
+                let albert_config: AlbertConfig = config.into();
+                BertEmbeddingLayer::Albert(AlbertEmbeddings::new(vs / "embeddings", &albert_config))
+            }
+            (
+                PretrainConfig::SqueezeAlbert(config),
+                PositionEmbeddings::Sinusoidal { normalize },
+            ) => {
+                let normalize = if normalize { Some(2.) } else { None };
+                BertEmbeddingLayer::Sinusoidal(SinusoidalEmbeddings::new(
+                    vs / "embeddings",
                     config,
                     normalize,
                 ))
@@ -124,6 +141,11 @@ impl BertEmbeddingLayer {
                     pretrained_file.group("squeeze_bert/embeddings")?,
                 )?)
             }
+            PretrainConfig::SqueezeAlbert(_config) => {
+                return Err(SyntaxDotError::IllegalConfigurationError(
+                    "SqueezeALBERT models cannot be loaded from HDF5".to_string(),
+                ))
+            }
             PretrainConfig::SqueezeBert(config) => {
                 let bert_config: BertConfig = config.into();
                 BertEmbeddingLayer::Bert(BertEmbeddings::load_from_hdf5(
@@ -162,6 +184,7 @@ impl ModuleT for BertEmbeddingLayer {
 enum Encoder {
     Albert(AlbertEncoder),
     Bert(BertEncoder),
+    SqueezeAlbert(SqueezeAlbertEncoder),
     SqueezeBert(SqueezeBertEncoder),
 }
 
@@ -175,6 +198,9 @@ impl Encoder {
         let encoder = match pretrain_config {
             PretrainConfig::Albert(config) => Encoder::Albert(AlbertEncoder::new(vs, config)?),
             PretrainConfig::Bert(config) => Encoder::Bert(BertEncoder::new(vs, config)?),
+            PretrainConfig::SqueezeAlbert(config) => {
+                Encoder::SqueezeAlbert(SqueezeAlbertEncoder::new(vs, config)?)
+            }
             PretrainConfig::SqueezeBert(config) => {
                 Encoder::SqueezeBert(SqueezeBertEncoder::new(vs, config)?)
             }
@@ -189,7 +215,7 @@ impl Encoder {
         vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         pretrained_file: &File,
-    ) -> Result<Encoder, BertError> {
+    ) -> Result<Encoder, SyntaxDotError> {
         let vs = vs.borrow();
 
         let encoder = match pretrain_config {
@@ -203,6 +229,11 @@ impl Encoder {
                 config,
                 pretrained_file.group("bert/encoder")?,
             )?),
+            PretrainConfig::SqueezeAlbert(_config) => {
+                return Err(SyntaxDotError::IllegalConfigurationError(
+                    "SqueezeALBERT models cannot be loaded from HDF5".to_string(),
+                ))
+            }
             PretrainConfig::SqueezeBert(config) => {
                 Encoder::SqueezeBert(SqueezeBertEncoder::load_from_hdf5(
                     vs.sub("encoder"),
@@ -230,6 +261,7 @@ impl Encoder {
             Encoder::Bert(encoder) => encoder.encode(input, attention_mask, train),
             Encoder::Albert(encoder) => encoder.encode(input, attention_mask, train),
             Encoder::SqueezeBert(encoder) => encoder.encode(input, attention_mask, train),
+            Encoder::SqueezeAlbert(encoder) => encoder.encode(input, attention_mask, train),
         }
     }
 
@@ -238,6 +270,7 @@ impl Encoder {
             Encoder::Bert(encoder) => encoder.n_layers(),
             Encoder::Albert(encoder) => encoder.n_layers(),
             Encoder::SqueezeBert(encoder) => encoder.n_layers(),
+            Encoder::SqueezeAlbert(encoder) => encoder.n_layers(),
         }
     }
 }
