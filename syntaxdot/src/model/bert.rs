@@ -23,6 +23,7 @@ use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
 use crate::error::SyntaxDotError;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
+use syntaxdot_transformers::models::squeeze_bert::SqueezeBertEncoder;
 
 pub trait PretrainBertConfig {
     fn bert_config(&self) -> Cow<BertConfig>;
@@ -33,6 +34,7 @@ impl PretrainBertConfig for PretrainConfig {
         match self {
             PretrainConfig::Albert(config) => Cow::Owned(config.into()),
             PretrainConfig::Bert(config) => Cow::Borrowed(config),
+            PretrainConfig::SqueezeBert(config) => Cow::Owned(config.into()),
             PretrainConfig::XlmRoberta(config) => Cow::Borrowed(config),
         }
     }
@@ -77,6 +79,19 @@ impl BertEmbeddingLayer {
                     normalize,
                 ))
             }
+            (PretrainConfig::SqueezeBert(config), PositionEmbeddings::Model) => {
+                let bert_config: BertConfig = config.into();
+                BertEmbeddingLayer::Bert(BertEmbeddings::new(vs / "embeddings", &bert_config))
+            }
+            (PretrainConfig::SqueezeBert(config), PositionEmbeddings::Sinusoidal { normalize }) => {
+                let bert_config: BertConfig = config.into();
+                let normalize = if normalize { Some(2.) } else { None };
+                BertEmbeddingLayer::Sinusoidal(SinusoidalEmbeddings::new(
+                    vs / "embeddings",
+                    &bert_config,
+                    normalize,
+                ))
+            }
             (PretrainConfig::XlmRoberta(config), PositionEmbeddings::Model) => {
                 BertEmbeddingLayer::Roberta(RobertaEmbeddings::new(vs / "encoder", config))
             }
@@ -106,7 +121,15 @@ impl BertEmbeddingLayer {
                 BertEmbeddingLayer::Bert(BertEmbeddings::load_from_hdf5(
                     vs.sub("encoder"),
                     config,
-                    pretrained_file.group("bert/embeddings")?,
+                    pretrained_file.group("squeeze_bert/embeddings")?,
+                )?)
+            }
+            PretrainConfig::SqueezeBert(config) => {
+                let bert_config: BertConfig = config.into();
+                BertEmbeddingLayer::Bert(BertEmbeddings::load_from_hdf5(
+                    vs.sub("embeddings"),
+                    &bert_config,
+                    pretrained_file.group("squeeze_bert/embeddings")?,
                 )?)
             }
             PretrainConfig::XlmRoberta(config) => {
@@ -139,6 +162,7 @@ impl ModuleT for BertEmbeddingLayer {
 enum Encoder {
     Albert(AlbertEncoder),
     Bert(BertEncoder),
+    SqueezeBert(SqueezeBertEncoder),
 }
 
 impl Encoder {
@@ -151,6 +175,9 @@ impl Encoder {
         let encoder = match pretrain_config {
             PretrainConfig::Albert(config) => Encoder::Albert(AlbertEncoder::new(vs, config)?),
             PretrainConfig::Bert(config) => Encoder::Bert(BertEncoder::new(vs, config)?),
+            PretrainConfig::SqueezeBert(config) => {
+                Encoder::SqueezeBert(SqueezeBertEncoder::new(vs, config)?)
+            }
             PretrainConfig::XlmRoberta(config) => Encoder::Bert(BertEncoder::new(vs, config)?),
         };
 
@@ -176,6 +203,13 @@ impl Encoder {
                 config,
                 pretrained_file.group("bert/encoder")?,
             )?),
+            PretrainConfig::SqueezeBert(config) => {
+                Encoder::SqueezeBert(SqueezeBertEncoder::load_from_hdf5(
+                    vs.sub("encoder"),
+                    config,
+                    pretrained_file.group("squeeze_bert/encoder")?,
+                )?)
+            }
             PretrainConfig::XlmRoberta(config) => Encoder::Bert(BertEncoder::load_from_hdf5(
                 vs.sub("encoder"),
                 config,
@@ -195,6 +229,7 @@ impl Encoder {
         match self {
             Encoder::Bert(encoder) => encoder.encode(input, attention_mask, train),
             Encoder::Albert(encoder) => encoder.encode(input, attention_mask, train),
+            Encoder::SqueezeBert(encoder) => encoder.encode(input, attention_mask, train),
         }
     }
 
@@ -202,6 +237,7 @@ impl Encoder {
         match self {
             Encoder::Bert(encoder) => encoder.n_layers(),
             Encoder::Albert(encoder) => encoder.n_layers(),
+            Encoder::SqueezeBert(encoder) => encoder.n_layers(),
         }
     }
 }

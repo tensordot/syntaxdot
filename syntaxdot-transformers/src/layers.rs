@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use tch::nn::{Init, Linear, Module, ModuleT};
+use tch::nn::{ConvConfig, Init, Linear, Module, ModuleT};
 use tch::{self, Tensor};
 use tch_ext::PathExt;
 
@@ -27,6 +27,66 @@ impl PlaceInVarStore for Linear {
         let vs = vs.borrow();
         self.ws = vs.var_copy("weight", &self.ws);
         self.bs = vs.var_copy("bias", &self.bs);
+    }
+}
+
+#[derive(Debug)]
+pub struct Conv1D {
+    pub ws: Tensor,
+    pub bs: Option<Tensor>,
+    pub config: ConvConfig,
+}
+
+impl Conv1D {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        in_features: i64,
+        out_features: i64,
+        kernel_size: i64,
+        groups: i64,
+    ) -> Self {
+        let vs = vs.borrow();
+
+        let config = ConvConfig {
+            groups,
+            ..ConvConfig::default()
+        };
+
+        let bs = if config.bias {
+            Some(vs.var("bias", &[out_features], config.bs_init))
+        } else {
+            None
+        };
+
+        let ws = vs.var(
+            "weight",
+            &[out_features, in_features / groups, kernel_size],
+            config.ws_init,
+        );
+
+        Conv1D { ws, bs, config }
+    }
+}
+
+impl Module for Conv1D {
+    fn forward(&self, xs: &Tensor) -> Tensor {
+        Tensor::conv1d(
+            xs,
+            &self.ws,
+            self.bs.as_ref(),
+            &[self.config.stride],
+            &[self.config.padding],
+            &[self.config.dilation],
+            self.config.groups,
+        )
+    }
+}
+
+impl PlaceInVarStore for Conv1D {
+    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>) {
+        let vs = vs.borrow();
+        self.ws = vs.var_copy("weight", &self.ws);
+        self.bs = self.bs.as_ref().map(|bs| vs.var_copy("bias", bs));
     }
 }
 

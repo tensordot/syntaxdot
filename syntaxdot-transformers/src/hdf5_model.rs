@@ -35,6 +35,24 @@ pub fn load_affine(
     ))
 }
 
+pub fn load_conv1d(
+    group: Group,
+    weights: &str,
+    bias: &str,
+    input_features: i64,
+    output_features: i64,
+    kernel_size: i64,
+    groups: i64,
+) -> Result<(Tensor, Tensor), HDF5Error> {
+    Ok((
+        load_tensor(
+            group.dataset(weights)?,
+            &[output_features, input_features / groups, kernel_size],
+        )?,
+        load_tensor(group.dataset(bias)?, &[output_features])?,
+    ))
+}
+
 pub fn load_tensor(dataset: Dataset, shape: &[i64]) -> Result<Tensor, HDF5Error> {
     let tensor_raw: Vec<f32> = dataset.read_raw()?;
     Ok(Tensor::of_slice(&tensor_raw).reshape(shape))
