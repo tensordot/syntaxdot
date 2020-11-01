@@ -29,7 +29,9 @@ use crate::traits::{
     ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
 };
 use crate::util::{autocast_or_preserve, count_conllu_sentences};
+use syntaxdot_transformers::models::bert::BertLayerOutput;
 
+const ATTENTION_LOSS: &str = "ATTENTION_LOSS";
 const BATCH_SIZE: &str = "BATCH_SIZE";
 const EPOCHS: &str = "EPOCHS";
 const EVAL_STEPS: &str = "EVAL_STEPS";
@@ -51,11 +53,13 @@ const WEIGHT_DECAY: &str = "WEIGHT_DECAY";
 
 struct DistillLoss {
     pub loss: Tensor,
+    pub attention_loss: Tensor,
     pub hard_loss: Tensor,
     pub soft_loss: Tensor,
 }
 
 pub struct DistillApp {
+    attention_loss: bool,
     batch_size: usize,
     device: Device,
     eval_steps: usize,
@@ -84,6 +88,52 @@ struct StudentModel {
 }
 
 impl DistillApp {
+    /// Compute the attention loss based on the output of two encoders.
+    ///
+    /// The attention loss is the mean squared error of the teacher and student
+    /// attentions.
+    fn attention_loss(
+        &self,
+        teacher_layer_outputs: &[BertLayerOutput],
+        student_layer_outputs: &[BertLayerOutput],
+    ) -> Result<Tensor, SyntaxDotError> {
+        // Skip embedding layers, which do not have attention.
+        let teacher_attentions = teacher_layer_outputs
+            .iter()
+            .filter_map(|l| l.attention.as_ref())
+            .collect::<Vec<_>>();
+        let student_attentions = student_layer_outputs
+            .iter()
+            .filter_map(|l| l.attention.as_ref())
+            .collect::<Vec<_>>();
+
+        let teacher_attention = Tensor::stack(&teacher_attentions, 0);
+        let student_attention = Tensor::stack(&student_attentions, 0);
+
+        if student_attention.size() != teacher_attention.size() {
+            return Err(SyntaxDotError::IllegalConfigurationError(format!(
+                "Cannot compute attention loss: teacher ({:?}) and student ({:?}) have different sequence lengths.",
+                teacher_attention
+                    .size()
+                    .last()
+                    .expect("Teacher attention is not a tensor"),
+                student_attention
+                    .size()
+                    .last()
+                    .expect("Student attention is not a tensor")
+            )));
+        }
+
+        // The attention matrix uses logits. Tokens are masked by giving them very
+        // negative values. Remove such tokens by removing extreme negative values.
+        // The threshold is the same as that used by TinyBERT.
+        let zeros = Tensor::zeros_like(&teacher_attention);
+        let teacher_attention = teacher_attention.where1(&teacher_attention.lt(-1e2), &zeros);
+        let student_attention = student_attention.where1(&student_attention.lt(-1e2), &zeros);
+
+        Ok(student_attention.mse_loss(&teacher_attention, Reduction::Mean))
+    }
+
     fn distill_model(
         &self,
         grad_scaler: &mut GradScaler<impl Optimizer>,
@@ -191,7 +241,7 @@ impl DistillApp {
         student: &BertModel,
         teacher_batch: Tensors,
         student_batch: Tensors,
-    ) -> DistillLoss {
+    ) -> Result<DistillLoss, SyntaxDotError> {
         // Compute masks.
         let teacher_attention_mask =
             seq_len_to_mask(&teacher_batch.seq_lens, teacher_batch.inputs.size()[1])
@@ -201,7 +251,7 @@ impl DistillApp {
             .to_kind(Kind::Bool)
             .to_device(self.device);
 
-        let teacher_logits = teacher.logits(
+        let teacher_layer_outputs = teacher.encode(
             &teacher_batch.inputs.to_device(self.device),
             &teacher_attention_mask,
             false,
@@ -211,6 +261,7 @@ impl DistillApp {
                 classifiers: true,
             },
         );
+        let teacher_logits = teacher.logits_from_encoding(&teacher_layer_outputs, false);
 
         let student_attention_mask =
             seq_len_to_mask(&student_batch.seq_lens, student_batch.inputs.size()[1])
@@ -221,7 +272,7 @@ impl DistillApp {
             .to_device(self.device);
 
         autocast_or_preserve(self.mixed_precision, || {
-            let student_logits = student.logits(
+            let student_layer_outputs = student.encode(
                 &student_batch.inputs.to_device(self.device),
                 &student_attention_mask,
                 true,
@@ -231,6 +282,7 @@ impl DistillApp {
                     classifiers: false,
                 },
             );
+            let student_logits = student.logits_from_encoding(&student_layer_outputs, true);
 
             let mut soft_loss = Tensor::zeros(&[], (Kind::Float, self.device));
             let mut hard_loss = Tensor::zeros(&[], (Kind::Float, self.device));
@@ -266,11 +318,18 @@ impl DistillApp {
                 }
             }
 
-            DistillLoss {
-                loss: &hard_loss + &soft_loss,
+            let attention_loss = if self.attention_loss {
+                self.attention_loss(&teacher_layer_outputs, &student_layer_outputs)?
+            } else {
+                Tensor::zeros(&[], (Kind::Float, self.device))
+            };
+
+            Ok(DistillLoss {
+                loss: &hard_loss + &soft_loss + &attention_loss,
+                attention_loss,
                 hard_loss,
                 soft_loss,
-            }
+            })
         })
     }
 
@@ -289,7 +348,7 @@ impl DistillApp {
             let teacher_batch = teacher_batch.context("Cannot read teacher batch")?;
             let student_batch = student_batch.context("Cannot read student batch")?;
 
-            let distill_loss = self.student_loss(teacher, student, teacher_batch, student_batch);
+            let distill_loss = self.student_loss(teacher, student, teacher_batch, student_batch)?;
 
             let lr_classifier = self
                 .lr_schedules
@@ -321,12 +380,13 @@ impl DistillApp {
             )?;
 
             progress.set_message(&format!(
-                "step: {}, lr encoder: {:.6}, lr classifier: {:.6}, hard loss: {:.4}, soft loss: {:.4}",
+                "step: {} | lr enc: {:+.1e}, class: {:+.1e} | loss hard: {:+.1e}, soft: {:+.1e}, attention: {:+.1e}",
                 global_step,
                 lr_encoder,
                 lr_classifier,
                 f32::from(distill_loss.hard_loss),
-                f32::from(distill_loss.soft_loss)
+                f32::from(distill_loss.soft_loss),
+                f32::from(distill_loss.attention_loss)
             ));
             progress.inc(1);
 
@@ -548,6 +608,11 @@ impl SyntaxDotApp for DistillApp {
                     .required(true),
             )
             .arg(
+                Arg::with_name(ATTENTION_LOSS)
+                    .long("attention-loss")
+                    .help("Add attention score loss"),
+            )
+            .arg(
                 Arg::with_name(BATCH_SIZE)
                     .long("batch-size")
                     .takes_value(true)
@@ -657,6 +722,7 @@ impl SyntaxDotApp for DistillApp {
             .value_of(VALIDATION_DATA)
             .map(ToOwned::to_owned)
             .unwrap();
+        let attention_loss = matches.is_present(ATTENTION_LOSS);
         let batch_size = matches
             .value_of(BATCH_SIZE)
             .unwrap()
@@ -729,6 +795,7 @@ impl SyntaxDotApp for DistillApp {
         };
 
         Ok(DistillApp {
+            attention_loss,
             batch_size,
             device,
             eval_steps,

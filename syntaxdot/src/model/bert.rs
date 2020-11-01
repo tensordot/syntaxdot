@@ -344,7 +344,7 @@ impl BertModel {
     }
 
     /// Encode an input.
-    fn encode(
+    pub fn encode(
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
@@ -391,6 +391,22 @@ impl BertModel {
     ) -> HashMap<String, Tensor> {
         let encoding = self.encode(inputs, attention_mask, train, freeze_layers);
         self.seq_classifiers.forward_t(&encoding, train)
+    }
+
+    /// Compute the logits for a batch of inputs from the transformer's encoding.
+    ///
+    /// * `attention_mask`: specifies which sequence elements should
+    ///    be masked when applying the encoder.
+    /// * `train`: indicates whether this forward pass will be used
+    ///   for backpropagation.
+    /// * `freeze_embeddings`: exclude embeddings from backpropagation.
+    /// * `freeze_encoder`: exclude the encoder from backpropagation.
+    pub fn logits_from_encoding(
+        &self,
+        layer_outputs: &[BertLayerOutput],
+        train: bool,
+    ) -> HashMap<String, Tensor> {
+        self.seq_classifiers.forward_t(layer_outputs, train)
     }
 
     /// Compute the loss given a batch of inputs and target labels.
