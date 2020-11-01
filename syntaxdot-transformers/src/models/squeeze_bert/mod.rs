@@ -292,7 +292,7 @@ impl SqueezeBertSelfAttention {
 
         let context_layer = self.transpose_output(&context_layer);
 
-        (context_layer, attention_probs)
+        (context_layer, attention_scores)
     }
 
     fn transpose_for_scores(&self, x: &Tensor) -> Tensor {

@@ -359,7 +359,7 @@ pub struct BertLayerOutput {
     /// The output of the layer.
     pub output: Tensor,
 
-    /// The layer attentions.
+    /// The layer attention scores (unnormalized).
     pub attention: Option<Tensor>,
 }
 
@@ -516,7 +516,7 @@ impl BertSelfAttention {
         );
         let context_layer = context_layer.view_(&new_context_layer_shape);
 
-        (context_layer, attention_probs)
+        (context_layer, attention_scores)
     }
 
     fn transpose_for_scores(&self, x: &Tensor) -> Tensor {
