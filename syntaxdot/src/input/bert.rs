@@ -80,10 +80,11 @@ mod tests {
     use ndarray::array;
     use wordpieces::WordPieces;
 
+    use crate::input::resources::BERT_BASE_GERMAN_CASED_VOCAB;
     use crate::input::{BertTokenizer, Tokenize};
 
     fn read_pieces() -> WordPieces {
-        let f = File::open(env!("BERT_BASE_GERMAN_CASED_VOCAB")).unwrap();
+        let f = File::open(&*BERT_BASE_GERMAN_CASED_VOCAB).unwrap();
         WordPieces::try_from(BufReader::new(f).lines()).unwrap()
     }
 

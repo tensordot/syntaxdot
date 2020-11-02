@@ -370,7 +370,6 @@ mod tests {
     use std::convert::TryInto;
 
     use approx::assert_abs_diff_eq;
-    use hdf5::File;
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
     use tch::nn::{ModuleT, VarStore};
@@ -379,9 +378,8 @@ mod tests {
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::albert::{AlbertConfig, AlbertEmbeddings, AlbertEncoder};
+    use crate::models::resources::ALBERT_BASE_V2;
     use crate::models::Encoder;
-
-    const ALBERT_BASE_V2: &str = env!("ALBERT_BASE_V2");
 
     fn albert_config() -> AlbertConfig {
         AlbertConfig {
@@ -444,21 +442,20 @@ mod tests {
     #[test]
     fn albert_encoder() {
         let config = albert_config();
-        let albert_file = File::open(ALBERT_BASE_V2).unwrap();
 
         let vs = VarStore::new(Device::Cpu);
 
         let embeddings = AlbertEmbeddings::load_from_hdf5(
             vs.root_ext(|_| 0),
             &config,
-            albert_file.group("albert/embeddings").unwrap(),
+            ALBERT_BASE_V2.group("albert/embeddings").unwrap(),
         )
         .unwrap();
 
         let encoder = AlbertEncoder::load_from_hdf5(
             vs.root_ext(|_| 0),
             &config,
-            albert_file.group("albert/encoder").unwrap(),
+            ALBERT_BASE_V2.group("albert/encoder").unwrap(),
         )
         .unwrap();
 
@@ -495,21 +492,20 @@ mod tests {
     #[test]
     fn albert_encoder_attention_mask() {
         let config = albert_config();
-        let albert_file = File::open(ALBERT_BASE_V2).unwrap();
 
         let vs = VarStore::new(Device::Cpu);
 
         let embeddings = AlbertEmbeddings::load_from_hdf5(
             vs.root_ext(|_| 0),
             &config,
-            albert_file.group("albert/embeddings").unwrap(),
+            ALBERT_BASE_V2.group("albert/embeddings").unwrap(),
         )
         .unwrap();
 
         let encoder = AlbertEncoder::load_from_hdf5(
             vs.root_ext(|_| 0),
             &config,
-            albert_file.group("albert/encoder").unwrap(),
+            ALBERT_BASE_V2.group("albert/encoder").unwrap(),
         )
         .unwrap();
 
@@ -548,13 +544,12 @@ mod tests {
     #[test]
     fn albert_embeddings_names() {
         let config = albert_config();
-        let albert_file = File::open(ALBERT_BASE_V2).unwrap();
 
         let vs = VarStore::new(Device::Cpu);
         AlbertEmbeddings::load_from_hdf5(
             vs.root_ext(|_| 0),
             &config,
-            albert_file.group("albert/embeddings").unwrap(),
+            ALBERT_BASE_V2.group("albert/embeddings").unwrap(),
         )
         .unwrap();
 
@@ -582,13 +577,12 @@ mod tests {
         // Verify that the encoders's names correspond between loaded
         // and newly-constructed models.
         let config = albert_config();
-        let albert_file = File::open(ALBERT_BASE_V2).unwrap();
 
         let vs_loaded = VarStore::new(Device::Cpu);
         AlbertEncoder::load_from_hdf5(
             vs_loaded.root_ext(|_| 0),
             &config,
-            albert_file.group("albert/encoder").unwrap(),
+            ALBERT_BASE_V2.group("albert/encoder").unwrap(),
         )
         .unwrap();
         let loaded_variables = varstore_variables(&vs_loaded);
