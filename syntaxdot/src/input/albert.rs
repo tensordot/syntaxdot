@@ -87,6 +87,7 @@ mod tests {
     use ndarray::array;
     use sentencepiece::SentencePieceProcessor;
 
+    use crate::input::resources::ALBERT_V2_SENTENCEPIECE;
     use crate::input::{AlbertTokenizer, Tokenize};
 
     fn sentence_from_forms(forms: &[&str]) -> Sentence {
@@ -94,7 +95,7 @@ mod tests {
     }
 
     fn albert_tokenizer() -> AlbertTokenizer {
-        let spp = SentencePieceProcessor::load(env!("ALBERT_BASE_V2_SENTENCEPIECE")).unwrap();
+        let spp = SentencePieceProcessor::load(&ALBERT_V2_SENTENCEPIECE.to_string_lossy()).unwrap();
         AlbertTokenizer::new(spp)
     }
 

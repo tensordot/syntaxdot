@@ -8,6 +8,11 @@ pub use bert::{BertConfig, BertEmbeddings, BertEncoder};
 mod encoder;
 pub use encoder::Encoder;
 
+#[cfg(feature = "load-hdf5")]
+#[cfg(feature = "model-tests")]
+#[cfg(test)]
+pub(crate) mod resources;
+
 pub mod roberta;
 pub use roberta::RobertaEmbeddings;
 
