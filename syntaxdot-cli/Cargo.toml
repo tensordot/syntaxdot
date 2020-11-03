@@ -26,7 +26,7 @@ syntaxdot = { path = "../syntaxdot", version = "0.1", default-features = false }
 syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.1" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.1", default-features = false }
 tfrecord = { version = "0.4", features = ["summary"], optional = true }
-tch = "0.2.1"
+tch = "0.3"
 tch-ext = { path = "../tch-ext" }
 threadpool = "1"
 

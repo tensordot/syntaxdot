@@ -1726,8 +1726,8 @@ dependencies = [
 
 [[package]]
 name = "tch"
-version = "0.2.2"
-source = "git+https://github.com/LaurentMazare/tch-rs.git#7a3f71f8abe7f1896e9099a2cae25854d3b4dcc7"
+version = "0.3.0"
+source = "git+https://github.com/LaurentMazare/tch-rs.git#6fd7c8fef4914b5801337ba2ebb58c7ee51d120a"
 dependencies = [
  "half",
  "lazy_static",
@@ -1919,8 +1919,8 @@ dependencies = [
 
 [[package]]
 name = "torch-sys"
-version = "0.2.2"
-source = "git+https://github.com/LaurentMazare/tch-rs.git#7a3f71f8abe7f1896e9099a2cae25854d3b4dcc7"
+version = "0.3.0"
+source = "git+https://github.com/LaurentMazare/tch-rs.git#6fd7c8fef4914b5801337ba2ebb58c7ee51d120a"
 dependencies = [
  "cc",
  "cmake",
