@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 itertools = "0.9"
-tch = "0.2"
+tch = "0.3"
