@@ -7,12 +7,7 @@ pub use albert::AlbertTokenizer;
 mod bert;
 pub use bert::BertTokenizer;
 
-#[cfg(feature = "model-tests")]
-#[cfg(test)]
-mod resources;
-
 mod xlm_roberta;
-
 pub use xlm_roberta::XlmRobertaTokenizer;
 
 /// Trait for wordpiece tokenizers.

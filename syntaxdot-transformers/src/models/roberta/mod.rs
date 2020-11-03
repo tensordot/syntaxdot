@@ -105,6 +105,7 @@ mod tests {
     use std::convert::TryInto;
 
     use approx::assert_abs_diff_eq;
+    use hdf5::File;
     use ndarray::{array, ArrayD};
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
@@ -112,9 +113,10 @@ mod tests {
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEncoder};
-    use crate::models::resources::XLM_ROBERTA_BASE;
     use crate::models::roberta::RobertaEmbeddings;
     use crate::models::Encoder;
+
+    const XLM_ROBERTA_BASE: &str = env!("XLM_ROBERTA_BASE");
 
     fn xlm_roberta_config() -> BertConfig {
         BertConfig {
@@ -136,12 +138,13 @@ mod tests {
     #[test]
     fn xlm_roberta_embeddings() {
         let config = xlm_roberta_config();
+        let roberta_file = File::open(XLM_ROBERTA_BASE).unwrap();
 
         let vs = VarStore::new(Device::Cpu);
         let embeddings = RobertaEmbeddings::load_from_hdf5(
             vs.root_ext(|_| 0),
             &config,
-            XLM_ROBERTA_BASE.group("bert/embeddings").unwrap(),
+            roberta_file.group("bert/embeddings").unwrap(),
         )
         .unwrap();
 
@@ -174,19 +177,20 @@ mod tests {
     #[test]
     fn xlm_roberta_encoder() {
         let config = xlm_roberta_config();
+        let roberta_file = File::open(XLM_ROBERTA_BASE).unwrap();
 
         let vs = VarStore::new(Device::Cpu);
         let embeddings = RobertaEmbeddings::load_from_hdf5(
             vs.root_ext(|_| 0),
             &config,
-            XLM_ROBERTA_BASE.group("bert/embeddings").unwrap(),
+            roberta_file.group("bert/embeddings").unwrap(),
         )
         .unwrap();
 
         let encoder = BertEncoder::load_from_hdf5(
             vs.root_ext(|_| 0),
             &config,
-            XLM_ROBERTA_BASE.group("bert/encoder").unwrap(),
+            roberta_file.group("bert/encoder").unwrap(),
         )
         .unwrap();
 

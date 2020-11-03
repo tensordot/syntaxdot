@@ -85,7 +85,6 @@ mod tests {
     use ndarray::array;
     use sentencepiece::SentencePieceProcessor;
 
-    use crate::input::resources::XLM_ROBERTA_BASE_SENTENCEPIECE;
     use crate::input::{Tokenize, XlmRobertaTokenizer};
 
     fn sentence_from_forms(forms: &[&str]) -> Sentence {
@@ -93,8 +92,7 @@ mod tests {
     }
 
     fn xlm_roberta_tokenizer() -> XlmRobertaTokenizer {
-        let spp = SentencePieceProcessor::load(&XLM_ROBERTA_BASE_SENTENCEPIECE.to_string_lossy())
-            .unwrap();
+        let spp = SentencePieceProcessor::load(env!("XLM_ROBERTA_BASE_SENTENCEPIECE")).unwrap();
         XlmRobertaTokenizer::from(spp)
     }
 
