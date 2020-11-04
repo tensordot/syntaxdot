@@ -1,6 +1,6 @@
 use tch::Tensor;
 
-use crate::models::bert::BertLayerOutput;
+use crate::models::layer_output::LayerOutput;
 
 /// Encoder networks.
 pub trait Encoder {
@@ -15,7 +15,7 @@ pub trait Encoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<BertLayerOutput>;
+    ) -> Vec<LayerOutput>;
 
     /// Get the number of layers that is returned by the encoder.
     fn n_layers(&self) -> i64;

@@ -29,8 +29,8 @@ use crate::activations;
 use crate::cow::CowTensor;
 use crate::layers::{Dropout, Embedding, LayerNorm};
 use crate::models::encoder::Encoder;
+use crate::models::layer_output::{HiddenLayer, LayerOutput};
 use crate::models::traits::WordEmbeddingsConfig;
-use crate::traits::{LayerAttention, LayerOutput};
 use crate::util::LogitsMask;
 
 /// Bert attention block.
@@ -259,7 +259,7 @@ impl Encoder for BertEncoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<BertLayerOutput> {
+    ) -> Vec<LayerOutput> {
         let mut all_layer_outputs = Vec::with_capacity(self.layers.len());
 
         let attention_mask = attention_mask.map(|mask| LogitsMask::from_bool_mask(mask));
@@ -268,7 +268,7 @@ impl Encoder for BertEncoder {
         for layer in &self.layers {
             let layer_output = layer.forward_t(&hidden_states, attention_mask.as_ref(), train);
 
-            hidden_states = CowTensor::Owned(layer_output.output.shallow_clone());
+            hidden_states = CowTensor::Owned(layer_output.output().shallow_clone());
             all_layer_outputs.push(layer_output);
         }
 
@@ -339,39 +339,14 @@ impl BertLayer {
         input: &Tensor,
         attention_mask: Option<&LogitsMask>,
         train: bool,
-    ) -> BertLayerOutput {
+    ) -> LayerOutput {
         let (attention_output, attention) = self.attention.forward_t(input, attention_mask, train);
         let intermediate_output = self.intermediate.forward(&attention_output);
         let output = self
             .output
             .forward_t(&intermediate_output, &attention_output, train);
 
-        BertLayerOutput {
-            output,
-            attention: Some(attention),
-        }
-    }
-}
-
-/// Output of a BERT layer.
-#[derive(Debug)]
-pub struct BertLayerOutput {
-    /// The output of the layer.
-    pub output: Tensor,
-
-    /// The layer attention scores (unnormalized).
-    pub attention: Option<Tensor>,
-}
-
-impl LayerAttention for BertLayerOutput {
-    fn layer_attention(&self) -> Option<&Tensor> {
-        self.attention.as_ref()
-    }
-}
-
-impl LayerOutput for BertLayerOutput {
-    fn layer_output(&self) -> &Tensor {
-        &self.output
+        LayerOutput::EncoderWithAttention(HiddenLayer { output, attention })
     }
 }
 
@@ -1139,7 +1114,7 @@ mod tests {
             all_hidden_states
                 .last()
                 .unwrap()
-                .output
+                .output()
                 .sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();
@@ -1192,7 +1167,7 @@ mod tests {
         let summed_last_hidden = all_hidden_states
             .last()
             .unwrap()
-            .output
+            .output()
             .slice(-2, 0, 10, 1)
             .sum1(&[-1], false, Kind::Float);
 
@@ -1270,7 +1245,7 @@ mod tests {
 
         let layer_output0 = layer0.forward_t(&embeddings, None, false);
 
-        let summed_layer0 = layer_output0.output.sum1(&[-1], false, Kind::Float);
+        let summed_layer0 = layer_output0.output().sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_layer0).try_into().unwrap();
 

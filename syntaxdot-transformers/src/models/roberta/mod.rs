@@ -208,7 +208,7 @@ mod tests {
             all_hidden_states
                 .last()
                 .unwrap()
-                .output
+                .output()
                 .sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();

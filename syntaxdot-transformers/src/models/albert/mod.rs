@@ -7,9 +7,8 @@ use tch::nn::{Linear, Module, ModuleT};
 use tch::Tensor;
 use tch_ext::PathExt;
 
-use crate::models::bert::{
-    bert_linear, BertConfig, BertEmbeddings, BertError, BertLayer, BertLayerOutput,
-};
+use crate::models::bert::{bert_linear, BertConfig, BertEmbeddings, BertError, BertLayer};
+use crate::models::layer_output::LayerOutput;
 use crate::models::traits::WordEmbeddingsConfig;
 use crate::models::Encoder;
 use crate::util::LogitsMask;
@@ -214,15 +213,12 @@ impl Encoder for AlbertEncoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<BertLayerOutput> {
+    ) -> Vec<LayerOutput> {
         let mut all_layer_outputs = Vec::with_capacity(self.n_layers as usize + 1);
 
         let input = self.projection.forward(&input);
 
-        all_layer_outputs.push(BertLayerOutput {
-            output: input.shallow_clone(),
-            attention: None,
-        });
+        all_layer_outputs.push(LayerOutput::Embedding(input.shallow_clone()));
 
         let attention_mask = attention_mask.map(|mask| LogitsMask::from_bool_mask(mask));
 
@@ -236,7 +232,7 @@ impl Encoder for AlbertEncoder {
                 train,
             );
 
-            hidden_states = layer_output.output.shallow_clone();
+            hidden_states = layer_output.output().shallow_clone();
 
             all_layer_outputs.push(layer_output);
         }
@@ -476,7 +472,7 @@ mod tests {
             all_hidden_states
                 .last()
                 .unwrap()
-                .output
+                .output()
                 .sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();
@@ -529,7 +525,7 @@ mod tests {
             all_hidden_states
                 .last()
                 .unwrap()
-                .output
+                .output()
                 .sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();

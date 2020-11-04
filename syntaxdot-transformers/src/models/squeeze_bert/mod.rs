@@ -27,8 +27,8 @@ use tch::{Kind, Tensor};
 use tch_ext::PathExt;
 
 use crate::layers::{Conv1D, Dropout, LayerNorm};
-use crate::models::bert::{bert_activations, BertError, BertLayerOutput};
-
+use crate::models::bert::{bert_activations, BertError};
+use crate::models::layer_output::{HiddenLayer, LayerOutput};
 use crate::models::{BertConfig, Encoder};
 use crate::util::LogitsMask;
 
@@ -382,7 +382,7 @@ impl SqueezeBertLayer {
         input: &Tensor,
         attention_mask: Option<&LogitsMask>,
         train: bool,
-    ) -> BertLayerOutput {
+    ) -> LayerOutput {
         let (attention_output, attention) = self.attention.forward_t(input, attention_mask, train);
         let post_attention_output = self
             .post_attention
@@ -392,10 +392,7 @@ impl SqueezeBertLayer {
             .output
             .forward_t(&intermediate_output, &post_attention_output, train);
 
-        BertLayerOutput {
-            output,
-            attention: Some(attention),
-        }
+        LayerOutput::EncoderWithAttention(HiddenLayer { output, attention })
     }
 }
 
@@ -430,30 +427,25 @@ impl Encoder for SqueezeBertEncoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<BertLayerOutput> {
-        // [batch_size, seq_len, hidden_size] -> [batch_size, hidden_size, seq_len]
-
-        let mut all_layer_outputs = Vec::with_capacity(self.layers.len());
-
+    ) -> Vec<LayerOutput> {
         let attention_mask = attention_mask.map(|mask| LogitsMask::from_bool_mask(mask));
 
+        // [batch_size, seq_len, hidden_size] -> [batch_size, hidden_size, seq_len]
         let mut hidden_states = input.permute(&[0, 2, 1]);
 
-        all_layer_outputs.push(BertLayerOutput {
-            output: hidden_states.shallow_clone(),
-            attention: None,
-        });
+        let mut all_layer_outputs = Vec::with_capacity(self.layers.len() + 1);
+        all_layer_outputs.push(LayerOutput::Embedding(hidden_states.shallow_clone()));
 
         for layer in &self.layers {
             let layer_output = layer.forward_t(&hidden_states, attention_mask.as_ref(), train);
 
-            hidden_states = layer_output.output.shallow_clone();
+            hidden_states = layer_output.output().shallow_clone();
             all_layer_outputs.push(layer_output);
         }
 
         // Convert hidden states to [batch_size, seq_len, hidden_size].
         for layer_output in &mut all_layer_outputs {
-            layer_output.output = layer_output.output.permute(&[0, 2, 1]);
+            *layer_output.output_mut() = layer_output.output().permute(&[0, 2, 1]);
         }
 
         all_layer_outputs
@@ -889,7 +881,7 @@ mod tests {
             all_hidden_states
                 .last()
                 .unwrap()
-                .output
+                .output()
                 .sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();
@@ -942,7 +934,7 @@ mod tests {
         let summed_last_hidden = all_hidden_states
             .last()
             .unwrap()
-            .output
+            .output()
             .slice(-2, 0, 9, 1)
             .sum1(&[-1], false, Kind::Float);
 

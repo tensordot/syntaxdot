@@ -18,6 +18,7 @@ use syntaxdot::model::bert::{BertModel, FreezeLayers};
 use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::tensor::Tensors;
 use syntaxdot::util::seq_len_to_mask;
+use syntaxdot_transformers::models::layer_output::LayerOutput;
 use tch::nn::VarStore;
 use tch::{self, Device, Kind, Reduction, Tensor};
 use tch_ext::RootExt;
@@ -29,7 +30,6 @@ use crate::traits::{
     ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
 };
 use crate::util::{autocast_or_preserve, count_conllu_sentences};
-use syntaxdot_transformers::models::bert::BertLayerOutput;
 
 const ATTENTION_LOSS: &str = "ATTENTION_LOSS";
 const BATCH_SIZE: &str = "BATCH_SIZE";
@@ -94,17 +94,17 @@ impl DistillApp {
     /// attentions.
     fn attention_loss(
         &self,
-        teacher_layer_outputs: &[BertLayerOutput],
-        student_layer_outputs: &[BertLayerOutput],
+        teacher_layer_outputs: &[LayerOutput],
+        student_layer_outputs: &[LayerOutput],
     ) -> Result<Tensor, SyntaxDotError> {
-        // Skip embedding layers, which do not have attention.
+        // Only apply attention loss to layers with attention.
         let teacher_attentions = teacher_layer_outputs
             .iter()
-            .filter_map(|l| l.attention.as_ref())
+            .filter_map(|l| l.attention())
             .collect::<Vec<_>>();
         let student_attentions = student_layer_outputs
             .iter()
-            .filter_map(|l| l.attention.as_ref())
+            .filter_map(|l| l.attention())
             .collect::<Vec<_>>();
 
         let teacher_attention = Tensor::stack(&teacher_attentions, 0);
