@@ -629,7 +629,7 @@ impl SyntaxDotApp for DistillApp {
             )
             .arg(
                 Arg::with_name(EVAL_STEPS)
-                    .long("eval_steps")
+                    .long("eval-steps")
                     .takes_value(true)
                     .value_name("N")
                     .help("Evaluate after N steps, save the model on improvement")
