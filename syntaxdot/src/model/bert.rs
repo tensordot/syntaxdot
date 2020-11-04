@@ -9,11 +9,12 @@ use hdf5::File;
 use syntaxdot_transformers::hdf5_model::LoadFromHDF5;
 use syntaxdot_transformers::layers::Dropout;
 use syntaxdot_transformers::models::albert::{AlbertConfig, AlbertEmbeddings, AlbertEncoder};
-use syntaxdot_transformers::models::bert::{
-    BertConfig, BertEmbeddings, BertEncoder, BertError, BertLayerOutput,
-};
+use syntaxdot_transformers::models::bert::{BertConfig, BertEmbeddings, BertEncoder, BertError};
+use syntaxdot_transformers::models::layer_output::LayerOutput;
 use syntaxdot_transformers::models::roberta::RobertaEmbeddings;
 use syntaxdot_transformers::models::sinusoidal::SinusoidalEmbeddings;
+use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertEncoder;
+use syntaxdot_transformers::models::squeeze_bert::SqueezeBertEncoder;
 use syntaxdot_transformers::models::Encoder as _;
 use tch::nn::ModuleT;
 use tch::{self, Tensor};
@@ -23,8 +24,6 @@ use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
 use crate::error::SyntaxDotError;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
-use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertEncoder;
-use syntaxdot_transformers::models::squeeze_bert::SqueezeBertEncoder;
 
 pub trait PretrainBertConfig {
     fn bert_config(&self) -> Cow<BertConfig>;
@@ -256,7 +255,7 @@ impl Encoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<BertLayerOutput> {
+    ) -> Vec<LayerOutput> {
         match self {
             Encoder::Bert(encoder) => encoder.encode(input, attention_mask, train),
             Encoder::Albert(encoder) => encoder.encode(input, attention_mask, train),
@@ -350,7 +349,7 @@ impl BertModel {
         attention_mask: &Tensor,
         train: bool,
         freeze_layers: FreezeLayers,
-    ) -> Vec<BertLayerOutput> {
+    ) -> Vec<LayerOutput> {
         let embeds = if freeze_layers.embeddings {
             tch::no_grad(|| self.embeddings.forward_t(inputs, train))
         } else {
@@ -364,10 +363,10 @@ impl BertModel {
         };
 
         for layer in &mut encoded {
-            layer.output = if freeze_layers.classifiers {
-                tch::no_grad(|| self.layers_dropout.forward_t(&layer.output, train))
+            *layer.output_mut() = if freeze_layers.classifiers {
+                tch::no_grad(|| self.layers_dropout.forward_t(&layer.output(), train))
             } else {
-                self.layers_dropout.forward_t(&layer.output, train)
+                self.layers_dropout.forward_t(&layer.output(), train)
             };
         }
 
@@ -403,7 +402,7 @@ impl BertModel {
     /// * `freeze_encoder`: exclude the encoder from backpropagation.
     pub fn logits_from_encoding(
         &self,
-        layer_outputs: &[BertLayerOutput],
+        layer_outputs: &[LayerOutput],
         train: bool,
     ) -> HashMap<String, Tensor> {
         self.seq_classifiers.forward_t(layer_outputs, train)

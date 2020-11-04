@@ -19,7 +19,8 @@ use tch::Tensor;
 use tch_ext::PathExt;
 
 use crate::models::albert::{AlbertConfig, AlbertEmbeddingProjection};
-use crate::models::bert::{BertConfig, BertError, BertLayerOutput};
+use crate::models::bert::{BertConfig, BertError};
+use crate::models::layer_output::LayerOutput;
 use crate::models::squeeze_bert::{SqueezeBertConfig, SqueezeBertLayer};
 use crate::models::traits::WordEmbeddingsConfig;
 use crate::models::Encoder;
@@ -226,17 +227,13 @@ impl Encoder for SqueezeAlbertEncoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<BertLayerOutput> {
+    ) -> Vec<LayerOutput> {
+        let hidden_states = self.projection.forward(&input);
+
+        let input = hidden_states.permute(&[0, 2, 1]);
+
         let mut all_layer_outputs = Vec::with_capacity(self.n_layers as usize + 1);
-
-        let input = self.projection.forward(&input);
-
-        let input = input.permute(&[0, 2, 1]);
-
-        all_layer_outputs.push(BertLayerOutput {
-            output: input.shallow_clone(),
-            attention: None,
-        });
+        all_layer_outputs.push(LayerOutput::Embedding(hidden_states.shallow_clone()));
 
         let attention_mask = attention_mask.map(|mask| LogitsMask::from_bool_mask(mask));
 
@@ -250,14 +247,14 @@ impl Encoder for SqueezeAlbertEncoder {
                 train,
             );
 
-            hidden_states = layer_output.output.shallow_clone();
+            hidden_states = layer_output.output().shallow_clone();
 
             all_layer_outputs.push(layer_output);
         }
 
         // Convert hidden states to [batch_size, seq_len, hidden_size].
         for layer_output in &mut all_layer_outputs {
-            layer_output.output = layer_output.output.permute(&[0, 2, 1]);
+            *layer_output.output_mut() = layer_output.output().permute(&[0, 2, 1]);
         }
 
         all_layer_outputs

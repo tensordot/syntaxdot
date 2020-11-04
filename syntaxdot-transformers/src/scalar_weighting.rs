@@ -6,7 +6,7 @@ use tch_ext::PathExt;
 
 use crate::cow::CowTensor;
 use crate::layers::{Dropout, LayerNorm};
-use crate::traits::LayerOutput;
+use crate::models::layer_output::LayerOutput;
 
 /// Non-linear ReLU layer with layer normalization and dropout.
 #[derive(Debug)]
@@ -86,7 +86,7 @@ impl ScalarWeight {
         }
     }
 
-    pub fn forward(&self, layers: &[impl LayerOutput], train: bool) -> Tensor {
+    pub fn forward(&self, layers: &[LayerOutput], train: bool) -> Tensor {
         assert_eq!(
             self.layer_weights.size()[0],
             layers.len() as i64,
@@ -95,10 +95,7 @@ impl ScalarWeight {
             layers.len()
         );
 
-        let layers = layers
-            .iter()
-            .map(LayerOutput::layer_output)
-            .collect::<Vec<_>>();
+        let layers = layers.iter().map(LayerOutput::output).collect::<Vec<_>>();
 
         // Each layer has shape:
         // [batch_size, sequence_len, layer_size],
@@ -189,12 +186,12 @@ impl ScalarWeightClassifier {
         }
     }
 
-    pub fn forward(&self, layers: &[impl LayerOutput], train: bool) -> Tensor {
+    pub fn forward(&self, layers: &[LayerOutput], train: bool) -> Tensor {
         let logits = self.logits(layers, train);
         logits.softmax(-1, Kind::Float)
     }
 
-    pub fn logits(&self, layers: &[impl LayerOutput], train: bool) -> Tensor {
+    pub fn logits(&self, layers: &[LayerOutput], train: bool) -> Tensor {
         let mut features = self.scalar_weight.forward(layers, train);
 
         features = self.dropout.forward_t(&features, train);
@@ -209,7 +206,7 @@ impl ScalarWeightClassifier {
     /// `targets` should be of the shape `[batch_size, seq_len]`.
     pub fn losses(
         &self,
-        layers: &[impl LayerOutput],
+        layers: &[LayerOutput],
         targets: &Tensor,
         label_smoothing: Option<f64>,
         train: bool,
@@ -294,10 +291,10 @@ mod tests {
     use ndarray::{array, ArrayD};
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
+    use tch_ext::RootExt;
 
     use super::{cross_entropy_loss, ScalarWeightClassifier, ScalarWeightClassifierConfig};
-    use crate::models::bert::BertLayerOutput;
-    use tch_ext::RootExt;
+    use crate::models::layer_output::{HiddenLayer, LayerOutput};
 
     fn varstore_variables(vs: &VarStore) -> BTreeSet<String> {
         vs.variables()
@@ -344,14 +341,14 @@ mod tests {
             },
         );
 
-        let layer1 = BertLayerOutput {
-            attention: Some(Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu))),
+        let layer1 = LayerOutput::EncoderWithAttention(HiddenLayer {
+            attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu)),
             output: Tensor::zeros(&[1, 3, 8], (Kind::Float, Device::Cpu)),
-        };
-        let layer2 = BertLayerOutput {
-            attention: Some(Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu))),
+        });
+        let layer2 = LayerOutput::EncoderWithAttention(HiddenLayer {
+            attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu)),
             output: Tensor::zeros(&[1, 3, 8], (Kind::Float, Device::Cpu)),
-        };
+        });
 
         // Perform a forward pass to check that all shapes align.
         let results = classifier.forward(&[layer1, layer2], false);

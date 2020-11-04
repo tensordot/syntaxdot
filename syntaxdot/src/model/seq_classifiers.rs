@@ -1,10 +1,10 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
+use syntaxdot_transformers::models::layer_output::LayerOutput;
 use syntaxdot_transformers::scalar_weighting::{
     ScalarWeightClassifier, ScalarWeightClassifierConfig,
 };
-use syntaxdot_transformers::traits::LayerOutput;
 use tch::{Kind, Tensor};
 use tch_ext::PathExt;
 
@@ -60,7 +60,7 @@ impl SequenceClassifiers {
     }
 
     /// Perform a forward pass of sequence classifiers.
-    pub fn forward_t(&self, layers: &[impl LayerOutput], train: bool) -> HashMap<String, Tensor> {
+    pub fn forward_t(&self, layers: &[LayerOutput], train: bool) -> HashMap<String, Tensor> {
         self.classifiers
             .iter()
             .map(|(encoder_name, classifier)| {
@@ -85,7 +85,7 @@ impl SequenceClassifiers {
     #[allow(clippy::too_many_arguments)]
     pub fn loss(
         &self,
-        layers: &[impl LayerOutput],
+        layers: &[LayerOutput],
         attention_mask: &Tensor,
         token_mask: &Tensor,
         targets: &HashMap<String, Tensor>,
@@ -113,7 +113,7 @@ impl SequenceClassifiers {
         }
 
         let summed_loss = encoder_losses.values().fold(
-            Tensor::zeros(&[], (Kind::Float, layers[0].layer_output().device())),
+            Tensor::zeros(&[], (Kind::Float, layers[0].output().device())),
             |summed_loss, loss| summed_loss + loss,
         );
 
@@ -129,7 +129,7 @@ impl SequenceClassifiers {
     /// This method computes the top-k labels and their probabilities for
     /// each sequence classifier, given the output of each layer. The function
     /// returns a mapping for the classifier name to `(probabilities, labels)`.
-    pub fn top_k(&self, layers: &[impl LayerOutput], k: usize) -> HashMap<String, TopK> {
+    pub fn top_k(&self, layers: &[LayerOutput], k: usize) -> HashMap<String, TopK> {
         self.classifiers
             .iter()
             .map(|(encoder_name, classifier)| {
