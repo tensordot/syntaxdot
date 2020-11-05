@@ -364,10 +364,13 @@ impl DistillApp {
             let optimizer = grad_scaler.optimizer_mut();
 
             optimizer.set_lr_group(ParameterGroup::Encoder as usize, lr_encoder.into());
-            optimizer.set_lr_group(ParameterGroup::EncoderLayerNorm as usize, lr_encoder.into());
+            optimizer.set_lr_group(
+                ParameterGroup::EncoderNoWeightDecay as usize,
+                lr_encoder.into(),
+            );
             optimizer.set_lr_group(ParameterGroup::Classifier as usize, lr_classifier.into());
             optimizer.set_lr_group(
-                ParameterGroup::ClassifierLayerNorm as usize,
+                ParameterGroup::ClassifierNoWeightDecay as usize,
                 lr_classifier.into(),
             );
 

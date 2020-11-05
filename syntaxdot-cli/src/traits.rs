@@ -11,8 +11,8 @@ pub static DEFAULT_CLAP_SETTINGS: &[AppSettings] = &[
 pub enum ParameterGroup {
     Encoder = 0,
     Classifier = 1,
-    EncoderLayerNorm = 2,
-    ClassifierLayerNorm = 3,
+    EncoderNoWeightDecay = 2,
+    ClassifierNoWeightDecay = 3,
 }
 
 pub trait SyntaxDotApp
@@ -30,14 +30,14 @@ pub trait SyntaxDotTrainApp: SyntaxDotApp {
     fn build_parameter_group_fun() -> fn(&str) -> usize {
         |name: &str| {
             if name.starts_with("classifiers") {
-                if name.contains("layer_norm") {
-                    ParameterGroup::ClassifierLayerNorm as usize
+                if name.contains("layer_norm") || name.contains("bias") {
+                    ParameterGroup::ClassifierNoWeightDecay as usize
                 } else {
                     ParameterGroup::Classifier as usize
                 }
             } else if name.starts_with("encoder") || name.starts_with("embeddings") {
-                if name.contains("layer_norm") {
-                    ParameterGroup::EncoderLayerNorm as usize
+                if name.contains("layer_norm") || name.contains("bias") {
+                    ParameterGroup::EncoderNoWeightDecay as usize
                 } else {
                     ParameterGroup::Encoder as usize
                 }
@@ -50,8 +50,8 @@ pub trait SyntaxDotTrainApp: SyntaxDotApp {
     fn build_optimizer(&self, var_store: &VarStore) -> Result<GradScaler<TchOptimizer<AdamW>>> {
         let opt = adamw(0.9, 0.999, self.weight_decay()).build(&var_store, 1e-3)?;
         let mut grad_scaler = GradScaler::new_with_defaults(self.mixed_precision(), opt)?;
-        grad_scaler.set_weight_decay_group(ParameterGroup::EncoderLayerNorm as usize, 0.);
-        grad_scaler.set_weight_decay_group(ParameterGroup::ClassifierLayerNorm as usize, 0.);
+        grad_scaler.set_weight_decay_group(ParameterGroup::EncoderNoWeightDecay as usize, 0.);
+        grad_scaler.set_weight_decay_group(ParameterGroup::ClassifierNoWeightDecay as usize, 0.);
         Ok(grad_scaler)
     }
 
