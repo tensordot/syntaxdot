@@ -140,12 +140,11 @@ impl FinetuneApp {
         let freeze_encoder = epoch == 0;
 
         for batch in dataset.batches(
-            encoders,
             tokenizer,
+            Some(encoders),
             self.batch_size,
             self.max_len,
             None,
-            true,
         )? {
             let batch = batch?;
 

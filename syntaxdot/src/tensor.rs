@@ -5,33 +5,25 @@ use std::ops::{Deref, DerefMut};
 use ndarray::{s, Array1, Array2, ArrayView1};
 use tch::Tensor;
 
-mod labels {
-    pub trait Labels {
-        fn from_shape(
-            encoder_names: impl IntoIterator<Item = impl Into<String>>,
-            batch_size: usize,
-            time_steps: usize,
-        ) -> Self;
-    }
-}
-
-/// No labels.
-#[derive(Default)]
-pub struct NoLabels;
-
-impl labels::Labels for NoLabels {
-    fn from_shape(
-        _encoder_names: impl IntoIterator<Item = impl Into<String>>,
-        _batch_size: usize,
-        _time_steps: usize,
-    ) -> Self {
-        NoLabels
-    }
-}
-
 /// Labels per encoder.
 pub struct LabelTensor {
     inner: HashMap<String, Array2<i64>>,
+}
+
+impl LabelTensor {
+    fn from_shape(
+        encoder_names: impl IntoIterator<Item = impl Into<String>>,
+        batch_size: usize,
+        time_steps: usize,
+    ) -> Self {
+        let labels = encoder_names
+            .into_iter()
+            .map(Into::into)
+            .map(|encoder_name| (encoder_name, Array2::zeros((batch_size, time_steps))))
+            .collect();
+
+        LabelTensor { inner: labels }
+    }
 }
 
 impl Deref for LabelTensor {
@@ -48,54 +40,54 @@ impl DerefMut for LabelTensor {
     }
 }
 
-impl labels::Labels for LabelTensor {
-    fn from_shape(
-        encoder_names: impl IntoIterator<Item = impl Into<String>>,
-        batch_size: usize,
-        time_steps: usize,
-    ) -> Self {
-        let labels = encoder_names
-            .into_iter()
-            .map(Into::into)
-            .map(|encoder_name| (encoder_name, Array2::zeros((batch_size, time_steps))))
-            .collect();
-
-        LabelTensor { inner: labels }
-    }
-}
-
 /// Build Torch `Tensor`s from `ndarray` vectors.
-pub struct TensorBuilder<L> {
+pub struct TensorBuilder {
     current_sequence: usize,
     inputs: Array2<i64>,
-    labels: L,
+    labels: Option<LabelTensor>,
     token_mask: Array2<i32>,
     seq_lens: Array1<i32>,
 }
 
-impl<L> TensorBuilder<L>
-where
-    L: labels::Labels,
-{
-    /// Create a new `TensorBuilder`.
+impl TensorBuilder {
+    /// Create a new `TensorBuilder` without labels.
     ///
-    /// Creates a new builder with the given batch size, number of time steps,
-    /// and encoder names.
-    pub fn new(
-        batch_size: usize,
-        max_seq_len: usize,
-        encoder_names: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Self {
-        let labels = L::from_shape(encoder_names, batch_size, max_seq_len);
+    /// Creates a new builder with the given batch size and number of
+    /// time steps.
+    pub fn new_without_labels(batch_size: usize, max_seq_len: usize) -> Self {
         TensorBuilder {
             current_sequence: 0,
             inputs: Array2::zeros((batch_size, max_seq_len)),
             token_mask: Array2::zeros((batch_size, max_seq_len)),
-            labels,
+            labels: None,
             seq_lens: Array1::zeros((batch_size,)),
         }
     }
 
+    /// Create a new `TensorBuilder` with labels.
+    ///
+    /// Creates a new builder with the given batch size, number of time steps,
+    /// and encoder names.
+    pub fn new_with_labels(
+        batch_size: usize,
+        max_seq_len: usize,
+        encoder_names: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        TensorBuilder {
+            current_sequence: 0,
+            inputs: Array2::zeros((batch_size, max_seq_len)),
+            token_mask: Array2::zeros((batch_size, max_seq_len)),
+            labels: Some(LabelTensor::from_shape(
+                encoder_names,
+                batch_size,
+                max_seq_len,
+            )),
+            seq_lens: Array1::zeros((batch_size,)),
+        }
+    }
+}
+
+impl TensorBuilder {
     /// Add an instance without labels.
     ///
     /// The `token_mask` should be a mask which is set to `true` for
@@ -121,9 +113,7 @@ where
 
         self.current_sequence += 1
     }
-}
 
-impl TensorBuilder<LabelTensor> {
     /// Add an instance with labels.
     pub fn add_with_labels(
         &mut self,
@@ -137,10 +127,10 @@ impl TensorBuilder<LabelTensor> {
         );
 
         assert_eq!(
-            self.labels.len(),
+            self.labels.as_ref().unwrap().len(),
             labels.len(),
             "Expected labels for {} encoders, got labels for {}",
-            self.labels.len(),
+            self.labels.as_ref().unwrap().len(),
             labels.len(),
         );
 
@@ -156,6 +146,8 @@ impl TensorBuilder<LabelTensor> {
 
             #[allow(clippy::deref_addrof)]
             self.labels
+                .as_mut()
+                .unwrap()
                 .get_mut(encoder_name)
                 .unwrap_or_else(|| panic!("Undefined encoder: {}", encoder_name))
                 .row_mut(self.current_sequence)
@@ -183,29 +175,19 @@ pub struct Tensors {
     pub seq_lens: Tensor,
 }
 
-impl From<TensorBuilder<NoLabels>> for Tensors {
-    fn from(builder: TensorBuilder<NoLabels>) -> Self {
-        Tensors {
-            inputs: builder.inputs.try_into().unwrap(),
-            labels: None,
-            token_mask: builder.token_mask.try_into().unwrap(),
-            seq_lens: builder.seq_lens.try_into().unwrap(),
-        }
-    }
-}
-
-impl From<TensorBuilder<LabelTensor>> for Tensors {
-    fn from(builder: TensorBuilder<LabelTensor>) -> Self {
-        let labels = builder
-            .labels
-            .inner
-            .into_iter()
-            .map(|(encoder_name, matrix)| (encoder_name, matrix.try_into().unwrap()))
-            .collect();
+impl From<TensorBuilder> for Tensors {
+    fn from(builder: TensorBuilder) -> Self {
+        let labels = builder.labels.map(|labels| {
+            labels
+                .inner
+                .into_iter()
+                .map(|(encoder_name, matrix)| (encoder_name, matrix.try_into().unwrap()))
+                .collect()
+        });
 
         Tensors {
             inputs: builder.inputs.try_into().unwrap(),
-            labels: Some(labels),
+            labels,
             token_mask: builder.token_mask.try_into().unwrap(),
             seq_lens: builder.seq_lens.try_into().unwrap(),
         }
@@ -217,11 +199,11 @@ mod tests {
     use ndarray::arr1;
     use tch::Tensor;
 
-    use super::{LabelTensor, NoLabels, TensorBuilder, Tensors};
+    use super::{TensorBuilder, Tensors};
 
     #[test]
     fn instances_are_added() {
-        let mut builder: TensorBuilder<NoLabels> = TensorBuilder::new(2, 3, vec!["a", "b"]);
+        let mut builder: TensorBuilder = TensorBuilder::new_without_labels(2, 3);
         builder.add_without_labels(arr1(&[1, 2]).view(), arr1(&[1, 0]).view());
         builder.add_without_labels(arr1(&[3, 4, 5]).view(), arr1(&[1, 0, 1]).view());
 
@@ -243,7 +225,7 @@ mod tests {
 
     #[test]
     fn instances_are_added_with_labels() {
-        let mut builder: TensorBuilder<LabelTensor> = TensorBuilder::new(2, 3, vec!["a", "b"]);
+        let mut builder: TensorBuilder = TensorBuilder::new_with_labels(2, 3, vec!["a", "b"]);
         builder.add_with_labels(
             arr1(&[1, 2]).view(),
             vec![("a", arr1(&[11, 12])), ("b", arr1(&[21, 22]))]
@@ -294,7 +276,7 @@ mod tests {
     #[should_panic]
     #[test]
     fn panics_when_labels_and_mask_len_differ() {
-        let mut builder: TensorBuilder<LabelTensor> = TensorBuilder::new(2, 3, vec!["a", "b"]);
+        let mut builder: TensorBuilder = TensorBuilder::new_with_labels(2, 3, vec!["a", "b"]);
         builder.add_with_labels(
             arr1(&[1, 2]).view(),
             vec![("a", arr1(&[11])), ("b", arr1(&[21, 22]))]
@@ -307,7 +289,7 @@ mod tests {
     #[should_panic]
     #[test]
     fn panics_when_too_many_instances_pushed() {
-        let mut builder: TensorBuilder<NoLabels> = TensorBuilder::new(1, 3, vec!["a", "b"]);
+        let mut builder: TensorBuilder = TensorBuilder::new_without_labels(1, 3);
         builder.add_without_labels(arr1(&[1, 2]).view(), arr1(&[1, 0]).view());
         builder.add_without_labels(arr1(&[3, 4, 5]).view(), arr1(&[1, 0, 1]).view());
     }
@@ -315,7 +297,7 @@ mod tests {
     #[should_panic]
     #[test]
     fn panics_when_labels_for_encoder_missing() {
-        let mut builder: TensorBuilder<LabelTensor> = TensorBuilder::new(2, 3, vec!["a", "b"]);
+        let mut builder: TensorBuilder = TensorBuilder::new_with_labels(2, 3, vec!["a", "b"]);
         builder.add_with_labels(
             arr1(&[1, 2]).view(),
             vec![("b", arr1(&[21, 22]))].into_iter().collect(),

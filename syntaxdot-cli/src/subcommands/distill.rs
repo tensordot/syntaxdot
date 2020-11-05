@@ -163,21 +163,19 @@ impl DistillApp {
             let mut student_train_dataset = Self::open_dataset(&student_train_file)?;
 
             let teacher_train_batches = teacher_train_dataset.batches(
-                &teacher.encoders,
                 &*teacher.tokenizer,
+                None,
                 self.batch_size,
                 self.max_len,
                 None,
-                false,
             )?;
 
             let student_train_batches = student_train_dataset.batches(
-                &teacher.encoders,
                 &*student.tokenizer,
+                None,
                 self.batch_size,
                 self.max_len,
                 None,
-                false,
             )?;
 
             for (teacher_steps, student_steps) in teacher_train_batches
@@ -478,12 +476,11 @@ impl DistillApp {
         let mut n_tokens = 0;
 
         for batch in dataset.batches(
-            encoders,
             tokenizer,
+            Some(encoders),
             self.batch_size,
             self.max_len,
             None,
-            true,
         )? {
             let batch = batch?;
 
