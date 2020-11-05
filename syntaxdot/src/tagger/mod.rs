@@ -10,7 +10,7 @@ use crate::encoders::Encoders;
 use crate::error::SyntaxDotError;
 use crate::input::SentenceWithPieces;
 use crate::model::bert::BertModel;
-use crate::tensor::{NoLabels, TensorBuilder, Tensors};
+use crate::tensor::{TensorBuilder, Tensors};
 use crate::util::seq_len_to_mask;
 
 /// A sequence tagger.
@@ -62,11 +62,8 @@ impl Tagger {
             .max()
             .unwrap_or(0);
 
-        let mut builder: TensorBuilder<NoLabels> = TensorBuilder::new(
-            sentences.len(),
-            max_seq_len,
-            self.encoders.iter().map(|encoder| encoder.name()),
-        );
+        let mut builder: TensorBuilder =
+            TensorBuilder::new_without_labels(sentences.len(), max_seq_len);
 
         for sentence in sentences {
             let sentence = sentence.borrow();
