@@ -33,43 +33,6 @@ use crate::models::layer_output::{HiddenLayer, LayerOutput};
 use crate::models::traits::WordEmbeddingsConfig;
 use crate::util::LogitsMask;
 
-/// Bert attention block.
-#[derive(Debug)]
-pub struct BertAttention {
-    self_attention: BertSelfAttention,
-    self_output: BertSelfOutput,
-}
-
-impl BertAttention {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
-        let vs = vs.borrow();
-
-        BertAttention {
-            self_attention: BertSelfAttention::new(vs / "self", config),
-            self_output: BertSelfOutput::new(vs / "output", config),
-        }
-    }
-
-    /// Apply the attention block.
-    ///
-    /// Outputs the hidden states and the attention probabilities.
-    pub fn forward_t(
-        &self,
-        hidden_states: &Tensor,
-        attention_mask: Option<&LogitsMask>,
-        train: bool,
-    ) -> (Tensor, Tensor) {
-        let (self_outputs, attention_probs) =
-            self.self_attention
-                .forward_t(hidden_states, attention_mask, train);
-        let attention_output = self
-            .self_output
-            .forward_t(&self_outputs, &hidden_states, train);
-
-        (attention_output, attention_probs)
-    }
-}
-
 /// Bert model configuration.
 #[serde(default)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -316,9 +279,11 @@ impl Module for BertIntermediate {
     }
 }
 
+/// BERT layer
 #[derive(Debug)]
 pub struct BertLayer {
-    attention: BertAttention,
+    attention: BertSelfAttention,
+    post_attention: BertSelfOutput,
     intermediate: BertIntermediate,
     output: BertOutput,
 }
@@ -326,9 +291,11 @@ pub struct BertLayer {
 impl BertLayer {
     pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Result<Self, BertError> {
         let vs = vs.borrow();
+        let vs_attention = vs / "attention";
 
         Ok(BertLayer {
-            attention: BertAttention::new(vs / "attention", config),
+            attention: BertSelfAttention::new(vs_attention.borrow() / "self", config),
+            post_attention: BertSelfOutput::new(vs_attention.borrow() / "output", config),
             intermediate: BertIntermediate::new(vs / "intermediate", config)?,
             output: BertOutput::new(vs / "output", config),
         })
@@ -341,10 +308,13 @@ impl BertLayer {
         train: bool,
     ) -> LayerOutput {
         let (attention_output, attention) = self.attention.forward_t(input, attention_mask, train);
-        let intermediate_output = self.intermediate.forward(&attention_output);
+        let post_attention_output = self
+            .post_attention
+            .forward_t(&attention_output, input, train);
+        let intermediate_output = self.intermediate.forward(&post_attention_output);
         let output = self
             .output
-            .forward_t(&intermediate_output, &attention_output, train);
+            .forward_t(&intermediate_output, &post_attention_output, train);
 
         LayerOutput::EncoderWithAttention(HiddenLayer { output, attention })
     }
@@ -612,36 +582,9 @@ mod hdf5_impl {
     use crate::hdf5_model::{load_affine, load_tensor, LoadFromHDF5};
     use crate::layers::{Dropout, Embedding, LayerNorm, PlaceInVarStore};
     use crate::models::bert::{
-        bert_activations, BertAttention, BertConfig, BertEmbeddings, BertEncoder, BertError,
-        BertIntermediate, BertLayer, BertOutput, BertSelfAttention, BertSelfOutput,
+        bert_activations, BertConfig, BertEmbeddings, BertEncoder, BertError, BertIntermediate,
+        BertLayer, BertOutput, BertSelfAttention, BertSelfOutput,
     };
-
-    impl LoadFromHDF5 for BertAttention {
-        type Config = BertConfig;
-
-        type Error = BertError;
-
-        fn load_from_hdf5<'a>(
-            vs: impl Borrow<PathExt<'a>>,
-            config: &Self::Config,
-            group: Group,
-        ) -> Result<Self, Self::Error> {
-            let vs = vs.borrow();
-
-            Ok(BertAttention {
-                self_attention: BertSelfAttention::load_from_hdf5(
-                    vs / "self",
-                    config,
-                    group.group("self")?,
-                )?,
-                self_output: BertSelfOutput::load_from_hdf5(
-                    vs / "output",
-                    config,
-                    group.group("output")?,
-                )?,
-            })
-        }
-    }
 
     impl LoadFromHDF5 for BertEmbeddings {
         type Config = BertConfig;
@@ -764,9 +707,21 @@ mod hdf5_impl {
             group: Group,
         ) -> Result<Self, BertError> {
             let vs = vs.borrow();
+            let vs_attention = vs / "attention";
+            let attention_group = group.group("attention")?;
 
-            let attention =
-                BertAttention::load_from_hdf5(vs / "attention", config, group.group("attention")?)?;
+            let attention = BertSelfAttention::load_from_hdf5(
+                vs_attention.borrow() / "self",
+                config,
+                attention_group.group("self")?,
+            )?;
+
+            let post_attention = BertSelfOutput::load_from_hdf5(
+                vs_attention.borrow() / "output",
+                config,
+                attention_group.group("output")?,
+            )?;
+
             let intermediate = BertIntermediate::load_from_hdf5(
                 vs / "intermediate",
                 config,
@@ -777,6 +732,7 @@ mod hdf5_impl {
 
             Ok(BertLayer {
                 attention,
+                post_attention,
                 intermediate,
                 output,
             })
