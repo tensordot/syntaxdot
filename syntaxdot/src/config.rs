@@ -7,13 +7,13 @@ use sentencepiece::SentencePieceProcessor;
 use serde::{Deserialize, Serialize};
 use syntaxdot_transformers::models::albert::AlbertConfig;
 use syntaxdot_transformers::models::bert::BertConfig;
+use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertConfig;
+use syntaxdot_transformers::models::squeeze_bert::SqueezeBertConfig;
 use wordpieces::WordPieces;
 
 use crate::encoders::EncodersConfig;
 use crate::error::SyntaxDotError;
 use crate::input::{AlbertTokenizer, BertTokenizer, Tokenize, XlmRobertaTokenizer};
-use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertConfig;
-use syntaxdot_transformers::models::squeeze_bert::SqueezeBertConfig;
 
 /// Input configuration.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

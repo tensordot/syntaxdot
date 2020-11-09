@@ -5,11 +5,12 @@ use std::path;
 
 #[cfg(feature = "load-hdf5")]
 use hdf5::File;
+use syntaxdot_transformers::error::BertError;
 #[cfg(feature = "load-hdf5")]
 use syntaxdot_transformers::hdf5_model::LoadFromHDF5;
 use syntaxdot_transformers::layers::Dropout;
 use syntaxdot_transformers::models::albert::{AlbertConfig, AlbertEmbeddings, AlbertEncoder};
-use syntaxdot_transformers::models::bert::{BertConfig, BertEmbeddings, BertEncoder, BertError};
+use syntaxdot_transformers::models::bert::{BertConfig, BertEmbeddings, BertEncoder};
 use syntaxdot_transformers::models::layer_output::LayerOutput;
 use syntaxdot_transformers::models::roberta::RobertaEmbeddings;
 use syntaxdot_transformers::models::sinusoidal::SinusoidalEmbeddings;

@@ -18,8 +18,9 @@ use tch::nn::Module;
 use tch::Tensor;
 use tch_ext::PathExt;
 
+use crate::error::BertError;
 use crate::models::albert::{AlbertConfig, AlbertEmbeddingProjection};
-use crate::models::bert::{BertConfig, BertError};
+use crate::models::bert::BertConfig;
 use crate::models::layer_output::LayerOutput;
 use crate::models::squeeze_bert::{SqueezeBertConfig, SqueezeBertLayer};
 use crate::models::traits::WordEmbeddingsConfig;

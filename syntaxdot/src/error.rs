@@ -1,7 +1,7 @@
 use std::io;
 
 use ndarray::ShapeError;
-use syntaxdot_transformers::models::bert::BertError;
+use syntaxdot_transformers::error::BertError;
 use thiserror::Error;
 
 use crate::encoders::{DecoderError, EncoderError};

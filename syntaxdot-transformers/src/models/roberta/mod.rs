@@ -78,8 +78,9 @@ mod hdf5_impl {
     use hdf5::Group;
     use tch_ext::PathExt;
 
+    use crate::error::BertError;
     use crate::hdf5_model::LoadFromHDF5;
-    use crate::models::bert::{BertConfig, BertEmbeddings, BertError};
+    use crate::models::bert::{BertConfig, BertEmbeddings};
     use crate::models::roberta::RobertaEmbeddings;
 
     impl LoadFromHDF5 for RobertaEmbeddings {
