@@ -7,7 +7,8 @@ use tch::nn::{Linear, Module, ModuleT};
 use tch::Tensor;
 use tch_ext::PathExt;
 
-use crate::models::bert::{bert_linear, BertConfig, BertEmbeddings, BertError, BertLayer};
+use crate::error::BertError;
+use crate::models::bert::{bert_linear, BertConfig, BertEmbeddings, BertLayer};
 use crate::models::layer_output::LayerOutput;
 use crate::models::traits::WordEmbeddingsConfig;
 use crate::models::Encoder;
@@ -253,12 +254,13 @@ mod hdf5_impl {
     use tch::nn::Linear;
     use tch_ext::PathExt;
 
+    use crate::error::BertError;
     use crate::hdf5_model::{load_affine, LoadFromHDF5};
     use crate::layers::PlaceInVarStore;
     use crate::models::albert::{
         AlbertConfig, AlbertEmbeddingProjection, AlbertEmbeddings, AlbertEncoder,
     };
-    use crate::models::bert::{BertConfig, BertEmbeddings, BertError, BertLayer};
+    use crate::models::bert::{BertConfig, BertEmbeddings, BertLayer};
 
     impl LoadFromHDF5 for AlbertEmbeddings {
         type Config = AlbertConfig;

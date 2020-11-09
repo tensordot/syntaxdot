@@ -26,8 +26,9 @@ use tch::nn::{Module, ModuleT};
 use tch::{Kind, Tensor};
 use tch_ext::PathExt;
 
+use crate::error::BertError;
 use crate::layers::{Conv1D, Dropout, LayerNorm};
-use crate::models::bert::{bert_activations, BertError};
+use crate::models::bert::bert_activations;
 use crate::models::layer_output::{HiddenLayer, LayerOutput};
 use crate::models::{BertConfig, Encoder};
 use crate::util::LogitsMask;
@@ -467,7 +468,8 @@ mod hdf5_impl {
     use crate::hdf5_model::{load_conv1d, load_tensor, LoadFromHDF5};
     use crate::layers::{Conv1D, Dropout, LayerNorm, PlaceInVarStore};
 
-    use crate::models::bert::{bert_activations, BertError};
+    use crate::error::BertError;
+    use crate::models::bert::bert_activations;
     use crate::models::squeeze_bert::{
         ConvActivation, ConvDropoutLayerNorm, SqueezeBertConfig, SqueezeBertEncoder,
         SqueezeBertLayer, SqueezeBertLayerNorm, SqueezeBertSelfAttention,
