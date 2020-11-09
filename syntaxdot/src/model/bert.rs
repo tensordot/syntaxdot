@@ -5,7 +5,7 @@ use std::path;
 
 #[cfg(feature = "load-hdf5")]
 use hdf5::File;
-use syntaxdot_transformers::error::BertError;
+use syntaxdot_transformers::error::TransformerError;
 #[cfg(feature = "load-hdf5")]
 use syntaxdot_transformers::hdf5_model::LoadFromHDF5;
 use syntaxdot_transformers::layers::Dropout;
@@ -192,7 +192,7 @@ impl Encoder {
     fn new<'a>(
         vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
-    ) -> Result<Self, BertError> {
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow() / "encoder";
 
         let encoder = match pretrain_config {
@@ -295,7 +295,7 @@ impl BertModel {
         encoders: &Encoders,
         layers_dropout: f64,
         position_embeddings: PositionEmbeddings,
-    ) -> Result<Self, BertError> {
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let embeddings = BertEmbeddingLayer::new(vs, pretrain_config, position_embeddings);

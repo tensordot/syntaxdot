@@ -139,7 +139,7 @@ mod hdf5_impl {
     use tch_ext::PathExt;
 
     use super::BertEmbeddings;
-    use crate::error::BertError;
+    use crate::error::TransformerError;
     use crate::hdf5_model::{load_tensor, LoadFromHDF5};
     use crate::layers::{Dropout, Embedding, LayerNorm, PlaceInVarStore};
     use crate::models::bert::BertConfig;
@@ -147,7 +147,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for BertEmbeddings {
         type Config = BertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,

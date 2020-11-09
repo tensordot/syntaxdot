@@ -22,7 +22,7 @@ use tch::{Kind, Tensor};
 use tch_ext::PathExt;
 
 use crate::activations;
-use crate::error::BertError;
+use crate::error::TransformerError;
 use crate::layers::{Dropout, LayerNorm};
 use crate::models::bert::config::BertConfig;
 use crate::models::layer_output::{HiddenLayer, LayerOutput};
@@ -35,12 +35,19 @@ pub struct BertIntermediate {
 }
 
 impl BertIntermediate {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Result<Self, BertError> {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &BertConfig,
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let activation = match bert_activations(&config.hidden_act) {
             Some(activation) => activation,
-            None => return Err(BertError::unknown_activation_function(&config.hidden_act)),
+            None => {
+                return Err(TransformerError::unknown_activation_function(
+                    &config.hidden_act,
+                ))
+            }
         };
 
         Ok(BertIntermediate {
@@ -74,7 +81,10 @@ pub struct BertLayer {
 }
 
 impl BertLayer {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Result<Self, BertError> {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &BertConfig,
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
         let vs_attention = vs / "attention";
 
@@ -343,7 +353,7 @@ mod hdf5_impl {
         bert_activations, BertIntermediate, BertLayer, BertOutput, BertSelfAttention,
         BertSelfOutput,
     };
-    use crate::error::BertError;
+    use crate::error::TransformerError;
     use crate::hdf5_model::{load_affine, load_tensor, LoadFromHDF5};
     use crate::layers::{Dropout, LayerNorm, PlaceInVarStore};
     use crate::models::bert::BertConfig;
@@ -351,7 +361,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for BertIntermediate {
         type Config = BertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
@@ -368,7 +378,11 @@ mod hdf5_impl {
 
             let activation = match bert_activations(&config.hidden_act) {
                 Some(activation) => activation,
-                None => return Err(BertError::unknown_activation_function(&config.hidden_act)),
+                None => {
+                    return Err(TransformerError::unknown_activation_function(
+                        &config.hidden_act,
+                    ))
+                }
             };
 
             Ok(BertIntermediate {
@@ -385,13 +399,13 @@ mod hdf5_impl {
     impl LoadFromHDF5 for BertLayer {
         type Config = BertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
-        ) -> Result<Self, BertError> {
+        ) -> Result<Self, TransformerError> {
             let vs = vs.borrow();
             let vs_attention = vs / "attention";
             let attention_group = group.group("attention")?;
@@ -428,7 +442,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for BertOutput {
         type Config = BertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
@@ -472,7 +486,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for BertSelfAttention {
         type Config = BertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
@@ -534,7 +548,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for BertSelfOutput {
         type Config = BertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,

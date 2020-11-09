@@ -18,7 +18,7 @@ use tch::nn::Module;
 use tch::Tensor;
 use tch_ext::PathExt;
 
-use crate::error::BertError;
+use crate::error::TransformerError;
 use crate::models::albert::{AlbertConfig, AlbertEmbeddingProjection};
 use crate::models::bert::BertConfig;
 use crate::models::layer_output::LayerOutput;
@@ -195,7 +195,7 @@ impl SqueezeAlbertEncoder {
     pub fn new<'a>(
         vs: impl Borrow<PathExt<'a>>,
         config: &SqueezeAlbertConfig,
-    ) -> Result<Self, BertError> {
+    ) -> Result<Self, TransformerError> {
         assert!(
             config.num_hidden_groups > 0,
             "Need at least 1 hidden group, got: {}",
