@@ -1,7 +1,7 @@
 use std::io;
 
 use ndarray::ShapeError;
-use syntaxdot_transformers::error::BertError;
+use syntaxdot_transformers::error::TransformerError;
 use thiserror::Error;
 
 use crate::encoders::{DecoderError, EncoderError};
@@ -10,7 +10,7 @@ use crate::encoders::{DecoderError, EncoderError};
 #[derive(Debug, Error)]
 pub enum SyntaxDotError {
     #[error(transparent)]
-    BertError(#[from] BertError),
+    BertError(#[from] TransformerError),
 
     #[error(transparent)]
     ConlluIOError(#[from] conllu::IOError),

@@ -26,7 +26,7 @@ use tch::nn::{Module, ModuleT};
 use tch::{Kind, Tensor};
 use tch_ext::PathExt;
 
-use crate::error::BertError;
+use crate::error::TransformerError;
 use crate::layers::{Conv1D, Dropout, LayerNorm};
 use crate::models::bert::bert_activations;
 use crate::models::layer_output::{HiddenLayer, LayerOutput};
@@ -178,12 +178,12 @@ impl ConvActivation {
         cout: i64,
         groups: i64,
         activation: &str,
-    ) -> Result<Self, BertError> {
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let activation = match bert_activations(activation) {
             Some(activation) => activation,
-            None => return Err(BertError::unknown_activation_function(activation)),
+            None => return Err(TransformerError::unknown_activation_function(activation)),
         };
 
         Ok(ConvActivation {
@@ -341,7 +341,7 @@ impl SqueezeBertLayer {
     pub fn new<'a>(
         vs: impl Borrow<PathExt<'a>>,
         config: &SqueezeBertConfig,
-    ) -> Result<Self, BertError> {
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         Ok(SqueezeBertLayer {
@@ -411,7 +411,7 @@ impl SqueezeBertEncoder {
     pub fn new<'a>(
         vs: impl Borrow<PathExt<'a>>,
         config: &SqueezeBertConfig,
-    ) -> Result<Self, BertError> {
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let layers = (0..config.num_hidden_layers)
@@ -468,7 +468,7 @@ mod hdf5_impl {
     use crate::hdf5_model::{load_conv1d, load_tensor, LoadFromHDF5};
     use crate::layers::{Conv1D, Dropout, LayerNorm, PlaceInVarStore};
 
-    use crate::error::BertError;
+    use crate::error::TransformerError;
     use crate::models::bert::bert_activations;
     use crate::models::squeeze_bert::{
         ConvActivation, ConvDropoutLayerNorm, SqueezeBertConfig, SqueezeBertEncoder,
@@ -478,7 +478,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for SqueezeBertSelfAttention {
         type Config = SqueezeBertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
@@ -563,10 +563,10 @@ mod hdf5_impl {
             output_features: i64,
             groups: i64,
             group: Group,
-        ) -> Result<Self, BertError> {
+        ) -> Result<Self, TransformerError> {
             let activation = match bert_activations(activation) {
                 Some(activation) => activation,
-                None => return Err(BertError::unknown_activation_function(activation)),
+                None => return Err(TransformerError::unknown_activation_function(activation)),
             };
 
             // Fix: shapes are not always like this!
@@ -604,7 +604,7 @@ mod hdf5_impl {
             layer_norm_eps: f64,
             hidden_dropout_prob: f64,
             group: Group,
-        ) -> Result<Self, BertError> {
+        ) -> Result<Self, TransformerError> {
             let vs = vs.borrow();
 
             let vs = vs.borrow();
@@ -653,7 +653,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for SqueezeBertLayer {
         type Config = SqueezeBertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
@@ -701,13 +701,13 @@ mod hdf5_impl {
     impl LoadFromHDF5 for SqueezeBertEncoder {
         type Config = SqueezeBertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
-        ) -> Result<Self, BertError> {
+        ) -> Result<Self, TransformerError> {
             let vs = vs.borrow();
 
             let layers = (0..config.num_hidden_layers)

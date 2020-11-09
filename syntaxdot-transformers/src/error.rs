@@ -2,7 +2,7 @@ use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
 #[non_exhaustive]
-pub enum BertError {
+pub enum TransformerError {
     #[cfg(feature = "load-hdf5")]
     #[error(transparent)]
     HDF5(#[from] hdf5::Error),
@@ -17,9 +17,9 @@ pub enum BertError {
     UnknownActivationFunction { activation: String },
 }
 
-impl BertError {
+impl TransformerError {
     pub(crate) fn unknown_activation_function(activation: impl Into<String>) -> Self {
-        BertError::UnknownActivationFunction {
+        TransformerError::UnknownActivationFunction {
             activation: activation.into(),
         }
     }

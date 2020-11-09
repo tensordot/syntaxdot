@@ -7,7 +7,7 @@ use tch::nn::{Linear, Module, ModuleT};
 use tch::Tensor;
 use tch_ext::PathExt;
 
-use crate::error::BertError;
+use crate::error::TransformerError;
 use crate::models::bert::{bert_linear, BertConfig, BertEmbeddings, BertLayer};
 use crate::models::layer_output::LayerOutput;
 use crate::models::traits::WordEmbeddingsConfig;
@@ -182,7 +182,10 @@ pub struct AlbertEncoder {
 }
 
 impl AlbertEncoder {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &AlbertConfig) -> Result<Self, BertError> {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &AlbertConfig,
+    ) -> Result<Self, TransformerError> {
         assert!(
             config.num_hidden_groups > 0,
             "Need at least 1 hidden group, got: {}",
@@ -254,7 +257,7 @@ mod hdf5_impl {
     use tch::nn::Linear;
     use tch_ext::PathExt;
 
-    use crate::error::BertError;
+    use crate::error::TransformerError;
     use crate::hdf5_model::{load_affine, LoadFromHDF5};
     use crate::layers::PlaceInVarStore;
     use crate::models::albert::{
@@ -265,7 +268,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for AlbertEmbeddings {
         type Config = AlbertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
@@ -287,7 +290,7 @@ mod hdf5_impl {
     impl LoadFromHDF5 for AlbertEmbeddingProjection {
         type Config = AlbertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
@@ -315,13 +318,13 @@ mod hdf5_impl {
     impl LoadFromHDF5 for AlbertEncoder {
         type Config = AlbertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
-        ) -> Result<Self, BertError> {
+        ) -> Result<Self, TransformerError> {
             assert!(
                 config.num_hidden_groups > 0,
                 "Need at least 1 hidden group, got: {}",

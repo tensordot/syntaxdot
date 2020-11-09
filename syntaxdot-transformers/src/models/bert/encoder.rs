@@ -20,7 +20,7 @@ use tch::Tensor;
 use tch_ext::PathExt;
 
 use crate::cow::CowTensor;
-use crate::error::BertError;
+use crate::error::TransformerError;
 use crate::models::bert::BertLayer;
 use crate::models::layer_output::LayerOutput;
 use crate::models::{BertConfig, Encoder};
@@ -32,7 +32,10 @@ pub struct BertEncoder {
 }
 
 impl BertEncoder {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Result<Self, BertError> {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &BertConfig,
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let layers = (0..config.num_hidden_layers)
@@ -78,20 +81,20 @@ mod hdf5_impl {
     use tch_ext::PathExt;
 
     use super::BertEncoder;
-    use crate::error::BertError;
+    use crate::error::TransformerError;
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertLayer};
 
     impl LoadFromHDF5 for BertEncoder {
         type Config = BertConfig;
 
-        type Error = BertError;
+        type Error = TransformerError;
 
         fn load_from_hdf5<'a>(
             vs: impl Borrow<PathExt<'a>>,
             config: &Self::Config,
             group: Group,
-        ) -> Result<Self, BertError> {
+        ) -> Result<Self, TransformerError> {
             let vs = vs.borrow();
 
             let layers = (0..config.num_hidden_layers)
