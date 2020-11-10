@@ -1,16 +1,13 @@
-use std::convert::TryFrom;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufReader, Read};
 use std::path::Path;
 
-use sentencepiece::SentencePieceProcessor;
 use serde::{Deserialize, Serialize};
 use syntaxdot_tokenizers::{AlbertTokenizer, BertTokenizer, Tokenize, XlmRobertaTokenizer};
 use syntaxdot_transformers::models::albert::AlbertConfig;
 use syntaxdot_transformers::models::bert::BertConfig;
 use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertConfig;
 use syntaxdot_transformers::models::squeeze_bert::SqueezeBertConfig;
-use wordpieces::WordPieces;
 
 use crate::encoders::EncodersConfig;
 use crate::error::SyntaxDotError;
@@ -190,17 +187,16 @@ impl Config {
     pub fn tokenizer(&self) -> Result<Box<dyn Tokenize>, SyntaxDotError> {
         match self.input.tokenizer {
             Tokenizer::Albert { ref vocab } => {
-                let spp = SentencePieceProcessor::load(vocab)?;
-                Ok(Box::new(AlbertTokenizer::from(spp)))
+                let tokenizer = AlbertTokenizer::open(vocab)?;
+                Ok(Box::new(tokenizer))
             }
             Tokenizer::Bert { ref vocab } => {
-                let f = File::open(vocab)?;
-                let pieces = WordPieces::try_from(BufReader::new(f).lines())?;
-                Ok(Box::new(BertTokenizer::new(pieces, "[UNK]")))
+                let tokenizer = BertTokenizer::open(vocab, "[UNK]")?;
+                Ok(Box::new(tokenizer))
             }
             Tokenizer::XlmRoberta { ref vocab } => {
-                let spp = SentencePieceProcessor::load(vocab)?;
-                Ok(Box::new(XlmRobertaTokenizer::from(spp)))
+                let tokenizer = XlmRobertaTokenizer::open(vocab)?;
+                Ok(Box::new(tokenizer))
             }
         }
     }

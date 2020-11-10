@@ -7,6 +7,9 @@ pub use albert::AlbertTokenizer;
 mod bert;
 pub use bert::BertTokenizer;
 
+mod error;
+pub use error::TokenizerError;
+
 mod xlm_roberta;
 pub use xlm_roberta::XlmRobertaTokenizer;
 

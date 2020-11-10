@@ -1,7 +1,13 @@
+use std::convert::TryFrom;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+
 use conllu::graph::{Node, Sentence};
 use wordpieces::WordPieces;
 
 use super::{SentenceWithPieces, Tokenize};
+use crate::TokenizerError;
+use std::path::Path;
 
 /// BERT word piece tokenizer.
 ///
@@ -31,6 +37,27 @@ impl BertTokenizer {
             word_pieces,
             unknown_piece: unknown_piece.into(),
         }
+    }
+
+    pub fn open<P>(model_path: P, unknown_piece: impl Into<String>) -> Result<Self, TokenizerError>
+    where
+        P: AsRef<Path>,
+    {
+        let model_path = model_path.as_ref();
+        let f = File::open(model_path)
+            .map_err(|err| TokenizerError::open_error(model_path.to_string_lossy(), err))?;
+        Self::read(BufReader::new(f), unknown_piece)
+    }
+
+    pub fn read<R>(
+        buf_read: R,
+        unknown_piece: impl Into<String>,
+    ) -> Result<BertTokenizer, TokenizerError>
+    where
+        R: BufRead,
+    {
+        let word_pieces = WordPieces::try_from(buf_read.lines())?;
+        Ok(Self::new(word_pieces, unknown_piece))
     }
 }
 

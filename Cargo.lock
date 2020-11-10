@@ -1649,7 +1649,6 @@ dependencies = [
  "ordered-float",
  "rand",
  "rand_xorshift",
- "sentencepiece",
  "serde",
  "serde_json",
  "syntaxdot-encoders",
@@ -1659,7 +1658,6 @@ dependencies = [
  "tch-ext",
  "thiserror",
  "toml",
- "wordpieces",
 ]
 
 [[package]]
@@ -1707,6 +1705,7 @@ dependencies = [
  "conllu",
  "ndarray",
  "sentencepiece",
+ "thiserror",
  "wordpieces",
 ]
 
