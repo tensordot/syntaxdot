@@ -42,6 +42,10 @@ model](https://github.com/stickeritis/sticker2/blob/master/doc/pretrained.md)
   * Standalone binary that links against PyTorch's `libtorch`
   * Very liberal [license](LICENSE.md)
 
+## Documentation
+
+* [Installation](doc/install.md)
+
 ## References
 
 SyntaxDot uses techniques from or was inspired by the following papers:
@@ -66,8 +70,6 @@ SyntaxDot uses techniques from or was inspired by the following papers:
   a Machine-Learning Architecture for Lexical Functional Grammar
   Parsing](http://grzegorz.chrupala.me/papers/phd-single.pdf).
   Grzegorz Chrupała, 2008, PhD dissertation, Dublin City University.
-
-## Documentation
 
 ## Issues
 
