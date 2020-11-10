@@ -1,7 +1,10 @@
+use std::path::Path;
+
 use conllu::graph::{Node, Sentence};
 use sentencepiece::SentencePieceProcessor;
 
 use super::{SentenceWithPieces, Tokenize};
+use crate::TokenizerError;
 
 const FAIRSEQ_BOS_ID: i64 = 0;
 const FAIRSEQ_EOS_ID: i64 = 2;
@@ -21,6 +24,14 @@ pub struct XlmRobertaTokenizer {
 impl XlmRobertaTokenizer {
     pub fn new(spp: SentencePieceProcessor) -> Self {
         XlmRobertaTokenizer { spp }
+    }
+
+    pub fn open<P>(model: P) -> Result<Self, TokenizerError>
+    where
+        P: AsRef<Path>,
+    {
+        let spp = SentencePieceProcessor::load(&model.as_ref().to_string_lossy())?;
+        Ok(Self::new(spp))
     }
 }
 

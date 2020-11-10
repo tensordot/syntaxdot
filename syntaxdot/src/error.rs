@@ -5,6 +5,7 @@ use syntaxdot_transformers::error::TransformerError;
 use thiserror::Error;
 
 use crate::encoders::{DecoderError, EncoderError};
+use syntaxdot_tokenizers::TokenizerError;
 
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -41,14 +42,11 @@ pub enum SyntaxDotError {
     RelativizePathError(String),
 
     #[error(transparent)]
-    SentencePieceError(#[from] sentencepiece::SentencePieceError),
-
-    #[error(transparent)]
     ShapeError(#[from] ShapeError),
 
     #[error(transparent)]
     TOMLDeserializationError(#[from] toml::de::Error),
 
     #[error(transparent)]
-    WordPiecesError(#[from] wordpieces::WordPiecesError),
+    TokenizerError(#[from] TokenizerError),
 }
