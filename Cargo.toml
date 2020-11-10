@@ -1,2 +1,9 @@
 [workspace]
-members = ["syntaxdot-encoders", "syntaxdot-transformers", "syntaxdot", "syntaxdot-cli", "tch-ext"]
+members = [
+    "syntaxdot-encoders",
+    "syntaxdot-tokenizers",
+    "syntaxdot-transformers",
+    "syntaxdot",
+    "syntaxdot-cli",
+    "tch-ext"
+]

@@ -1,43 +1,44 @@
 use conllu::graph::{Node, Sentence};
 use sentencepiece::SentencePieceProcessor;
 
-use crate::input::{SentenceWithPieces, Tokenize};
+use super::{SentenceWithPieces, Tokenize};
 
-const FAIRSEQ_BOS_ID: i64 = 0;
-const FAIRSEQ_EOS_ID: i64 = 2;
-const FAIRSEQ_OFFSET: i64 = 1;
-
-/// Tokenizer for Roberta models.
+/// Tokenizer for ALBERT models.
 ///
-/// Roberta uses the sentencepiece tokenizer. However, we cannot use
+/// ALBERT uses the sentencepiece tokenizer. However, we cannot use
 /// it in the intended way: we would have to detokenize sentences and
 /// it is not guaranteed that each token has a unique piece, which is
 /// required in sequence labeling. So instead, we use the tokenizer as
 /// a subword tokenizer.
-pub struct XlmRobertaTokenizer {
+pub struct AlbertTokenizer {
     spp: SentencePieceProcessor,
 }
 
-impl XlmRobertaTokenizer {
+impl AlbertTokenizer {
     pub fn new(spp: SentencePieceProcessor) -> Self {
-        XlmRobertaTokenizer { spp }
+        AlbertTokenizer { spp }
     }
 }
 
-impl From<SentencePieceProcessor> for XlmRobertaTokenizer {
+impl From<SentencePieceProcessor> for AlbertTokenizer {
     fn from(spp: SentencePieceProcessor) -> Self {
-        XlmRobertaTokenizer::new(spp)
+        AlbertTokenizer::new(spp)
     }
 }
 
-impl Tokenize for XlmRobertaTokenizer {
+impl Tokenize for AlbertTokenizer {
     fn tokenize(&self, sentence: Sentence) -> SentenceWithPieces {
         // An average of three pieces per token ought to be enough for
         // everyone ;).
-        let mut pieces = Vec::with_capacity((sentence.len() - 1) * 3);
+        let mut pieces = Vec::with_capacity((sentence.len() + 1) * 3);
         let mut token_offsets = Vec::with_capacity(sentence.len());
 
-        pieces.push(FAIRSEQ_BOS_ID);
+        pieces.push(
+            self.spp
+                .piece_to_id("[CLS]")
+                .expect("ALBERT model does not have a [CLS] token")
+                .expect("ALBERT model does not have a [CLS] token") as i64,
+        );
 
         for token in sentence.iter().filter_map(Node::token) {
             token_offsets.push(pieces.len());
@@ -48,11 +49,7 @@ impl Tokenize for XlmRobertaTokenizer {
                 .expect("The sentencepiece tokenizer failed");
 
             if !token_pieces.is_empty() {
-                pieces.extend(
-                    token_pieces
-                        .into_iter()
-                        .map(|piece| piece.id as i64 + FAIRSEQ_OFFSET),
-                );
+                pieces.extend(token_pieces.into_iter().map(|piece| piece.id as i64));
             } else {
                 // Use the unknown token id if sentencepiece does not
                 // give an output for the token. This should not
@@ -61,11 +58,16 @@ impl Tokenize for XlmRobertaTokenizer {
                 // tokens. However, the input may be corrupt and use
                 // some form of non-tab whitespace as a form, for which
                 // sentencepiece does not return any identifier.
-                pieces.push(self.spp.unknown_id() as i64 + FAIRSEQ_OFFSET);
+                pieces.push(self.spp.unknown_id() as i64);
             }
         }
 
-        pieces.push(FAIRSEQ_EOS_ID);
+        pieces.push(
+            self.spp
+                .piece_to_id("[SEP]")
+                .expect("ALBERT model does not have a [SEP] token")
+                .expect("ALBERT model does not have a [SEP] token") as i64,
+        );
 
         SentenceWithPieces {
             pieces: pieces.into(),
@@ -85,33 +87,33 @@ mod tests {
     use ndarray::array;
     use sentencepiece::SentencePieceProcessor;
 
-    use crate::input::{Tokenize, XlmRobertaTokenizer};
+    use crate::input::{AlbertTokenizer, Tokenize};
 
     fn sentence_from_forms(forms: &[&str]) -> Sentence {
         Sentence::from_iter(forms.iter().map(|&f| Token::new(f)))
     }
 
-    fn xlm_roberta_tokenizer() -> XlmRobertaTokenizer {
-        let spp = SentencePieceProcessor::load(env!("XLM_ROBERTA_BASE_SENTENCEPIECE")).unwrap();
-        XlmRobertaTokenizer::from(spp)
+    fn albert_tokenizer() -> AlbertTokenizer {
+        let spp = SentencePieceProcessor::load(env!("ALBERT_BASE_V2_SENTENCEPIECE")).unwrap();
+        AlbertTokenizer::new(spp)
     }
 
     #[test]
     fn tokenizer_gives_expected_output() {
-        let tokenizer = xlm_roberta_tokenizer();
-        let sent = sentence_from_forms(&["Veruntreute", "die", "AWO", "Spendengeld", "?"]);
+        let tokenizer = albert_tokenizer();
+        let sent = sentence_from_forms(&["pierre", "vinken", "will", "join", "the", "board", "."]);
         let pieces = tokenizer.tokenize(sent);
         assert_eq!(
             pieces.pieces,
-            array![0, 310, 23451, 107, 6743, 68, 62, 43789, 207126, 49004, 705, 2]
+            array![2, 5399, 9730, 2853, 129, 1865, 14, 686, 13, 9, 3]
         );
     }
 
     #[test]
     fn handles_missing_sentence_pieces() {
-        let tokenizer = xlm_roberta_tokenizer();
-        let sent = sentence_from_forms(&["die", " ", "AWO"]);
+        let tokenizer = albert_tokenizer();
+        let sent = sentence_from_forms(&["pierre", " ", "vinken"]);
         let pieces = tokenizer.tokenize(sent);
-        assert_eq!(pieces.pieces, array![0, 68, 1, 62, 43789, 2]);
+        assert_eq!(pieces.pieces, array![2, 5399, 1, 9730, 2853, 3]);
     }
 }

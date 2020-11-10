@@ -1,0 +1,16 @@
+[package]
+name = "syntaxdot-tokenizers"
+version = "0.1.0"
+authors = ["Daniël de Kok <me@danieldk.eu>"]
+edition = "2018"
+description = "Subword tokenizers"
+homepage = "https://github.com/tensordot/syntaxdot"
+repository = "https://github.com/tensordot/syntaxdot.git"
+documentation = "https://docs.rs/syntaxdot-tokenizers/"
+license = "BlueOak-1.0.0"
+
+[dependencies]
+conllu = "0.5"
+ndarray = "0.13"
+sentencepiece = "0.5"
+wordpieces = "0.4"

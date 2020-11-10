@@ -24,6 +24,7 @@ serde_yaml = "0.8"
 stdinout = "0.4"
 syntaxdot = { path = "../syntaxdot", version = "0.1", default-features = false }
 syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.1" }
+syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", version = "0.1" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.1", default-features = false }
 tfrecord = { version = "0.4", features = ["summary"], optional = true }
 tch = "0.3"

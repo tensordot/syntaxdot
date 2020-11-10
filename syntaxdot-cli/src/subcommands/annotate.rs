@@ -4,8 +4,8 @@ use anyhow::{Context, Result};
 use clap::{App, Arg, ArgMatches};
 use conllu::io::{ReadSentence, Reader, WriteSentence, Writer};
 use stdinout::{Input, Output};
-use syntaxdot::input::Tokenize;
 use syntaxdot::tagger::Tagger;
+use syntaxdot_tokenizers::Tokenize;
 use tch::{self, Device};
 
 use crate::io::Model;

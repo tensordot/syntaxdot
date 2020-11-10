@@ -2,8 +2,8 @@ use anyhow::Result;
 use conllu::graph::Sentence;
 use conllu::io::WriteSentence;
 
-use syntaxdot::input::{SentenceWithPieces, Tokenize};
 use syntaxdot::tagger::Tagger;
+use syntaxdot_tokenizers::{SentenceWithPieces, Tokenize};
 
 pub struct SentProcessor<'a, W>
 where

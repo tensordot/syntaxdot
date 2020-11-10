@@ -1,8 +1,9 @@
 //! Iterators over data sets.
 
+use syntaxdot_tokenizers::Tokenize;
+
 use crate::encoders::NamedEncoder;
 use crate::error::SyntaxDotError;
-use crate::input::Tokenize;
 use crate::tensor::Tensors;
 
 pub(crate) mod tensor_iter;

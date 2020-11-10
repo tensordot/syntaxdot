@@ -1,12 +1,13 @@
-use conllu::io::{ReadSentence, Reader};
 use std::io::{BufReader, Read, Seek, SeekFrom};
+
+use conllu::io::{ReadSentence, Reader};
+use syntaxdot_tokenizers::{SentenceWithPieces, Tokenize};
 
 use crate::dataset::sentence_iter::SentenceIter;
 use crate::dataset::tensor_iter::TensorIter;
 use crate::dataset::{DataSet, SequenceLength};
 use crate::encoders::NamedEncoder;
 use crate::error::SyntaxDotError;
-use crate::input::{SentenceWithPieces, Tokenize};
 
 /// A CoNLL-X data set.
 pub struct ConlluDataSet<R>(R);
