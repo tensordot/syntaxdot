@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use ndarray::Array1;
 use syntaxdot_encoders::SentenceEncoder;
+use syntaxdot_tokenizers::SentenceWithPieces;
 
 use crate::encoders::NamedEncoder;
 use crate::error::SyntaxDotError;
-use crate::input::SentenceWithPieces;
 use crate::tensor::{TensorBuilder, Tensors};
 
 /// An iterator returning input and (optionally) output tensors.

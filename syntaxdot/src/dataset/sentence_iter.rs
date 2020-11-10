@@ -1,8 +1,8 @@
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
+use syntaxdot_tokenizers::SentenceWithPieces;
 
 use crate::dataset::SequenceLength;
-use crate::input::SentenceWithPieces;
 use crate::util::RandomRemoveVec;
 
 /// Trait providing adapters for `SentenceWithPieces` iterators.

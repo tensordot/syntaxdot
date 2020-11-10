@@ -4,11 +4,11 @@ use std::convert::TryInto;
 
 use ndarray::{Array1, ArrayD, Axis};
 use syntaxdot_encoders::{EncodingProb, SentenceDecoder};
+use syntaxdot_tokenizers::SentenceWithPieces;
 use tch::Device;
 
 use crate::encoders::Encoders;
 use crate::error::SyntaxDotError;
-use crate::input::SentenceWithPieces;
 use crate::model::bert::BertModel;
 use crate::tensor::{TensorBuilder, Tensors};
 use crate::util::seq_len_to_mask;

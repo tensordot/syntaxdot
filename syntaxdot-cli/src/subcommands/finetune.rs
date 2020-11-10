@@ -7,11 +7,11 @@ use indicatif::ProgressStyle;
 use ordered_float::NotNan;
 use syntaxdot::dataset::{ConlluDataSet, DataSet, SequenceLength};
 use syntaxdot::encoders::Encoders;
-use syntaxdot::input::Tokenize;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule, PlateauLearningRate};
 use syntaxdot::model::bert::{BertModel, FreezeLayers};
 use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::util::seq_len_to_mask;
+use syntaxdot_tokenizers::Tokenize;
 use tch::nn::{self, AdamW};
 use tch::{self, Device, Kind};
 

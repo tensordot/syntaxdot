@@ -6,8 +6,8 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use clap::{App, Arg, ArgMatches};
 use conllu::io::{ReadSentence, Reader, Writer};
-use syntaxdot::input::Tokenize;
 use syntaxdot::tagger::Tagger;
+use syntaxdot_tokenizers::Tokenize;
 use tch::{self, Device};
 use threadpool::ThreadPool;
 

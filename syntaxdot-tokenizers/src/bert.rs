@@ -1,7 +1,7 @@
 use conllu::graph::{Node, Sentence};
 use wordpieces::WordPieces;
 
-use crate::input::{SentenceWithPieces, Tokenize};
+use super::{SentenceWithPieces, Tokenize};
 
 /// BERT word piece tokenizer.
 ///
