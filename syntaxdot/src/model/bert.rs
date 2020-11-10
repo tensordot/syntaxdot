@@ -23,6 +23,7 @@ use tch_ext::PathExt;
 
 use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
+#[cfg(feature = "load-hdf5")]
 use crate::error::SyntaxDotError;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
 

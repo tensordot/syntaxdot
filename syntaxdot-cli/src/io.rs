@@ -130,7 +130,12 @@ impl Model {
     }
 
     #[cfg(not(feature = "load-hdf5"))]
-    pub fn load_from_hdf5(_config_path: &str, _hdf5_path: &str, _device: Device) -> Result<Model> {
+    pub fn load_from_hdf5<F>(
+        _config_path: &str,
+        _hdf5_path: &str,
+        _device: Device,
+        _parameter_group_fun: F,
+    ) -> Result<Model> {
         anyhow::bail!("Cannot load HDF5 model: SyntaxDot was compiled without support for HDF5");
     }
 }
