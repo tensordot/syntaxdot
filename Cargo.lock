@@ -466,18 +466,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4358a9e11b9a09cf52383b451b49a169e8d797b68aa02301ff586d70d9661ea3"
 
 [[package]]
-name = "edit_tree"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2b55ba8d3091e69abec7aebee0667da7c56910fc60ac9f2ec21d603a2768ce6"
-dependencies = [
- "lazy_static",
- "seqalign",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "either"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1640,7 +1628,6 @@ dependencies = [
  "approx",
  "conllu",
  "criterion",
- "edit_tree",
  "hdf5",
  "maplit",
  "ndarray",
@@ -1687,12 +1674,12 @@ name = "syntaxdot-encoders"
 version = "0.1.0"
 dependencies = [
  "conllu",
- "edit_tree",
  "lazy_static",
  "numberer",
  "ohnomore",
  "ordered-float",
  "petgraph",
+ "seqalign",
  "serde",
  "serde_derive",
  "thiserror",
