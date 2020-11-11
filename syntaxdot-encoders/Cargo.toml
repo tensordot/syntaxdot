@@ -11,12 +11,12 @@ license = "BlueOak-1.0.0"
 
 [dependencies]
 conllu = "0.5"
-edit_tree = "0.1.1"
 numberer = "0.2"
 lazy_static = "1"
 ohnomore = "0.2.2"
 ordered-float = "1"
 petgraph = "0.5"
+seqalign = "0.2"
 serde = "1"
 serde_derive = "1"
 thiserror = "1"

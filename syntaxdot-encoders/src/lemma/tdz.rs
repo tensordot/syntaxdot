@@ -114,9 +114,9 @@ mod tests {
 
     use conllu::graph::{DepTriple, Sentence};
     use conllu::token::TokenBuilder;
-    use edit_tree::EditTree as EditTreeInner;
 
     use super::TdzLemmaEncoder;
+    use crate::lemma::edit_tree::EditTree as EditTreeInner;
     use crate::lemma::BackoffStrategy;
     use crate::{EncodingProb, SentenceDecoder, SentenceEncoder};
 
@@ -147,18 +147,19 @@ mod tests {
         sent
     }
 
-    fn sentence_edit_trees() -> Vec<EditTreeInner<char>> {
+    fn sentence_edit_trees() -> Vec<EditTreeInner> {
         vec![
-            EditTreeInner::create_tree(&['I', 'c', 'h'], &['i', 'c', 'h']),
-            EditTreeInner::create_tree(&['r', 'e', 'i', 's', 'e'], &['r', 'e', 'i', 's', 'e', 'n']),
-            EditTreeInner::create_tree(&['a', 'b'], &['a', 'b']),
+            EditTreeInner::create_tree(&['I', 'c', 'h'], &['i', 'c', 'h']).unwrap(),
+            EditTreeInner::create_tree(&['r', 'e', 'i', 's', 'e'], &['r', 'e', 'i', 's', 'e', 'n'])
+                .unwrap(),
+            EditTreeInner::create_tree(&['a', 'b'], &['a', 'b']).unwrap(),
         ]
     }
 
     fn encode_and_wrap(
         encoder: &TdzLemmaEncoder,
         sent: &Sentence,
-    ) -> Vec<Vec<EncodingProb<EditTreeInner<char>>>> {
+    ) -> Vec<Vec<EncodingProb<EditTreeInner>>> {
         encoder
             .encode(&sent)
             .unwrap()

@@ -2,7 +2,6 @@ use std::hash::Hash;
 use std::ops::Deref;
 
 use conllu::graph::Sentence;
-use edit_tree::EditTree;
 use numberer::Numberer;
 use serde::{Deserialize, Serialize};
 use syntaxdot_encoders::categorical::{ImmutableCategoricalEncoder, MutableCategoricalEncoder};
@@ -10,7 +9,7 @@ use syntaxdot_encoders::deprel::{
     DependencyEncoding, RelativePOS, RelativePOSEncoder, RelativePosition, RelativePositionEncoder,
 };
 use syntaxdot_encoders::layer::LayerEncoder;
-use syntaxdot_encoders::lemma::{EditTreeEncoder, TdzLemmaEncoder};
+use syntaxdot_encoders::lemma::{EditTree, EditTreeEncoder, TdzLemmaEncoder};
 use syntaxdot_encoders::{EncodingProb, SentenceDecoder, SentenceEncoder};
 use thiserror::Error;
 
@@ -125,13 +124,13 @@ pub enum EncoderError {
 /// Wrapper of the various supported encoders.
 #[derive(Deserialize, Serialize)]
 pub enum Encoder {
-    Lemma(CategoricalEncoderWrap<EditTreeEncoder, EditTree<char>>),
+    Lemma(CategoricalEncoderWrap<EditTreeEncoder, EditTree>),
     Layer(CategoricalEncoderWrap<LayerEncoder, String>),
     RelativePOS(CategoricalEncoderWrap<RelativePOSEncoder, DependencyEncoding<RelativePOS>>),
     RelativePosition(
         CategoricalEncoderWrap<RelativePositionEncoder, DependencyEncoding<RelativePosition>>,
     ),
-    TdzLemma(CategoricalEncoderWrap<TdzLemmaEncoder, EditTree<char>>),
+    TdzLemma(CategoricalEncoderWrap<TdzLemmaEncoder, EditTree>),
 }
 
 #[allow(clippy::len_without_is_empty)]
