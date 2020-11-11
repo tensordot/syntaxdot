@@ -34,7 +34,6 @@ fn main() -> Result<()> {
         subcommands::FilterLenApp::app(),
         subcommands::FinetuneApp::app(),
         subcommands::PrepareApp::app(),
-        subcommands::ServerApp::app(),
     ];
 
     let cli = App::new("syntaxdot")
@@ -75,9 +74,6 @@ fn main() -> Result<()> {
         }
         "prepare" => {
             subcommands::PrepareApp::parse(matches.subcommand_matches("prepare").unwrap())?.run()
-        }
-        "server" => {
-            subcommands::ServerApp::parse(matches.subcommand_matches("server").unwrap())?.run()
         }
         _unknown => unreachable!(),
     }
