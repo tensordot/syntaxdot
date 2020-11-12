@@ -107,7 +107,8 @@ mod tests {
     use ndarray::array;
     use wordpieces::WordPieces;
 
-    use crate::input::{BertTokenizer, Tokenize};
+    use super::BertTokenizer;
+    use crate::Tokenize;
 
     fn read_pieces() -> WordPieces {
         let f = File::open(env!("BERT_BASE_GERMAN_CASED_VOCAB")).unwrap();

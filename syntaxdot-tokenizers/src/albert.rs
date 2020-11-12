@@ -98,7 +98,8 @@ mod tests {
     use ndarray::array;
     use sentencepiece::SentencePieceProcessor;
 
-    use crate::input::{AlbertTokenizer, Tokenize};
+    use super::AlbertTokenizer;
+    use crate::Tokenize;
 
     fn sentence_from_forms(forms: &[&str]) -> Sentence {
         Sentence::from_iter(forms.iter().map(|&f| Token::new(f)))

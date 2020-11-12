@@ -15,3 +15,6 @@ ndarray = "0.13"
 sentencepiece = "0.5"
 thiserror = "1"
 wordpieces = "0.4"
+
+[features]
+model-tests = []
