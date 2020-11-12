@@ -37,7 +37,6 @@ ndarray-rand = "0.11"
 [features]
 default = ["load-hdf5"]
 load-hdf5 = ["syntaxdot-transformers/load-hdf5", "hdf5"]
-model-tests = []
 
 [[bench]]
 name = "mst"
