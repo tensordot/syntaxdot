@@ -15,8 +15,8 @@
 
 use std::borrow::Borrow;
 
+use syntaxdot_tch_ext::PathExt;
 use tch::Tensor;
-use tch_ext::PathExt;
 
 use crate::error::TransformerError;
 use crate::models::layer_output::LayerOutput;
@@ -89,7 +89,7 @@ mod hdf5_impl {
     use std::borrow::Borrow;
 
     use hdf5::Group;
-    use tch_ext::PathExt;
+    use syntaxdot_tch_ext::PathExt;
 
     use super::SqueezeBertEncoder;
     use crate::error::TransformerError;
@@ -134,9 +134,9 @@ mod tests {
     use hdf5::File;
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
+    use syntaxdot_tch_ext::RootExt;
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
-    use tch_ext::RootExt;
 
     use super::SqueezeBertEncoder;
     use crate::hdf5_model::LoadFromHDF5;

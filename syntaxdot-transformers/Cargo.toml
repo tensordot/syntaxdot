@@ -12,8 +12,8 @@ license = "BlueOak-1.0.0"
 [dependencies]
 hdf5 = { version = "0.7", optional = true }
 serde = { version = "1", features = ["derive"] }
+syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext" }
 tch = "0.3"
-tch-ext = { path = "../tch-ext" }
 thiserror = "1"
 
 [dev-dependencies]

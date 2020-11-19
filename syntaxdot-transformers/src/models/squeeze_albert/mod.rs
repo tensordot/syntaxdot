@@ -14,9 +14,9 @@
 use std::borrow::Borrow;
 
 use serde::{Deserialize, Serialize};
+use syntaxdot_tch_ext::PathExt;
 use tch::nn::Module;
 use tch::Tensor;
-use tch_ext::PathExt;
 
 use crate::error::TransformerError;
 use crate::models::albert::{AlbertConfig, AlbertEmbeddingProjection};

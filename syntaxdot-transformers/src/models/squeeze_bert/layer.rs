@@ -15,9 +15,9 @@
 
 use std::borrow::Borrow;
 
+use syntaxdot_tch_ext::PathExt;
 use tch::nn::{Module, ModuleT};
 use tch::{Kind, Tensor};
-use tch_ext::PathExt;
 
 use crate::error::TransformerError;
 use crate::layers::{Conv1D, Dropout, LayerNorm};
@@ -325,8 +325,8 @@ mod hdf5_impl {
     use std::borrow::Borrow;
 
     use hdf5::Group;
+    use syntaxdot_tch_ext::PathExt;
     use tch::nn::ConvConfig;
-    use tch_ext::PathExt;
 
     use super::{
         ConvActivation, ConvDropoutLayerNorm, SqueezeBertLayer, SqueezeBertLayerNorm,

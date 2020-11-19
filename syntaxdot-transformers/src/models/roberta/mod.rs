@@ -16,9 +16,9 @@
 
 use std::borrow::Borrow;
 
+use syntaxdot_tch_ext::PathExt;
 use tch::nn::ModuleT;
 use tch::{Kind, Tensor};
-use tch_ext::PathExt;
 
 use crate::cow::CowTensor;
 use crate::models::bert::{BertConfig, BertEmbeddings};
@@ -76,7 +76,7 @@ mod hdf5_impl {
     use std::borrow::Borrow;
 
     use hdf5::Group;
-    use tch_ext::PathExt;
+    use syntaxdot_tch_ext::PathExt;
 
     use crate::error::TransformerError;
     use crate::hdf5_model::LoadFromHDF5;
@@ -108,9 +108,9 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use hdf5::File;
     use ndarray::{array, ArrayD};
+    use syntaxdot_tch_ext::RootExt;
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
-    use tch_ext::RootExt;
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEncoder};

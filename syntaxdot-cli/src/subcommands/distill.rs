@@ -17,11 +17,11 @@ use syntaxdot::model::bert::{BertModel, FreezeLayers};
 use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::tensor::Tensors;
 use syntaxdot::util::seq_len_to_mask;
+use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
 use syntaxdot_transformers::models::layer_output::LayerOutput;
 use tch::nn::VarStore;
 use tch::{self, Device, Kind, Reduction, Tensor};
-use tch_ext::RootExt;
 
 use crate::io::{load_config, load_pretrain_config, load_tokenizer, Model};
 use crate::progress::ReadProgress;

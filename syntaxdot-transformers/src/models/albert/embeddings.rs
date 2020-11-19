@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 
+use syntaxdot_tch_ext::PathExt;
 use tch::nn::{Linear, Module, ModuleT};
 use tch::Tensor;
-use tch_ext::PathExt;
 
 use crate::models::albert::AlbertConfig;
 use crate::models::bert::bert_linear;
@@ -85,8 +85,8 @@ mod hdf5_impl {
     use std::borrow::Borrow;
 
     use hdf5::Group;
+    use syntaxdot_tch_ext::PathExt;
     use tch::nn::Linear;
-    use tch_ext::PathExt;
 
     use super::{AlbertEmbeddingProjection, AlbertEmbeddings};
     use crate::error::TransformerError;
@@ -154,9 +154,9 @@ mod tests {
 
     use hdf5::File;
     use maplit::btreeset;
+    use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::Device;
-    use tch_ext::RootExt;
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::albert::{AlbertConfig, AlbertEmbeddings};

@@ -4,10 +4,10 @@ use anyhow::{Context, Result};
 use syntaxdot::config::{Config, PretrainConfig, TomlRead};
 use syntaxdot::encoders::Encoders;
 use syntaxdot::model::bert::BertModel;
+use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
 use tch::nn::VarStore;
 use tch::Device;
-use tch_ext::RootExt;
 
 /// Wrapper around different parts of a model.
 pub struct Model {

@@ -2,8 +2,8 @@ use std::borrow::Borrow;
 use std::error::Error;
 
 use hdf5::{Dataset, Error as HDF5Error, Group};
+use syntaxdot_tch_ext::PathExt;
 use tch::Tensor;
-use tch_ext::PathExt;
 
 /// Trait to load models from a HDF5 of a Tensorflow checkpoint.
 pub trait LoadFromHDF5

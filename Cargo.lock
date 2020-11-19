@@ -1639,10 +1639,10 @@ dependencies = [
  "serde",
  "serde_json",
  "syntaxdot-encoders",
+ "syntaxdot-tch-ext",
  "syntaxdot-tokenizers",
  "syntaxdot-transformers",
  "tch",
- "tch-ext",
  "thiserror",
  "toml",
 ]
@@ -1661,10 +1661,10 @@ dependencies = [
  "stdinout",
  "syntaxdot",
  "syntaxdot-encoders",
+ "syntaxdot-tch-ext",
  "syntaxdot-tokenizers",
  "syntaxdot-transformers",
  "tch",
- "tch-ext",
  "tfrecord",
  "threadpool",
 ]
@@ -1683,6 +1683,14 @@ dependencies = [
  "serde",
  "serde_derive",
  "thiserror",
+]
+
+[[package]]
+name = "syntaxdot-tch-ext"
+version = "0.1.0"
+dependencies = [
+ "itertools 0.9.0",
+ "tch",
 ]
 
 [[package]]
@@ -1705,8 +1713,8 @@ dependencies = [
  "maplit",
  "ndarray",
  "serde",
+ "syntaxdot-tch-ext",
  "tch",
- "tch-ext",
  "thiserror",
 ]
 
@@ -1736,14 +1744,6 @@ dependencies = [
  "thiserror",
  "torch-sys",
  "zip",
-]
-
-[[package]]
-name = "tch-ext"
-version = "0.1.0"
-dependencies = [
- "itertools 0.9.0",
- "tch",
 ]
 
 [[package]]

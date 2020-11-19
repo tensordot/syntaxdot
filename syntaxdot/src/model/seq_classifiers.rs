@@ -1,12 +1,12 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
+use syntaxdot_tch_ext::PathExt;
 use syntaxdot_transformers::models::layer_output::LayerOutput;
 use syntaxdot_transformers::scalar_weighting::{
     ScalarWeightClassifier, ScalarWeightClassifierConfig,
 };
 use tch::{Kind, Tensor};
-use tch_ext::PathExt;
 
 use crate::config::PretrainConfig;
 use crate::encoders::Encoders;

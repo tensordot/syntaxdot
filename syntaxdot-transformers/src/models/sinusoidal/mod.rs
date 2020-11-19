@@ -2,9 +2,9 @@
 
 use std::borrow::Borrow;
 
+use syntaxdot_tch_ext::PathExt;
 use tch::nn::{Init, Module, ModuleT};
 use tch::{Kind, Tensor};
-use tch_ext::PathExt;
 
 use crate::layers::{Dropout, Embedding, LayerNorm};
 use crate::models::traits::WordEmbeddingsConfig;

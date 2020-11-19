@@ -17,9 +17,9 @@
 use std::borrow::Borrow;
 use std::iter;
 
+use syntaxdot_tch_ext::PathExt;
 use tch::nn::{Init, Linear, Module, ModuleT};
 use tch::{Kind, Tensor};
-use tch_ext::PathExt;
 
 use crate::activations;
 use crate::error::TransformerError;
@@ -346,8 +346,8 @@ mod hdf5_impl {
     use std::borrow::Borrow;
 
     use hdf5::Group;
+    use syntaxdot_tch_ext::PathExt;
     use tch::nn::Linear;
-    use tch_ext::PathExt;
 
     use super::{
         bert_activations, BertIntermediate, BertLayer, BertOutput, BertSelfAttention,
@@ -601,9 +601,9 @@ mod tests {
     use hdf5::File;
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
+    use syntaxdot_tch_ext::RootExt;
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
-    use tch_ext::RootExt;
 
     use super::BertLayer;
     use crate::hdf5_model::LoadFromHDF5;

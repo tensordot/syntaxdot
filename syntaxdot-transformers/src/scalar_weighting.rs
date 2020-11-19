@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 
+use syntaxdot_tch_ext::PathExt;
 use tch::nn::{Init, Linear, Module, ModuleT};
 use tch::{Kind, Reduction, Tensor};
-use tch_ext::PathExt;
 
 use crate::cow::CowTensor;
 use crate::layers::{Dropout, LayerNorm};
@@ -289,9 +289,9 @@ mod tests {
 
     use approx::assert_abs_diff_eq;
     use ndarray::{array, ArrayD};
+    use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
-    use tch_ext::RootExt;
 
     use super::{cross_entropy_loss, ScalarWeightClassifier, ScalarWeightClassifierConfig};
     use crate::models::layer_output::{HiddenLayer, LayerOutput};
