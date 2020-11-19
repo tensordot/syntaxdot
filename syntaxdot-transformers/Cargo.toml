@@ -1,6 +1,6 @@
 [package]
 name = "syntaxdot-transformers"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
 edition = "2018"
 description = "Transformer architectures, such as BERT"
@@ -12,7 +12,7 @@ license = "BlueOak-1.0.0"
 [dependencies]
 hdf5 = { version = "0.7", optional = true }
 serde = { version = "1", features = ["derive"] }
-syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext" }
+syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.2" }
 tch = "0.3"
 thiserror = "1"
 

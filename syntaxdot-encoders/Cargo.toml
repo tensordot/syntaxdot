@@ -1,6 +1,6 @@
 [package]
 name = "syntaxdot-encoders"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
 edition = "2018"
 description = "Encoders for linguistic features"
@@ -17,6 +17,6 @@ ohnomore = "0.2.2"
 ordered-float = "1"
 petgraph = "0.5"
 seqalign = "0.2"
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
 thiserror = "1"

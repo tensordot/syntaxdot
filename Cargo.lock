@@ -1623,7 +1623,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "approx",
  "conllu",
@@ -1649,7 +1649,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1671,7 +1671,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-encoders"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "conllu",
  "lazy_static",
@@ -1687,7 +1687,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-tch-ext"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "itertools 0.9.0",
  "tch",
@@ -1695,7 +1695,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-tokenizers"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "conllu",
  "ndarray",
@@ -1706,7 +1706,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-transformers"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "approx",
  "hdf5",
