@@ -5,5 +5,5 @@ members = [
     "syntaxdot-transformers",
     "syntaxdot",
     "syntaxdot-cli",
-    "tch-ext"
+    "syntaxdot-tch-ext"
 ]

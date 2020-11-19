@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 
+use syntaxdot_tch_ext::PathExt;
 use tch::nn::{ConvConfig, Init, Linear, Module, ModuleT};
 use tch::{self, Tensor};
-use tch_ext::PathExt;
 
 /// Trait to place layer tensors in the var store.
 pub trait PlaceInVarStore

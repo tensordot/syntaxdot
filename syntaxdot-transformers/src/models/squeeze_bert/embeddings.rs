@@ -7,9 +7,9 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use hdf5::File;
     use ndarray::{array, ArrayD};
+    use syntaxdot_tch_ext::RootExt;
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
-    use tch_ext::RootExt;
 
     use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEmbeddings};

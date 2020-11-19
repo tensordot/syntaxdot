@@ -5,6 +5,7 @@ use std::path;
 
 #[cfg(feature = "load-hdf5")]
 use hdf5::File;
+use syntaxdot_tch_ext::PathExt;
 use syntaxdot_transformers::error::TransformerError;
 #[cfg(feature = "load-hdf5")]
 use syntaxdot_transformers::hdf5_model::LoadFromHDF5;
@@ -19,7 +20,6 @@ use syntaxdot_transformers::models::squeeze_bert::SqueezeBertEncoder;
 use syntaxdot_transformers::models::Encoder as _;
 use tch::nn::ModuleT;
 use tch::{self, Tensor};
-use tch_ext::PathExt;
 
 use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
