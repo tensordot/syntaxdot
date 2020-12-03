@@ -3,23 +3,55 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    crate2nix = {
+      url = "github:kolloch/crate2nix";
+      flake = false;
+    };
     utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, utils }:
+  outputs = { self, crate2nix, nixpkgs, utils }:
     utils.lib.eachSystem  [ "x86_64-linux" ] (system:
     let
-      pkgs = import nixpkgs {
+      pkgsWithoutCuda = import nixpkgs {
         inherit system;
         config = {
-          allowUnfreePredicate = pkg: builtins.elem (pkgs.lib.getName pkg) [
+          allowUnfreePredicate = pkg: builtins.elem (pkgsWithoutCuda.lib.getName pkg) [
+            "libtorch"
+          ];
+        };
+      };
+      pkgsWithCuda = import nixpkgs {
+        inherit system;
+        config = {
+          allowUnfreePredicate = pkg: builtins.elem (pkgsWithCuda.lib.getName pkg) [
             "libtorch"
             "nvidia-x11"
           ];
           cudaSupport = true;
         };
       };
+      syntaxdot = pkgs:
+      let
+        crateOverrides = pkgs.callPackage build-support/crate-overrides.nix {};
+        crateTools = pkgs.callPackage "${crate2nix}/tools.nix" {};
+        buildRustCrate = pkgs.buildRustCrate.override {
+          defaultCrateOverrides = crateOverrides;
+        };
+        cargoNix = pkgs.callPackage (crateTools.generatedCargoNix {
+          name = "syntaxdot";
+          src = ./.;
+        }) {
+          inherit buildRustCrate;
+        };
+      in cargoNix.workspaceMembers.syntaxdot-cli.build;
     in {
-      devShell = import ./shell.nix { inherit pkgs; };
+      defaultPackage = self.packages.${system}.syntaxdot;
+
+      devShell = import ./shell.nix { pkgs = pkgsWithCuda; };
+
+      packages.syntaxdot = syntaxdot pkgsWithoutCuda;
+
+      packages.syntaxdotWithCuda = syntaxdot pkgsWithCuda;
     });
 }
