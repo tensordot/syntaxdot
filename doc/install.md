@@ -14,7 +14,6 @@ SyntaxDot has the following base requirements:
 Additionally, compiling a SyntaxDot with training functionality requires:
 
 * CUDA
-* HDF5
 
 ### Fedora
 
@@ -22,7 +21,7 @@ Most of the dependencies can be installed in Fedora using the following
 command:
 
 ```shell
-$ sudo dnf install -y cmake gcc-c++ hdf5-devel openssl-devel pkg-config
+$ sudo dnf install -y cmake gcc-c++ openssl-devel pkg-config
 ```
 
 Follow the RPM Fusion [instructions for installing

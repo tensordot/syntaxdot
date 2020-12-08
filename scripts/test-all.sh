@@ -14,10 +14,10 @@ fi
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/syntaxdot"
 
 declare -A models=(
-  ["ALBERT_BASE_V2"]="https://s3.tensordot.com/syntaxdot/pretrained/albert-base-v2.hdf5"
-  ["BERT_BASE_GERMAN_CASED"]="https://s3.tensordot.com/syntaxdot/pretrained/bert-base-german-cased.hdf5"
-  ["SQUEEZEBERT_UNCASED"]="https://s3.tensordot.com/syntaxdot/pretrained/squeezebert-uncased.hdf5"
-  ["XLM_ROBERTA_BASE"]="https://s3.tensordot.com/syntaxdot/pretrained/xlm-roberta-base.hdf5"
+  ["ALBERT_BASE_V2"]="https://s3.tensordot.com/syntaxdot/pretrained/albert-base-v2.pt"
+  ["BERT_BASE_GERMAN_CASED"]="https://s3.tensordot.com/syntaxdot/pretrained/bert-base-german-cased.pt"
+  ["SQUEEZEBERT_UNCASED"]="https://s3.tensordot.com/syntaxdot/pretrained/squeezebert-uncased.pt"
+  ["XLM_ROBERTA_BASE"]="https://s3.tensordot.com/syntaxdot/pretrained/xlm-roberta-base.pt"
 
   ["ALBERT_BASE_V2_SENTENCEPIECE"]="https://s3.tensordot.com/syntaxdot/pretrained/albert-base-v2-sentencepiece.model"
   ["BERT_BASE_GERMAN_CASED_VOCAB"]="https://s3.tensordot.com/syntaxdot/pretrained/bert-base-german-cased-vocab.txt"
@@ -33,7 +33,7 @@ for var in "${!models[@]}"; do
   data="${cache_dir}/$(basename "${url}")"
 
   if [ ! -e "${data}" ]; then
-    curl -o "${data}" "${url}"
+    curl -fo "${data}" "${url}"
   fi
 
   declare -x "${var}"="${data}"

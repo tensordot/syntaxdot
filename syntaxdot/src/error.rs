@@ -22,10 +22,6 @@ pub enum SyntaxDotError {
     #[error(transparent)]
     EncoderError(#[from] EncoderError),
 
-    #[cfg(feature = "load-hdf5")]
-    #[error(transparent)]
-    HDF5Error(#[from] hdf5::Error),
-
     #[error("Illegal configuration: {0}")]
     IllegalConfigurationError(String),
 

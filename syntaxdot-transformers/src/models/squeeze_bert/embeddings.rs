@@ -1,17 +1,14 @@
-#[cfg(feature = "load-hdf5")]
 #[cfg(feature = "model-tests")]
 #[cfg(test)]
 mod tests {
     use std::convert::TryInto;
 
     use approx::assert_abs_diff_eq;
-    use hdf5::File;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
 
-    use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEmbeddings};
     use crate::models::squeeze_bert::SqueezeBertConfig;
 
@@ -45,15 +42,13 @@ mod tests {
     fn squeeze_bert_embeddings() {
         let config = squeezebert_uncased_config();
         let bert_config: BertConfig = (&config).into();
-        let file = File::open(SQUEEZEBERT_UNCASED).unwrap();
 
-        let vs = VarStore::new(Device::Cpu);
-        let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &bert_config,
-            file.group("squeeze_bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let mut vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
+
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config);
+
+        vs.load(SQUEEZEBERT_UNCASED).unwrap();
 
         // Word pieces of: Did the AWO embezzle donations ?
         let pieces =

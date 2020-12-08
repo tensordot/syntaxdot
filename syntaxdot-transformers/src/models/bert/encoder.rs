@@ -73,46 +73,6 @@ impl Encoder for BertEncoder {
     }
 }
 
-#[cfg(feature = "load-hdf5")]
-mod hdf5_impl {
-    use std::borrow::Borrow;
-
-    use hdf5::Group;
-    use syntaxdot_tch_ext::PathExt;
-
-    use super::BertEncoder;
-    use crate::error::TransformerError;
-    use crate::hdf5_model::LoadFromHDF5;
-    use crate::models::bert::{BertConfig, BertLayer};
-
-    impl LoadFromHDF5 for BertEncoder {
-        type Config = BertConfig;
-
-        type Error = TransformerError;
-
-        fn load_from_hdf5<'a>(
-            vs: impl Borrow<PathExt<'a>>,
-            config: &Self::Config,
-            group: Group,
-        ) -> Result<Self, TransformerError> {
-            let vs = vs.borrow();
-
-            let layers = (0..config.num_hidden_layers)
-                .map(|idx| {
-                    BertLayer::load_from_hdf5(
-                        vs / format!("layer_{}", idx),
-                        config,
-                        group.group(&format!("layer_{}", idx))?,
-                    )
-                })
-                .collect::<Result<_, _>>()?;
-
-            Ok(BertEncoder { layers })
-        }
-    }
-}
-
-#[cfg(feature = "load-hdf5")]
 #[cfg(feature = "model-tests")]
 #[cfg(test)]
 mod tests {
@@ -120,14 +80,12 @@ mod tests {
     use std::convert::TryInto;
 
     use approx::assert_abs_diff_eq;
-    use hdf5::File;
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
 
-    use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEmbeddings, BertEncoder};
     use crate::models::Encoder;
 
@@ -192,23 +150,14 @@ mod tests {
     #[test]
     fn bert_encoder() {
         let config = german_bert_config();
-        let german_bert_file = File::open(BERT_BASE_GERMAN_CASED).unwrap();
 
-        let vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            german_bert_file.group("/bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config);
+        let encoder = BertEncoder::new(root.sub("encoder"), &config).unwrap();
 
-        let encoder = BertEncoder::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            german_bert_file.group("bert/encoder").unwrap(),
-        )
-        .unwrap();
+        vs.load(BERT_BASE_GERMAN_CASED).unwrap();
 
         // Word pieces of: Veruntreute die AWO spendengeld ?
         let pieces = Tensor::of_slice(&[133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2])
@@ -241,23 +190,14 @@ mod tests {
     #[test]
     fn bert_encoder_attention_mask() {
         let config = german_bert_config();
-        let german_bert_file = File::open(BERT_BASE_GERMAN_CASED).unwrap();
 
-        let vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            german_bert_file.group("/bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config);
+        let encoder = BertEncoder::new(root.sub("encoder"), &config).unwrap();
 
-        let encoder = BertEncoder::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            german_bert_file.group("bert/encoder").unwrap(),
-        )
-        .unwrap();
+        vs.load(BERT_BASE_GERMAN_CASED).unwrap();
 
         // Word pieces of: Veruntreute die AWO spendengeld ?
         // Add some padding to simulate inactive time steps.
@@ -294,19 +234,14 @@ mod tests {
 
     #[test]
     fn bert_encoder_names() {
-        // Verify that the encoders's names correspond between loaded
+        // Verify that the encoders's names are correct.
         // and newly-constructed models.
         let config = german_bert_config();
-        let german_bert_file = File::open(BERT_BASE_GERMAN_CASED).unwrap();
 
-        let vs_loaded = VarStore::new(Device::Cpu);
-        BertEncoder::load_from_hdf5(
-            vs_loaded.root_ext(|_| 0),
-            &config,
-            german_bert_file.group("bert/encoder").unwrap(),
-        )
-        .unwrap();
-        let loaded_variables = varstore_variables(&vs_loaded);
+        let vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
+
+        let _encoder = BertEncoder::new(root, &config).unwrap();
 
         let mut encoder_variables = BTreeSet::new();
         let layer_variables = layer_variables();
@@ -316,11 +251,6 @@ mod tests {
             }
         }
 
-        assert_eq!(loaded_variables, encoder_variables);
-
-        // Compare against fresh encoder.
-        let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = BertEncoder::new(vs_fresh.root_ext(|_| 0), &config).unwrap();
-        assert_eq!(loaded_variables, varstore_variables(&vs_fresh));
+        assert_eq!(varstore_variables(&vs), encoder_variables);
     }
 }

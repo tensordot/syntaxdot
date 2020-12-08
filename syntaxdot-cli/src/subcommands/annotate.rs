@@ -185,7 +185,7 @@ impl SyntaxDotApp for AnnotateApp {
         tch::set_num_threads(self.num_intraop_threads as i32);
         tch::set_num_interop_threads(self.num_interop_threads as i32);
 
-        let model = Model::load(&self.config, self.device, true, |_| 0)?;
+        let model = Model::load(&self.config, self.device, true, false, |_| 0)?;
         let tagger = Tagger::new(self.device, model.model, model.encoders);
 
         let input = Input::from(self.input.as_ref());

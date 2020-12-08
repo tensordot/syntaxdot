@@ -282,7 +282,7 @@ impl SyntaxDotApp for FinetuneApp {
             )
             .arg(
                 Arg::with_name(PRETRAINED_MODEL)
-                    .help("Pretrained model in HDF5 format")
+                    .help("Pretrained model in Torch format")
                     .index(2)
                     .required(true),
             )
@@ -522,13 +522,16 @@ impl SyntaxDotApp for FinetuneApp {
                 &self.pretrained_model,
                 self.device,
                 false,
+                false,
                 Self::build_parameter_group_fun(),
             )?
         } else {
-            Model::load_from_hdf5(
+            Model::load_from(
                 &self.config,
                 &self.pretrained_model,
                 self.device,
+                false,
+                true,
                 Self::build_parameter_group_fun(),
             )?
         };

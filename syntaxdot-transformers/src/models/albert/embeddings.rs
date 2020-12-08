@@ -80,88 +80,17 @@ impl Module for AlbertEmbeddingProjection {
     }
 }
 
-#[cfg(feature = "load-hdf5")]
-mod hdf5_impl {
-    use std::borrow::Borrow;
-
-    use hdf5::Group;
-    use syntaxdot_tch_ext::PathExt;
-    use tch::nn::Linear;
-
-    use super::{AlbertEmbeddingProjection, AlbertEmbeddings};
-    use crate::error::TransformerError;
-    use crate::hdf5_model::{load_affine, LoadFromHDF5};
-    use crate::layers::PlaceInVarStore;
-    use crate::models::albert::AlbertConfig;
-    use crate::models::bert::{BertConfig, BertEmbeddings};
-
-    impl LoadFromHDF5 for AlbertEmbeddings {
-        type Config = AlbertConfig;
-
-        type Error = TransformerError;
-
-        fn load_from_hdf5<'a>(
-            vs: impl Borrow<PathExt<'a>>,
-            config: &Self::Config,
-            group: Group,
-        ) -> Result<Self, Self::Error> {
-            let vs = vs.borrow();
-
-            // BERT uses the hidden size as the vocab size.
-            let mut bert_config: BertConfig = config.into();
-            bert_config.hidden_size = config.embedding_size;
-
-            let embeddings = BertEmbeddings::load_from_hdf5(vs, &bert_config, group)?;
-
-            Ok(AlbertEmbeddings { embeddings })
-        }
-    }
-
-    impl LoadFromHDF5 for AlbertEmbeddingProjection {
-        type Config = AlbertConfig;
-
-        type Error = TransformerError;
-
-        fn load_from_hdf5<'a>(
-            vs: impl Borrow<PathExt<'a>>,
-            config: &Self::Config,
-            group: Group,
-        ) -> Result<Self, Self::Error> {
-            let (dense_weight, dense_bias) = load_affine(
-                group.group("embedding_projection")?,
-                "weight",
-                "bias",
-                config.embedding_size,
-                config.hidden_size,
-            )?;
-
-            Ok(AlbertEmbeddingProjection {
-                projection: Linear {
-                    ws: dense_weight.tr(),
-                    bs: dense_bias,
-                }
-                .place_in_var_store(vs.borrow() / "embedding_projection"),
-            })
-        }
-    }
-}
-
-#[cfg(feature = "load-hdf5")]
 #[cfg(feature = "model-tests")]
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
-    use hdf5::File;
     use maplit::btreeset;
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::Device;
 
-    use crate::hdf5_model::LoadFromHDF5;
     use crate::models::albert::{AlbertConfig, AlbertEmbeddings};
-
-    const ALBERT_BASE_V2: &str = env!("ALBERT_BASE_V2");
 
     fn albert_config() -> AlbertConfig {
         AlbertConfig {
@@ -192,15 +121,11 @@ mod tests {
     #[test]
     fn albert_embeddings_names() {
         let config = albert_config();
-        let albert_file = File::open(ALBERT_BASE_V2).unwrap();
 
         let vs = VarStore::new(Device::Cpu);
-        AlbertEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            albert_file.group("albert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let root = vs.root_ext(|_| 0);
+
+        let _embeddings = AlbertEmbeddings::new(root, &config);
 
         let variables = varstore_variables(&vs);
 
@@ -214,10 +139,5 @@ mod tests {
                 "word_embeddings.embeddings".to_string()
             ]
         );
-
-        // Compare against fresh embeddings layer.
-        let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = AlbertEmbeddings::new(vs_fresh.root_ext(|_| 0), &config);
-        assert_eq!(variables, varstore_variables(&vs_fresh));
     }
 }

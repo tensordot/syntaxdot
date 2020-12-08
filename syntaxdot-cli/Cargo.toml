@@ -32,6 +32,5 @@ tch = "0.3"
 threadpool = "1"
 
 [features]
-default = ["load-hdf5", "tensorboard"]
-load-hdf5 = ["syntaxdot-transformers/load-hdf5", "syntaxdot/load-hdf5"]
+default = ["tensorboard"]
 tensorboard = ["tfrecord"]
