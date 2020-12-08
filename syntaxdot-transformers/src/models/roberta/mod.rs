@@ -71,48 +71,17 @@ impl ModuleT for RobertaEmbeddings {
     }
 }
 
-#[cfg(feature = "load-hdf5")]
-mod hdf5_impl {
-    use std::borrow::Borrow;
-
-    use hdf5::Group;
-    use syntaxdot_tch_ext::PathExt;
-
-    use crate::error::TransformerError;
-    use crate::hdf5_model::LoadFromHDF5;
-    use crate::models::bert::{BertConfig, BertEmbeddings};
-    use crate::models::roberta::RobertaEmbeddings;
-
-    impl LoadFromHDF5 for RobertaEmbeddings {
-        type Config = BertConfig;
-
-        type Error = TransformerError;
-
-        fn load_from_hdf5<'a>(
-            vs: impl Borrow<PathExt<'a>>,
-            config: &Self::Config,
-            file: Group,
-        ) -> Result<Self, Self::Error> {
-            BertEmbeddings::load_from_hdf5(vs, config, file)
-                .map(|embeds| RobertaEmbeddings { inner: embeds })
-        }
-    }
-}
-
 #[cfg(feature = "model-tests")]
-#[cfg(feature = "load-hdf5")]
 #[cfg(test)]
 mod tests {
     use std::convert::TryInto;
 
     use approx::assert_abs_diff_eq;
-    use hdf5::File;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
 
-    use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEncoder};
     use crate::models::roberta::RobertaEmbeddings;
     use crate::models::Encoder;
@@ -139,15 +108,12 @@ mod tests {
     #[test]
     fn xlm_roberta_embeddings() {
         let config = xlm_roberta_config();
-        let roberta_file = File::open(XLM_ROBERTA_BASE).unwrap();
+        let mut vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
 
-        let vs = VarStore::new(Device::Cpu);
-        let embeddings = RobertaEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            roberta_file.group("bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let embeddings = RobertaEmbeddings::new(root.sub("embeddings"), &config);
+
+        vs.load(XLM_ROBERTA_BASE).unwrap();
 
         // Subtokenization of: Veruntreute die AWO spendengeld ?
         let pieces = Tensor::of_slice(&[
@@ -178,22 +144,13 @@ mod tests {
     #[test]
     fn xlm_roberta_encoder() {
         let config = xlm_roberta_config();
-        let roberta_file = File::open(XLM_ROBERTA_BASE).unwrap();
+        let mut vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
 
-        let vs = VarStore::new(Device::Cpu);
-        let embeddings = RobertaEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            roberta_file.group("bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let embeddings = RobertaEmbeddings::new(root.sub("embeddings"), &config);
+        let encoder = BertEncoder::new(root.sub("encoder"), &config).unwrap();
 
-        let encoder = BertEncoder::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            roberta_file.group("bert/encoder").unwrap(),
-        )
-        .unwrap();
+        vs.load(XLM_ROBERTA_BASE).unwrap();
 
         // Subtokenization of: Veruntreute die AWO spendengeld ?
         let pieces = Tensor::of_slice(&[

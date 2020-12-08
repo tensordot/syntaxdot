@@ -131,71 +131,6 @@ impl ModuleT for BertEmbeddings {
     }
 }
 
-#[cfg(feature = "load-hdf5")]
-mod hdf5_impl {
-    use std::borrow::Borrow;
-
-    use hdf5::Group;
-    use syntaxdot_tch_ext::PathExt;
-
-    use super::BertEmbeddings;
-    use crate::error::TransformerError;
-    use crate::hdf5_model::{load_tensor, LoadFromHDF5};
-    use crate::layers::{Dropout, Embedding, LayerNorm, PlaceInVarStore};
-    use crate::models::bert::BertConfig;
-
-    impl LoadFromHDF5 for BertEmbeddings {
-        type Config = BertConfig;
-
-        type Error = TransformerError;
-
-        fn load_from_hdf5<'a>(
-            vs: impl Borrow<PathExt<'a>>,
-            config: &Self::Config,
-            group: Group,
-        ) -> Result<Self, Self::Error> {
-            let vs = vs.borrow();
-
-            let word_embeddings = load_tensor(
-                group.dataset("word_embeddings")?,
-                &[config.vocab_size, config.hidden_size],
-            )?;
-            let position_embeddings = load_tensor(
-                group.dataset("position_embeddings")?,
-                &[config.max_position_embeddings, config.hidden_size],
-            )?;
-            let token_type_embeddings = load_tensor(
-                group.dataset("token_type_embeddings")?,
-                &[config.type_vocab_size, config.hidden_size],
-            )?;
-
-            let layer_norm_group = group.group("LayerNorm")?;
-
-            let weight = load_tensor(layer_norm_group.dataset("weight")?, &[config.hidden_size])?;
-            let bias = load_tensor(layer_norm_group.dataset("bias")?, &[config.hidden_size])?;
-
-            Ok(BertEmbeddings {
-                word_embeddings: Embedding(word_embeddings)
-                    .place_in_var_store(vs / "word_embeddings"),
-                position_embeddings: Embedding(position_embeddings)
-                    .place_in_var_store(vs / "position_embeddings"),
-                token_type_embeddings: Embedding(token_type_embeddings)
-                    .place_in_var_store(vs / "token_type_embeddings"),
-
-                layer_norm: LayerNorm::new_with_affine(
-                    vec![config.hidden_size],
-                    config.layer_norm_eps,
-                    weight,
-                    bias,
-                )
-                .place_in_var_store(vs / "layer_norm"),
-                dropout: Dropout::new(config.hidden_dropout_prob),
-            })
-        }
-    }
-}
-
-#[cfg(feature = "load-hdf5")]
 #[cfg(feature = "model-tests")]
 #[cfg(test)]
 mod tests {
@@ -203,14 +138,12 @@ mod tests {
     use std::convert::TryInto;
 
     use approx::assert_abs_diff_eq;
-    use hdf5::File;
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::{ModuleT, VarStore};
     use tch::{Device, Kind, Tensor};
 
-    use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEmbeddings};
 
     const BERT_BASE_GERMAN_CASED: &str = env!("BERT_BASE_GERMAN_CASED");
@@ -241,16 +174,13 @@ mod tests {
 
     #[test]
     fn bert_embeddings() {
-        let german_bert_config = german_bert_config();
-        let german_bert_file = File::open(BERT_BASE_GERMAN_CASED).unwrap();
+        let config = german_bert_config();
+        let mut vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
 
-        let vs = VarStore::new(Device::Cpu);
-        let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &german_bert_config,
-            german_bert_file.group("bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config);
+
+        vs.load(BERT_BASE_GERMAN_CASED).unwrap();
 
         // Word pieces of: Veruntreute die AWO spendengeld ?
         let pieces = Tensor::of_slice(&[133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2])
@@ -279,15 +209,9 @@ mod tests {
     #[test]
     fn bert_embeddings_names() {
         let config = german_bert_config();
-        let german_bert_file = File::open(BERT_BASE_GERMAN_CASED).unwrap();
 
         let vs = VarStore::new(Device::Cpu);
-        BertEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            german_bert_file.group("bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let _ = BertEmbeddings::new(vs.root_ext(|_| 0), &config);
 
         let variables = varstore_variables(&vs);
 
@@ -301,10 +225,5 @@ mod tests {
                 "word_embeddings.embeddings".to_string()
             ]
         );
-
-        // Compare against fresh embeddings layer.
-        let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = BertEmbeddings::new(vs_fresh.root_ext(|_| 0), &config);
-        assert_eq!(variables, varstore_variables(&vs_fresh));
     }
 }

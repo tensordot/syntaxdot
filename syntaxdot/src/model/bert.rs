@@ -1,14 +1,8 @@
 use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
-#[cfg(feature = "load-hdf5")]
-use std::path;
 
-#[cfg(feature = "load-hdf5")]
-use hdf5::File;
 use syntaxdot_tch_ext::PathExt;
 use syntaxdot_transformers::error::TransformerError;
-#[cfg(feature = "load-hdf5")]
-use syntaxdot_transformers::hdf5_model::LoadFromHDF5;
 use syntaxdot_transformers::layers::Dropout;
 use syntaxdot_transformers::models::albert::{AlbertConfig, AlbertEmbeddings, AlbertEncoder};
 use syntaxdot_transformers::models::bert::{BertConfig, BertEmbeddings, BertEncoder};
@@ -23,8 +17,6 @@ use tch::{self, Tensor};
 
 use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
-#[cfg(feature = "load-hdf5")]
-use crate::error::SyntaxDotError;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
 
 pub trait PretrainBertConfig {
@@ -72,12 +64,12 @@ impl BertEmbeddingLayer {
                 ))
             }
             (PretrainConfig::Bert(config), PositionEmbeddings::Model) => {
-                BertEmbeddingLayer::Bert(BertEmbeddings::new(vs / "encoder", config))
+                BertEmbeddingLayer::Bert(BertEmbeddings::new(vs / "embeddings", config))
             }
             (PretrainConfig::Bert(config), PositionEmbeddings::Sinusoidal { normalize }) => {
                 let normalize = if normalize { Some(2.) } else { None };
                 BertEmbeddingLayer::Sinusoidal(SinusoidalEmbeddings::new(
-                    vs / "encoder",
+                    vs / "embeddings",
                     config,
                     normalize,
                 ))
@@ -111,60 +103,12 @@ impl BertEmbeddingLayer {
                 ))
             }
             (PretrainConfig::XlmRoberta(config), PositionEmbeddings::Model) => {
-                BertEmbeddingLayer::Roberta(RobertaEmbeddings::new(vs / "encoder", config))
+                BertEmbeddingLayer::Roberta(RobertaEmbeddings::new(vs / "embeddings", config))
             }
             (PretrainConfig::XlmRoberta(_), PositionEmbeddings::Sinusoidal { .. }) => {
                 unreachable!()
             }
         }
-    }
-
-    #[cfg(feature = "load-hdf5")]
-    fn load_from_hdf5<'a>(
-        vs: impl Borrow<PathExt<'a>>,
-        pretrain_config: &PretrainConfig,
-        pretrained_file: &File,
-    ) -> Result<BertEmbeddingLayer, SyntaxDotError> {
-        let vs = vs.borrow();
-
-        let embeddings = match pretrain_config {
-            PretrainConfig::Albert(config) => {
-                BertEmbeddingLayer::Albert(AlbertEmbeddings::load_from_hdf5(
-                    vs.sub("embeddings"),
-                    config,
-                    pretrained_file.group("albert/embeddings")?,
-                )?)
-            }
-            PretrainConfig::Bert(config) => {
-                BertEmbeddingLayer::Bert(BertEmbeddings::load_from_hdf5(
-                    vs.sub("encoder"),
-                    config,
-                    pretrained_file.group("squeeze_bert/embeddings")?,
-                )?)
-            }
-            PretrainConfig::SqueezeAlbert(_config) => {
-                return Err(SyntaxDotError::IllegalConfigurationError(
-                    "SqueezeALBERT models cannot be loaded from HDF5".to_string(),
-                ))
-            }
-            PretrainConfig::SqueezeBert(config) => {
-                let bert_config: BertConfig = config.into();
-                BertEmbeddingLayer::Bert(BertEmbeddings::load_from_hdf5(
-                    vs.sub("embeddings"),
-                    &bert_config,
-                    pretrained_file.group("squeeze_bert/embeddings")?,
-                )?)
-            }
-            PretrainConfig::XlmRoberta(config) => {
-                BertEmbeddingLayer::Roberta(RobertaEmbeddings::load_from_hdf5(
-                    vs.sub("encoder"),
-                    config,
-                    pretrained_file.group("bert/embeddings")?,
-                )?)
-            }
-        };
-
-        Ok(embeddings)
     }
 }
 
@@ -206,47 +150,6 @@ impl Encoder {
                 Encoder::SqueezeBert(SqueezeBertEncoder::new(vs, config)?)
             }
             PretrainConfig::XlmRoberta(config) => Encoder::Bert(BertEncoder::new(vs, config)?),
-        };
-
-        Ok(encoder)
-    }
-
-    #[cfg(feature = "load-hdf5")]
-    fn load_from_hdf5<'a>(
-        vs: impl Borrow<PathExt<'a>>,
-        pretrain_config: &PretrainConfig,
-        pretrained_file: &File,
-    ) -> Result<Encoder, SyntaxDotError> {
-        let vs = vs.borrow();
-
-        let encoder = match pretrain_config {
-            PretrainConfig::Albert(config) => Encoder::Albert(AlbertEncoder::load_from_hdf5(
-                vs.sub("encoder"),
-                config,
-                pretrained_file.group("albert/encoder")?,
-            )?),
-            PretrainConfig::Bert(config) => Encoder::Bert(BertEncoder::load_from_hdf5(
-                vs.sub("encoder"),
-                config,
-                pretrained_file.group("bert/encoder")?,
-            )?),
-            PretrainConfig::SqueezeAlbert(_config) => {
-                return Err(SyntaxDotError::IllegalConfigurationError(
-                    "SqueezeALBERT models cannot be loaded from HDF5".to_string(),
-                ))
-            }
-            PretrainConfig::SqueezeBert(config) => {
-                Encoder::SqueezeBert(SqueezeBertEncoder::load_from_hdf5(
-                    vs.sub("encoder"),
-                    config,
-                    pretrained_file.group("squeeze_bert/encoder")?,
-                )?)
-            }
-            PretrainConfig::XlmRoberta(config) => Encoder::Bert(BertEncoder::load_from_hdf5(
-                vs.sub("encoder"),
-                config,
-                pretrained_file.group("bert/encoder")?,
-            )?),
         };
 
         Ok(encoder)
@@ -302,37 +205,6 @@ impl BertModel {
         let embeddings = BertEmbeddingLayer::new(vs, pretrain_config, position_embeddings);
 
         let encoder = Encoder::new(vs, pretrain_config)?;
-        let seq_classifiers =
-            SequenceClassifiers::new(vs, pretrain_config, encoder.n_layers(), encoders);
-
-        Ok(BertModel {
-            embeddings,
-            encoder,
-            layers_dropout: Dropout::new(layers_dropout),
-            seq_classifiers,
-        })
-    }
-
-    #[cfg(feature = "load-hdf5")]
-    /// Construct a model and load parameters from a pretrained model.
-    ///
-    /// `layer_dropout` is the probability with which layers should
-    /// be dropped out in scalar weighting during training.
-    pub fn from_pretrained<'a>(
-        vs: impl Borrow<PathExt<'a>>,
-        pretrain_config: &PretrainConfig,
-        hdf_path: impl AsRef<path::Path>,
-        encoders: &Encoders,
-        layers_dropout: f64,
-    ) -> Result<Self, SyntaxDotError> {
-        let vs = vs.borrow();
-
-        let pretrained_file = File::open(hdf_path)?;
-
-        let embeddings = BertEmbeddingLayer::load_from_hdf5(vs, pretrain_config, &pretrained_file)?;
-
-        let encoder = Encoder::load_from_hdf5(vs, pretrain_config, &pretrained_file)?;
-
         let seq_classifiers =
             SequenceClassifiers::new(vs, pretrain_config, encoder.n_layers(), encoders);
 

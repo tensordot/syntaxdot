@@ -22,10 +22,16 @@ impl Model {
     ///
     /// If `freeze` is true, gradient computation is disabled for the
     /// model parameters.
+    ///
+    /// If `load_partial` is true, a model file will be loaded successfully,
+    /// even when not all model parameters are present. This is used for
+    /// finetuning of pretrained models, which do not contain the classifier
+    /// portion of the model.
     pub fn load<F>(
         config_path: &str,
         device: Device,
         freeze: bool,
+        load_partial: bool,
         parameter_group_fun: F,
     ) -> Result<Self>
     where
@@ -37,6 +43,7 @@ impl Model {
             &config.model.parameters,
             device,
             freeze,
+            load_partial,
             parameter_group_fun,
         )
     }
@@ -49,11 +56,17 @@ impl Model {
     ///
     /// If `freeze` is true, gradient computation is disabled for the
     /// model parameters.
+    ///
+    /// If `load_partial` is true, a model file will be loaded successfully,
+    /// even when not all model parameters are present. This is used for
+    /// finetuning of pretrained models, which do not contain the classifier
+    /// portion of the model.
     pub fn load_from<F>(
         config_path: &str,
         parameters_path: &str,
         device: Device,
         freeze: bool,
+        load_partial: bool,
         parameter_group_fun: F,
     ) -> Result<Model>
     where
@@ -75,8 +88,13 @@ impl Model {
         )
         .context("Cannot construct model")?;
 
-        vs.load(parameters_path)
-            .context("Cannot load model parameters")?;
+        if load_partial {
+            vs.load_partial(parameters_path)
+                .context("Cannot load model parameters")?;
+        } else {
+            vs.load(parameters_path)
+                .context("Cannot load model parameters")?;
+        }
 
         if freeze {
             vs.freeze();
@@ -88,55 +106,6 @@ impl Model {
             tokenizer,
             vs,
         })
-    }
-
-    /// Load a model on the given device.
-    ///
-    /// In contrast to `load_model`, this does not load the parameters
-    /// specified in the configuration file, but the parameters from
-    /// the HDF5 file at `hdf5_path`.
-    #[cfg(feature = "load-hdf5")]
-    pub fn load_from_hdf5<F>(
-        config_path: &str,
-        hdf5_path: &str,
-        device: Device,
-        parameter_group_fun: F,
-    ) -> Result<Model>
-    where
-        F: 'static + Fn(&str) -> usize,
-    {
-        let config = load_config(config_path)?;
-        let encoders = load_encoders(&config)?;
-        let tokenizer = load_tokenizer(&config)?;
-        let pretrain_config = load_pretrain_config(&config)?;
-
-        let vs = VarStore::new(device);
-
-        let model = BertModel::from_pretrained(
-            vs.root_ext(parameter_group_fun),
-            &pretrain_config,
-            hdf5_path,
-            &encoders,
-            0.5,
-        )
-        .context("Cannot load pretrained model parameters")?;
-
-        Ok(Model {
-            encoders,
-            model,
-            tokenizer,
-            vs,
-        })
-    }
-
-    #[cfg(not(feature = "load-hdf5"))]
-    pub fn load_from_hdf5<F>(
-        _config_path: &str,
-        _hdf5_path: &str,
-        _device: Device,
-        _parameter_group_fun: F,
-    ) -> Result<Model> {
-        anyhow::bail!("Cannot load HDF5 model: SyntaxDot was compiled without support for HDF5");
     }
 }
 

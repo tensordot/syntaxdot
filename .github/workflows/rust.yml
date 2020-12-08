@@ -31,8 +31,6 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install libhdf5
-        run: sudo apt-get install libhdf5-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal

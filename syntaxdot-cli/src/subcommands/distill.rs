@@ -821,7 +821,7 @@ impl SyntaxDotApp for DistillApp {
 
     fn run(&self) -> Result<()> {
         let student_config = load_config(&self.student_config)?;
-        let teacher = Model::load(&self.teacher_config, self.device, true, |_| 0)?;
+        let teacher = Model::load(&self.teacher_config, self.device, true, false, |_| 0)?;
 
         let teacher_train_file = File::open(&self.train_data)
             .context(format!("Cannot open train data file: {}", self.train_data))?;

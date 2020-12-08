@@ -156,25 +156,6 @@ pub struct LayerNorm {
 }
 
 impl LayerNorm {
-    #[cfg(feature = "load-hdf5")]
-    pub(crate) fn new_with_affine(
-        normalized_shape: impl Into<Vec<i64>>,
-        eps: f64,
-        weight: Tensor,
-        bias: Tensor,
-    ) -> Self {
-        let normalized_shape = normalized_shape.into();
-
-        LayerNorm {
-            eps,
-            elementwise_affine: true,
-            normalized_shape,
-
-            weight: Some(weight),
-            bias: Some(bias),
-        }
-    }
-
     /// Construct a layer normalization layer.
     ///
     /// The mean and standard deviation are computed over the last

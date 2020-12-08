@@ -84,46 +84,6 @@ impl Encoder for SqueezeBertEncoder {
     }
 }
 
-#[cfg(feature = "load-hdf5")]
-mod hdf5_impl {
-    use std::borrow::Borrow;
-
-    use hdf5::Group;
-    use syntaxdot_tch_ext::PathExt;
-
-    use super::SqueezeBertEncoder;
-    use crate::error::TransformerError;
-    use crate::hdf5_model::LoadFromHDF5;
-    use crate::models::squeeze_bert::{SqueezeBertConfig, SqueezeBertLayer};
-
-    impl LoadFromHDF5 for SqueezeBertEncoder {
-        type Config = SqueezeBertConfig;
-
-        type Error = TransformerError;
-
-        fn load_from_hdf5<'a>(
-            vs: impl Borrow<PathExt<'a>>,
-            config: &Self::Config,
-            group: Group,
-        ) -> Result<Self, TransformerError> {
-            let vs = vs.borrow();
-
-            let layers = (0..config.num_hidden_layers)
-                .map(|idx| {
-                    SqueezeBertLayer::load_from_hdf5(
-                        vs / format!("layer_{}", idx),
-                        config,
-                        group.group(&format!("layer_{}", idx))?,
-                    )
-                })
-                .collect::<Result<_, _>>()?;
-
-            Ok(SqueezeBertEncoder { layers })
-        }
-    }
-}
-
-#[cfg(feature = "load-hdf5")]
 #[cfg(feature = "model-tests")]
 #[cfg(test)]
 mod tests {
@@ -131,7 +91,6 @@ mod tests {
     use std::convert::TryInto;
 
     use approx::assert_abs_diff_eq;
-    use hdf5::File;
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
@@ -139,7 +98,6 @@ mod tests {
     use tch::{Device, Kind, Tensor};
 
     use super::SqueezeBertEncoder;
-    use crate::hdf5_model::LoadFromHDF5;
     use crate::models::bert::{BertConfig, BertEmbeddings};
     use crate::models::squeeze_bert::SqueezeBertConfig;
     use crate::models::Encoder;
@@ -213,23 +171,14 @@ mod tests {
     fn squeeze_bert_encoder() {
         let config = squeezebert_uncased_config();
         let bert_config: BertConfig = (&config).into();
-        let file = File::open(SQUEEZEBERT_UNCASED).unwrap();
 
-        let vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &bert_config,
-            file.group("/squeeze_bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config);
+        let encoder = SqueezeBertEncoder::new(root.sub("encoder"), &config).unwrap();
 
-        let encoder = SqueezeBertEncoder::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            file.group("squeeze_bert/encoder").unwrap(),
-        )
-        .unwrap();
+        vs.load(SQUEEZEBERT_UNCASED).unwrap();
 
         // Word pieces of: Did the AWO embezzle donations ?
         let pieces =
@@ -263,23 +212,14 @@ mod tests {
     fn squeeze_bert_encoder_attention_mask() {
         let config = squeezebert_uncased_config();
         let bert_config: BertConfig = (&config).into();
-        let file = File::open(SQUEEZEBERT_UNCASED).unwrap();
 
-        let vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &bert_config,
-            file.group("/squeeze_bert/embeddings").unwrap(),
-        )
-        .unwrap();
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config);
+        let encoder = SqueezeBertEncoder::new(root.sub("encoder"), &config).unwrap();
 
-        let encoder = SqueezeBertEncoder::load_from_hdf5(
-            vs.root_ext(|_| 0),
-            &config,
-            file.group("squeeze_bert/encoder").unwrap(),
-        )
-        .unwrap();
+        vs.load(SQUEEZEBERT_UNCASED).unwrap();
 
         // Word pieces of: Did the AWO embezzle donations ?
         // Add some padding to simulate inactive time steps.
@@ -314,20 +254,16 @@ mod tests {
     }
 
     #[test]
-    fn sqeeze_bert_encoder_names_and_shapes() {
-        // Verify that the encoders's names and shapes correspond between
-        // loaded and newly-constructed models.
+    fn squeeze_bert_encoder_names_and_shapes() {
+        // Verify that the encoders's names and shapes are correct.
         let config = squeezebert_uncased_config();
-        let file = File::open(SQUEEZEBERT_UNCASED).unwrap();
 
-        let vs_loaded = VarStore::new(Device::Cpu);
-        SqueezeBertEncoder::load_from_hdf5(
-            vs_loaded.root_ext(|_| 0),
-            &config,
-            file.group("squeeze_bert/encoder").unwrap(),
-        )
-        .unwrap();
-        let loaded_variables = varstore_variables(&vs_loaded);
+        let vs = VarStore::new(Device::Cpu);
+        let root = vs.root_ext(|_| 0);
+
+        let _encoder = SqueezeBertEncoder::new(root, &config).unwrap();
+
+        let variables = varstore_variables(&vs);
 
         let mut encoder_variables = BTreeSet::new();
         let layer_variables = layer_variables();
@@ -337,18 +273,6 @@ mod tests {
             }
         }
 
-        assert_eq!(loaded_variables, encoder_variables);
-
-        // Compare against fresh encoder.
-        let vs_fresh = VarStore::new(Device::Cpu);
-        let _ = SqueezeBertEncoder::new(vs_fresh.root_ext(|_| 0), &config).unwrap();
-        assert_eq!(loaded_variables, varstore_variables(&vs_fresh));
-
-        // Check shapes
-        let loaded_variables = vs_loaded.variables();
-        let fresh_variables = vs_fresh.variables();
-        for (name, tensor) in loaded_variables {
-            assert_eq!(tensor.size(), fresh_variables[&name].size());
-        }
+        assert_eq!(variables, encoder_variables);
     }
 }
