@@ -48,7 +48,16 @@
     in {
       defaultPackage = self.packages.${system}.syntaxdot;
 
-      devShell = import ./shell.nix { pkgs = pkgsWithCuda; };
+      devShell = with pkgsWithCuda; mkShell {
+        nativeBuildInputs = [ cmake pkg-config rustup ];
+
+        buildInputs = [ openssl ];
+
+        LIBTORCH = symlinkJoin {
+          name = "torch-join";
+          paths = [ libtorch-bin.dev libtorch-bin.out ];
+        };
+      };
 
       packages.syntaxdot = syntaxdot pkgsWithoutCuda;
 
