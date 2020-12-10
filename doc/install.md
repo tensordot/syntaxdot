@@ -15,7 +15,57 @@ Additionally, compiling a SyntaxDot with training functionality requires:
 
 * CUDA
 
-### Fedora
+## Nix/NixOS
+
+### Nix with flake support
+
+The SyntaxDot repository is a Nix flake. You can open a shell with SyntaxDot
+as follows:
+
+```shell
+# SyntaxDot without CUDA support:
+$ nix shell github:tensordot/syntaxdot
+
+# SyntaxDot with CUDA support:
+$ nix shell github:tensordot/syntaxdot#syntaxdotWithCuda 
+
+# SyntaxDot is then available in the shell:
+$ syntaxdot --version 
+syntaxdot 0.3.0
+```
+
+You can also install a SyntaxDot package in your user profile:
+
+```shell
+# SyntaxDot without CUDA support:
+$ nix profile install github:tensordot/syntaxdot
+
+# SyntaxDot with CUDA support:
+$ nix profile install github:tensordot/syntaxdot#syntaxdotWithCuda
+```
+
+### Nix without flake support
+
+You can install SyntaxDot into your profile as follows:
+
+```shell
+
+# SyntaxDot without CUDA support:
+$ nix-env \
+  -f https://github.com/tensordot/syntaxdot/archive/main.tar.gz \
+  -iA packages.x86_64-linux.syntaxdot
+
+# SyntaxDot with CUDA support:
+$ nix-env \
+  -f https://github.com/tensordot/syntaxdot/archive/main.tar.gz \
+  -iA packages.x86_64-linux.syntaxdotWithCuda
+```
+
+## Linux (other)
+
+### Dependencies
+
+#### Fedora
 
 Most of the dependencies can be installed in Fedora using the following
 command:
