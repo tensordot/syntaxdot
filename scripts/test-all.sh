@@ -39,6 +39,9 @@ for var in "${!models[@]}"; do
   declare -x "${var}"="${data}"
 done
 
-( cd syntaxdot-tokenizers ; cargo test --features model-tests )
+# Regular tests for all crates
+cargo test
 
+# Regular tests + model tests for transformers and tokenizers
+( cd syntaxdot-tokenizers ; cargo test --features model-tests )
 ( cd syntaxdot-transformers ; cargo test --features model-tests )
