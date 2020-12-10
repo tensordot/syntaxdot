@@ -76,7 +76,19 @@ $ sudo dnf install -y cmake gcc-c++ openssl-devel pkg-config
 
 Follow the RPM Fusion [instructions for installing
 CUDA](https://rpmfusion.org/Howto/NVIDIA#CUDA). Besides these dependencies,
-you also need a Rust toolchain and libtorch.
+you also need a Rust toolchain and libtorch (see below).
+
+#### Debian/Ubuntu
+
+Install the following dependencies through APT:
+
+```shell
+$ apt-get install -y build-essential cmake libssl-dev pkg-config
+```
+
+For installing CUDA, please refer to your distribution's instructions.
+Besides these dependencies, you also need a Rust toolchain and libtorch
+(see below).
 
 ### Rust toolchain
 
