@@ -138,7 +138,7 @@ fn load_encoders(config: &Config) -> Result<Encoders> {
     ))?;
 
     for encoder in &*encoders {
-        eprintln!(
+        log::info!(
             "Loaded labels for encoder '{}': {} labels",
             encoder.name(),
             encoder.encoder().len()

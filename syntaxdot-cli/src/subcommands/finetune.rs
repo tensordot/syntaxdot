@@ -79,6 +79,12 @@ pub struct LearningRateSchedules {
     pub encoder: PlateauLearningRate<ExponentialDecay>,
 }
 
+struct EpochStats {
+    encoder_accuracy: BTreeMap<String, f32>,
+    encoder_loss: BTreeMap<String, f32>,
+    n_tokens: i64,
+}
+
 impl FinetuneApp {
     pub fn lr_schedules(&self) -> LearningRateSchedules {
         let exp_decay = ExponentialDecay::new(
@@ -116,6 +122,66 @@ impl FinetuneApp {
         global_step: &mut usize,
         epoch: usize,
     ) -> Result<f32> {
+        let epoch_stats = self.run_epoch_steps(
+            encoders,
+            tokenizer,
+            model,
+            file,
+            &mut grad_scaler,
+            lr_schedulers,
+            global_step,
+            epoch,
+        )?;
+
+        self.log_epoch_stats(encoders, global_step, epoch_stats, grad_scaler.is_some())
+    }
+
+    fn log_epoch_stats(
+        &self,
+        encoders: &Encoders,
+        global_step: &usize,
+        epoch_stats: EpochStats,
+        train: bool,
+    ) -> Result<f32> {
+        let epoch_type = if train { "train" } else { "validation" };
+
+        let mut acc_sum = 0.0;
+        for (encoder_name, loss) in epoch_stats.encoder_loss {
+            let acc = epoch_stats.encoder_accuracy[&encoder_name] / epoch_stats.n_tokens as f32;
+            let loss = loss / epoch_stats.n_tokens as f32;
+
+            log::info!("{} loss: {} accuracy: {:.4}", encoder_name, loss, acc);
+
+            self.summary_writer.write_scalar(
+                &format!("loss:{},layer:{}", epoch_type, &encoder_name),
+                *global_step as i64,
+                loss,
+            )?;
+
+            self.summary_writer.write_scalar(
+                &format!("acc:{},layer:{}", epoch_type, &encoder_name),
+                *global_step as i64,
+                acc,
+            )?;
+
+            acc_sum += acc;
+        }
+
+        Ok(acc_sum / encoders.len() as f32)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn run_epoch_steps(
+        &self,
+        encoders: &Encoders,
+        tokenizer: &dyn Tokenize,
+        model: &BertModel,
+        file: &mut File,
+        mut grad_scaler: &mut Option<&mut GradScaler<impl Optimizer>>,
+        lr_schedulers: &mut LearningRateSchedules,
+        global_step: &mut usize,
+        epoch: usize,
+    ) -> Result<EpochStats> {
         let epoch_type = if grad_scaler.is_some() {
             "train"
         } else {
@@ -131,13 +197,13 @@ impl FinetuneApp {
 
         let mut dataset = ConlluDataSet::new(read_progress);
 
-        let mut encoder_accuracy = BTreeMap::new();
-        let mut encoder_loss = BTreeMap::new();
-
         let mut n_tokens = 0;
 
         // Freeze the encoder during the first epoch.
         let freeze_encoder = epoch == 0;
+
+        let mut encoder_accuracy = BTreeMap::new();
+        let mut encoder_loss = BTreeMap::new();
 
         for batch in dataset.batches(
             tokenizer,
@@ -236,31 +302,11 @@ impl FinetuneApp {
 
         progress_bar.finish();
 
-        eprintln!();
-        let mut acc_sum = 0.0;
-        for (encoder_name, loss) in encoder_loss {
-            let acc = encoder_accuracy[&encoder_name] / n_tokens as f32;
-            let loss = loss / n_tokens as f32;
-
-            eprintln!("{} loss: {} accuracy: {:.4}", encoder_name, loss, acc);
-
-            self.summary_writer.write_scalar(
-                &format!("loss:{},layer:{}", epoch_type, &encoder_name),
-                *global_step as i64,
-                loss,
-            )?;
-
-            self.summary_writer.write_scalar(
-                &format!("acc:{},layer:{}", epoch_type, &encoder_name),
-                *global_step as i64,
-                acc,
-            )?;
-
-            acc_sum += acc;
-        }
-        eprintln!();
-
-        Ok(acc_sum / encoders.len() as f32)
+        Ok(EpochStats {
+            encoder_accuracy,
+            encoder_loss,
+            n_tokens,
+        })
     }
 }
 
@@ -555,7 +601,7 @@ impl SyntaxDotApp for FinetuneApp {
         let mut global_step = 1;
 
         for epoch in 0.. {
-            eprintln!("Epoch {}", epoch);
+            log::info!("Epoch {}", epoch);
 
             let _ = lr_schedules
                 .classifier
@@ -599,18 +645,23 @@ impl SyntaxDotApp for FinetuneApp {
                 .context("Error saving model")?;
 
             let epoch_status = if best_epoch == epoch { "🎉" } else { "" };
-            eprintln!(
+            log::info!(
                 "Epoch {} (validation): acc: {:.4}, best epoch: {}, best acc: {:.4} {}",
-                epoch, last_acc, best_epoch, best_acc, epoch_status
+                epoch,
+                last_acc,
+                best_epoch,
+                best_acc,
+                epoch_status
             );
 
             self.summary_writer
                 .write_scalar("acc:validation,avg", global_step as i64, last_acc)?;
 
             if epoch - best_epoch == self.patience {
-                eprintln!(
+                log::info!(
                     "Lost my patience! Best epoch: {} with accuracy: {:.4}",
-                    best_epoch, best_acc
+                    best_epoch,
+                    best_acc
                 );
                 break;
             }

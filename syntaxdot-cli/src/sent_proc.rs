@@ -102,7 +102,7 @@ where
     fn drop(&mut self) {
         if !self.buffer.is_empty() {
             if let Err(err) = self.tag_buffered_sentences() {
-                eprintln!("Error tagging sentences: {}", err);
+                log::error!("Error tagging sentences: {}", err);
             }
         }
     }

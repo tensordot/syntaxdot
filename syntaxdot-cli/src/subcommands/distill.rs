@@ -87,6 +87,12 @@ struct StudentModel {
     vs: VarStore,
 }
 
+struct EpochStats {
+    encoder_accuracy: BTreeMap<String, f32>,
+    encoder_loss: BTreeMap<String, f32>,
+    n_tokens: i64,
+}
+
 impl DistillApp {
     /// Compute the attention loss based on the output of two encoders.
     ///
@@ -219,9 +225,13 @@ impl DistillApp {
 
                 let step_status = if best_step == global_step { "🎉" } else { "" };
 
-                eprintln!(
+                log::info!(
                     "Step {} (validation): acc: {:.4}, best step: {}, best acc: {:.4} {}\n",
-                    global_step, acc, best_step, best_acc, step_status
+                    global_step,
+                    acc,
+                    best_step,
+                    best_acc,
+                    step_status
                 );
 
                 if global_step >= n_steps - 1 {
@@ -465,6 +475,50 @@ impl DistillApp {
         file: &mut File,
         global_step: usize,
     ) -> Result<f32> {
+        let epoch_stats =
+            self.validation_epoch_steps(encoders, tokenizer, model, file, global_step)?;
+        self.log_epoch_stats(encoders, global_step, epoch_stats)
+    }
+
+    fn log_epoch_stats(
+        &self,
+        encoders: &Encoders,
+        global_step: usize,
+        epoch_stats: EpochStats,
+    ) -> Result<f32> {
+        let mut acc_sum = 0.0;
+        for (encoder_name, loss) in epoch_stats.encoder_loss {
+            let acc = epoch_stats.encoder_accuracy[&encoder_name] / epoch_stats.n_tokens as f32;
+            let loss = loss / epoch_stats.n_tokens as f32;
+
+            log::info!("{} loss: {} accuracy: {:.4}", encoder_name, loss, acc);
+
+            self.summary_writer.write_scalar(
+                &format!("loss:validation,layer:{}", &encoder_name),
+                global_step as i64,
+                loss,
+            )?;
+
+            self.summary_writer.write_scalar(
+                &format!("acc:validation,layer:{}", &encoder_name),
+                global_step as i64,
+                acc,
+            )?;
+
+            acc_sum += acc;
+        }
+
+        Ok(acc_sum / encoders.len() as f32)
+    }
+
+    fn validation_epoch_steps(
+        &self,
+        encoders: &Encoders,
+        tokenizer: &dyn Tokenize,
+        model: &BertModel,
+        file: &mut File,
+        global_step: usize,
+    ) -> Result<EpochStats> {
         let read_progress = ReadProgress::new(file).context("Cannot create progress bar")?;
         let progress_bar = read_progress.progress_bar().clone();
         progress_bar.set_style(ProgressStyle::default_bar().template(
@@ -550,31 +604,11 @@ impl DistillApp {
 
         progress_bar.finish();
 
-        eprintln!();
-        let mut acc_sum = 0.0;
-        for (encoder_name, loss) in encoder_loss {
-            let acc = encoder_accuracy[&encoder_name] / n_tokens as f32;
-            let loss = loss / n_tokens as f32;
-
-            eprintln!("{} loss: {} accuracy: {:.4}", encoder_name, loss, acc);
-
-            self.summary_writer.write_scalar(
-                &format!("loss:validation,layer:{}", &encoder_name),
-                global_step as i64,
-                loss,
-            )?;
-
-            self.summary_writer.write_scalar(
-                &format!("acc:validation,layer:{}", &encoder_name),
-                global_step as i64,
-                acc,
-            )?;
-
-            acc_sum += acc;
-        }
-        eprintln!();
-
-        Ok(acc_sum / encoders.len() as f32)
+        Ok(EpochStats {
+            encoder_accuracy,
+            encoder_loss,
+            n_tokens,
+        })
     }
 }
 
@@ -871,7 +905,7 @@ impl TrainDuration {
 
         match *self {
             Epochs(epochs) => {
-                eprintln!("Counting number of steps in an epoch...");
+                log::info!("Counting number of steps in an epoch...");
                 let read_progress =
                     ReadProgress::new(train_file.try_clone()?).context("Cannot open train file")?;
 
@@ -887,7 +921,7 @@ impl TrainDuration {
 
                 // Compute number of steps of the given batch size.
                 let steps_per_epoch = (n_sentences + batch_size - 1) / batch_size;
-                eprintln!(
+                log::info!(
                     "sentences: {}, steps_per epoch: {}, total_steps: {}",
                     n_sentences,
                     steps_per_epoch,

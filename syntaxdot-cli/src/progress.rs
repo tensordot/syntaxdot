@@ -103,7 +103,7 @@ impl Drop for TaggerSpeed {
         // From nightly-only as_secs_f32.
         let elapsed_secs =
             (elapsed.as_secs() as f32) + (elapsed.subsec_nanos() as f32) / (NANOS_PER_SEC as f32);
-        eprintln!(
+        log::info!(
             "Processed {} sentences in {:.1}s ({:.1} sents/s)",
             self.n_sentences,
             elapsed_secs,

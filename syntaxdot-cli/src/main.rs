@@ -36,6 +36,8 @@ fn main() -> Result<()> {
         subcommands::PrepareApp::app(),
     ];
 
+    env_logger::init();
+
     let cli = App::new("syntaxdot")
         .settings(DEFAULT_CLAP_SETTINGS)
         .about("A neural sequence labeler")
