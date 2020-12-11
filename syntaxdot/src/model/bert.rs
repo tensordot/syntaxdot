@@ -18,6 +18,7 @@ use tch::{self, Tensor};
 use crate::config::{PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
+use std::time::Instant;
 
 pub trait PretrainBertConfig {
     fn bert_config(&self) -> Cow<BertConfig>;
@@ -224,6 +225,8 @@ impl BertModel {
         train: bool,
         freeze_layers: FreezeLayers,
     ) -> Vec<LayerOutput> {
+        let start = Instant::now();
+
         let embeds = if freeze_layers.embeddings {
             tch::no_grad(|| self.embeddings.forward_t(inputs, train))
         } else {
@@ -243,6 +246,14 @@ impl BertModel {
                 self.layers_dropout.forward_t(&layer.output(), train)
             };
         }
+
+        let shape = inputs.size();
+        log::debug!(
+            "Encoded {} inputs with length {} in {}ms",
+            shape[0],
+            shape[1],
+            start.elapsed().as_millis()
+        );
 
         encoded
     }

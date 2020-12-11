@@ -11,6 +11,7 @@ use tch::{Kind, Tensor};
 use crate::config::PretrainConfig;
 use crate::encoders::Encoders;
 use crate::model::bert::PretrainBertConfig;
+use std::time::Instant;
 
 /// A set of sequence classifiers.
 ///
@@ -130,7 +131,10 @@ impl SequenceClassifiers {
     /// each sequence classifier, given the output of each layer. The function
     /// returns a mapping for the classifier name to `(probabilities, labels)`.
     pub fn top_k(&self, layers: &[LayerOutput], k: usize) -> HashMap<String, TopK> {
-        self.classifiers
+        let start = Instant::now();
+
+        let top_k = self
+            .classifiers
             .iter()
             .map(|(encoder_name, classifier)| {
                 let (probs, mut labels) = classifier
@@ -144,7 +148,18 @@ impl SequenceClassifiers {
 
                 (encoder_name.to_string(), TopK { labels, probs })
             })
-            .collect()
+            .collect();
+
+        let shape = layers[0].output().size();
+        log::debug!(
+            "Predicted top-{} labels for {} inputs with length {} in {}ms",
+            k,
+            shape[0],
+            shape[1],
+            start.elapsed().as_millis()
+        );
+
+        top_k
     }
 }
 
