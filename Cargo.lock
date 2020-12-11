@@ -1570,6 +1570,7 @@ dependencies = [
  "approx",
  "conllu",
  "criterion",
+ "log",
  "maplit",
  "ndarray",
  "ndarray-rand",
