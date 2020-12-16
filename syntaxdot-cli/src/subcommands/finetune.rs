@@ -18,7 +18,7 @@ use tch::{self, Device, Kind};
 use crate::io::Model;
 use crate::progress::ReadProgress;
 use crate::save::{BestEpochSaver, CompletedUnit, Save};
-use crate::summary::{SummaryOption, SummaryWriter};
+use crate::summary::{ScalarWriter, SummaryOption};
 use crate::traits::{
     ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
 };
@@ -63,7 +63,7 @@ pub struct FinetuneApp {
     max_len: Option<SequenceLength>,
     label_smoothing: Option<f64>,
     mixed_precision: bool,
-    summary_writer: Box<dyn SummaryWriter>,
+    summary_writer: Box<dyn ScalarWriter>,
     include_continuations: bool,
     lr_schedule: LrSchedule,
     patience: usize,
