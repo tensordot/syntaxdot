@@ -2,6 +2,7 @@
 members = [
     "syntaxdot-encoders",
     "syntaxdot-tokenizers",
+    "syntaxdot-summary",
     "syntaxdot-transformers",
     "syntaxdot",
     "syntaxdot-cli",

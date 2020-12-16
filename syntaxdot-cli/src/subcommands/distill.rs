@@ -25,7 +25,7 @@ use tch::{self, Device, Kind, Reduction, Tensor};
 
 use crate::io::{load_config, load_pretrain_config, load_tokenizer, Model};
 use crate::progress::ReadProgress;
-use crate::summary::{SummaryOption, SummaryWriter};
+use crate::summary::{ScalarWriter, SummaryOption};
 use crate::traits::{
     ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
 };
@@ -68,7 +68,7 @@ pub struct DistillApp {
     mixed_precision: bool,
     lr_schedules: RefCell<LearningRateSchedules>,
     student_config: String,
-    summary_writer: Box<dyn SummaryWriter>,
+    summary_writer: Box<dyn ScalarWriter>,
     teacher_config: String,
     train_data: String,
     train_duration: TrainDuration,
