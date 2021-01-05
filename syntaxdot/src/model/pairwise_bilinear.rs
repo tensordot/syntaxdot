@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
 
-use tch::nn::{Init, Path};
+use syntaxdot_tch_ext::PathExt;
+use tch::nn::Init;
 use tch::Tensor;
 
 /// Configuration for the `Bilinear` layer.
@@ -27,7 +28,7 @@ pub struct PairwiseBilinear {
 
 impl PairwiseBilinear {
     /// Construct a new bilinear layer.
-    pub fn new<'a>(vs: impl Borrow<Path<'a>>, config: &PairwiseBilinearConfig) -> Self {
+    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &PairwiseBilinearConfig) -> Self {
         assert!(
             config.in_features > 0,
             "in_features should be > 0, was: {}",
@@ -91,6 +92,8 @@ mod tests {
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
+    use syntaxdot_tch_ext::RootExt;
+
     use crate::model::pairwise_bilinear::{PairwiseBilinear, PairwiseBilinearConfig};
 
     #[test]
@@ -102,7 +105,7 @@ mod tests {
 
         let vs = VarStore::new(Device::Cpu);
         let bilinear = PairwiseBilinear::new(
-            vs.root(),
+            vs.root_ext(|_| 0),
             &PairwiseBilinearConfig {
                 in_features: 200,
                 out_features: 5,
