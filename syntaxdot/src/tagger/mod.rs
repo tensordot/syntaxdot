@@ -81,9 +81,9 @@ impl Tagger {
 
     /// Get the top-k numeric labels for the sequences.
     #[allow(clippy::type_complexity)]
-    fn top_k_numeric_<'a, S>(
+    fn top_k_numeric_<S>(
         &self,
-        sentences: &'a [S],
+        sentences: &[S],
     ) -> Result<Vec<HashMap<String, Vec<Vec<EncodingProb<usize>>>>>, SyntaxDotError>
     where
         S: Borrow<SentenceWithPieces>,

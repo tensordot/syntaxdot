@@ -72,7 +72,7 @@ impl ScalarWeight {
         );
 
         assert!(
-            layer_dropout_prob >= 0.0 && layer_dropout_prob < 1.0,
+            (0.0..1.0).contains(&layer_dropout_prob),
             "Layer dropout should be in [0,1), was: {}",
             layer_dropout_prob
         );
