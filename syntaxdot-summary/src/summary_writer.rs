@@ -114,8 +114,6 @@ where
 #[cfg(test)]
 mod tests {
     use crate::SummaryWriter;
-    use std::fs::File;
-    use std::io::Write;
 
     static CHECK_OUTPUT: [u8; 126] = [
         24, 0, 0, 0, 0, 0, 0, 0, 163, 127, 75, 34, 9, 0, 0, 128, 54, 111, 246, 215, 65, 26, 13, 98,
