@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::models::bert::BertConfig;
 use crate::models::traits::WordEmbeddingsConfig;
-use crate::models::BertConfig;
 
 /// ALBERT model configuration.
 #[serde(default)]

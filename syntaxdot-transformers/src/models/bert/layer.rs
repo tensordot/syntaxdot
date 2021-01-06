@@ -71,7 +71,7 @@ impl Module for BertIntermediate {
     }
 }
 
-/// BERT layer
+/// BERT layer.
 #[derive(Debug)]
 pub struct BertLayer {
     attention: BertSelfAttention,
@@ -96,7 +96,7 @@ impl BertLayer {
         })
     }
 
-    pub fn forward_t(
+    pub(crate) fn forward_t(
         &self,
         input: &Tensor,
         attention_mask: Option<&LogitsMask>,
@@ -217,7 +217,7 @@ impl BertSelfAttention {
     ///
     /// Return the contextualized representations and attention
     /// probabilities.
-    pub fn forward_t(
+    fn forward_t(
         &self,
         hidden_states: &Tensor,
         attention_mask: Option<&LogitsMask>,

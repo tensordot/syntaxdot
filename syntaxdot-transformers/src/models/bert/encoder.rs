@@ -21,11 +21,12 @@ use tch::Tensor;
 
 use crate::cow::CowTensor;
 use crate::error::TransformerError;
-use crate::models::bert::BertLayer;
+use crate::models::bert::{BertConfig, BertLayer};
 use crate::models::layer_output::LayerOutput;
-use crate::models::{BertConfig, Encoder};
+use crate::models::Encoder;
 use crate::util::LogitsMask;
 
+/// BERT encoder.
 #[derive(Debug)]
 pub struct BertEncoder {
     layers: Vec<BertLayer>,

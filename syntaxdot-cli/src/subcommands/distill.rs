@@ -19,7 +19,7 @@ use syntaxdot::tensor::Tensors;
 use syntaxdot::util::seq_len_to_mask;
 use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
-use syntaxdot_transformers::models::layer_output::LayerOutput;
+use syntaxdot_transformers::models::LayerOutput;
 use tch::nn::VarStore;
 use tch::{self, Device, Kind, Reduction, Tensor};
 

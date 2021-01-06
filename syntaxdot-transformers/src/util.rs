@@ -1,3 +1,5 @@
+//! Crate utilities.
+
 use std::ops::Deref;
 
 use tch::{Device, Kind, Tensor};
