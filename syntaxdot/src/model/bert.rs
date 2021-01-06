@@ -2,16 +2,16 @@ use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
 
 use syntaxdot_tch_ext::PathExt;
-use syntaxdot_transformers::error::TransformerError;
 use syntaxdot_transformers::layers::Dropout;
 use syntaxdot_transformers::models::albert::{AlbertConfig, AlbertEmbeddings, AlbertEncoder};
 use syntaxdot_transformers::models::bert::{BertConfig, BertEmbeddings, BertEncoder};
-use syntaxdot_transformers::models::layer_output::LayerOutput;
 use syntaxdot_transformers::models::roberta::RobertaEmbeddings;
 use syntaxdot_transformers::models::sinusoidal::SinusoidalEmbeddings;
 use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertEncoder;
 use syntaxdot_transformers::models::squeeze_bert::SqueezeBertEncoder;
 use syntaxdot_transformers::models::Encoder as _;
+use syntaxdot_transformers::models::LayerOutput;
+use syntaxdot_transformers::TransformerError;
 use tch::nn::ModuleT;
 use tch::{self, Tensor};
 

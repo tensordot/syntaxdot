@@ -5,8 +5,7 @@ use tch::nn::{Linear, Module, ModuleT};
 use tch::Tensor;
 
 use crate::models::albert::AlbertConfig;
-use crate::models::bert::bert_linear;
-use crate::models::{BertConfig, BertEmbeddings};
+use crate::models::bert::{bert_linear, BertConfig, BertEmbeddings};
 
 /// ALBERT embeddings.
 ///

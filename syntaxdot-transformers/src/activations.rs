@@ -1,3 +1,5 @@
+//! Activation functions
+
 use std::f64;
 
 use tch::nn::Module;
@@ -5,6 +7,11 @@ use tch::Tensor;
 
 pub trait Activation: Clone + Module {}
 
+/// GELU activation function (Google/OpenAI flavor).
+///
+/// GELU(x)=x Φ(x)
+///
+/// where Φ(x) is the CDF for the Gaussian distribution.
 #[derive(Clone, Copy, Debug)]
 pub struct GELUNew;
 
@@ -20,6 +27,11 @@ impl Module for GELUNew {
 
 impl Activation for GELUNew {}
 
+/// GELU activation function.
+///
+/// GELU(x)=x Φ(x)
+///
+/// where Φ(x) is the CDF for the Gaussian distribution.
 #[derive(Clone, Copy, Debug)]
 pub struct GELU;
 

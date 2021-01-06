@@ -183,7 +183,7 @@ impl SqueezeBertSelfAttention {
     ///
     /// Hidden states should be in *[batch_size, hidden_size, seq_len]* data
     /// layout.
-    pub fn forward_t(
+    fn forward_t(
         &self,
         hidden_states: &Tensor,
         attention_mask: Option<&LogitsMask>,
@@ -301,7 +301,7 @@ impl SqueezeBertLayer {
     ///
     /// Hidden states should be in *[batch_size, hidden_size, seq_len]* data
     /// layout.
-    pub fn forward_t(
+    pub(crate) fn forward_t(
         &self,
         input: &Tensor,
         attention_mask: Option<&LogitsMask>,

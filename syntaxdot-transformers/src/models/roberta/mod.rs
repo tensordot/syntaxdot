@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! RoBERTa (Liu et al., 2018) and XLM-RoBERTa (Conneau et al., 2019).
+
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;

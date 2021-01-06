@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::BertConfig;
+use crate::models::bert::BertConfig;
 
 /// SqueezeBert model configuration.
 #[serde(default)]

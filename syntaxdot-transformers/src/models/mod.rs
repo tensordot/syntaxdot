@@ -3,21 +3,19 @@
 pub mod albert;
 
 pub mod bert;
-pub use bert::{BertConfig, BertEmbeddings, BertEncoder};
 
 mod encoder;
 pub use encoder::Encoder;
 
-pub mod layer_output;
+mod layer_output;
+pub use layer_output::{HiddenLayer, LayerOutput};
 
 pub mod roberta;
-pub use roberta::RobertaEmbeddings;
 
 pub mod sinusoidal;
-pub use sinusoidal::SinusoidalEmbeddings;
 
 pub mod squeeze_albert;
 
 pub mod squeeze_bert;
 
-pub mod traits;
+mod traits;

@@ -1,3 +1,5 @@
+//! Scalar weighting of transformer layers.
+
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
@@ -6,7 +8,7 @@ use tch::{Kind, Reduction, Tensor};
 
 use crate::cow::CowTensor;
 use crate::layers::{Dropout, LayerNorm};
-use crate::models::layer_output::LayerOutput;
+use crate::models::LayerOutput;
 
 /// Non-linear ReLU layer with layer normalization and dropout.
 #[derive(Debug)]
@@ -294,7 +296,7 @@ mod tests {
     use tch::{Device, Kind, Tensor};
 
     use super::{cross_entropy_loss, ScalarWeightClassifier, ScalarWeightClassifierConfig};
-    use crate::models::layer_output::{HiddenLayer, LayerOutput};
+    use crate::models::{HiddenLayer, LayerOutput};
 
     fn varstore_variables(vs: &VarStore) -> BTreeSet<String> {
         vs.variables()

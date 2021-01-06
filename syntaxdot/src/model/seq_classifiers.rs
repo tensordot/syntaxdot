@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 
 use syntaxdot_tch_ext::PathExt;
-use syntaxdot_transformers::models::layer_output::LayerOutput;
+use syntaxdot_transformers::models::LayerOutput;
 use syntaxdot_transformers::scalar_weighting::{
     ScalarWeightClassifier, ScalarWeightClassifierConfig,
 };

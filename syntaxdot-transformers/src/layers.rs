@@ -1,3 +1,8 @@
+//! Basic neural network modules.
+//!
+//! These are modules that are not provided by the Torch binding, or where
+//! different behavior is required from the modules.
+
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
@@ -30,6 +35,7 @@ impl PlaceInVarStore for Linear {
     }
 }
 
+/// 1-D convolution.
 #[derive(Debug)]
 pub struct Conv1D {
     pub ws: Tensor,
