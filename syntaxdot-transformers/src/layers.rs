@@ -6,34 +6,8 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::{ConvConfig, Init, Linear, Module, ModuleT};
+use tch::nn::{ConvConfig, Init, Module, ModuleT};
 use tch::{self, Tensor};
-
-/// Trait to place layer tensors in the var store.
-pub trait PlaceInVarStore
-where
-    Self: Sized,
-{
-    /// Place layer tensors in the var store.
-    ///
-    /// This method replaces a layer's tensors by tensors that are
-    /// in the given var store.
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>);
-
-    /// Place layer tensors in the var store.
-    fn place_in_var_store<'a>(mut self, vs: impl Borrow<PathExt<'a>>) -> Self {
-        self.place_in_var_store_inplace(vs);
-        self
-    }
-}
-
-impl PlaceInVarStore for Linear {
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>) {
-        let vs = vs.borrow();
-        self.ws = vs.var_copy("weight", &self.ws);
-        self.bs = vs.var_copy("bias", &self.bs);
-    }
-}
 
 /// 1-D convolution.
 #[derive(Debug)]
@@ -88,14 +62,6 @@ impl Module for Conv1D {
     }
 }
 
-impl PlaceInVarStore for Conv1D {
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>) {
-        let vs = vs.borrow();
-        self.ws = vs.var_copy("weight", &self.ws);
-        self.bs = self.bs.as_ref().map(|bs| vs.var_copy("bias", bs));
-    }
-}
-
 /// Dropout layer.
 ///
 /// This layer zeros out random elements of a tensor with probability
@@ -129,12 +95,6 @@ impl Embedding {
             vs.borrow()
                 .var(name, &[num_embeddings, embedding_dim], init),
         )
-    }
-}
-
-impl PlaceInVarStore for Embedding {
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>) {
-        self.0 = vs.borrow().var_copy("embeddings", &self.0)
     }
 }
 
@@ -210,17 +170,5 @@ impl Module for LayerNorm {
             self.eps,
             false,
         )
-    }
-}
-
-impl PlaceInVarStore for LayerNorm {
-    fn place_in_var_store_inplace<'a>(&mut self, vs: impl Borrow<PathExt<'a>>) {
-        let vs = vs.borrow();
-
-        self.weight = self
-            .weight
-            .as_ref()
-            .map(|weight| vs.var_copy("weight", weight));
-        self.bias = self.bias.as_ref().map(|bias| vs.var_copy("bias", bias));
     }
 }
