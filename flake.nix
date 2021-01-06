@@ -13,6 +13,7 @@
   outputs = { self, crate2nix, nixpkgs, utils }:
     utils.lib.eachSystem  [ "x86_64-linux" ] (system:
     let
+      models = import ./models.nix { inherit (pkgsWithCuda) fetchurl; };
       pkgsWithoutCuda = import nixpkgs {
         inherit system;
         config = {
@@ -48,7 +49,7 @@
     in {
       defaultPackage = self.packages.${system}.syntaxdot;
 
-      devShell = with pkgsWithCuda; mkShell {
+      devShell = with pkgsWithCuda; mkShell (models // {
         nativeBuildInputs = [ cmake pkg-config rustup ];
 
         buildInputs = [ openssl ];
@@ -57,7 +58,7 @@
           name = "torch-join";
           paths = [ libtorch-bin.dev libtorch-bin.out ];
         };
-      };
+      });
 
       packages.syntaxdot = syntaxdot pkgsWithoutCuda;
 
