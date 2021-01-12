@@ -264,22 +264,19 @@ fn cross_entropy_loss(
     n_classes: i64,
     label_smoothing: Option<f64>,
 ) -> Tensor {
-    let probs = logits.log_softmax(-1, Kind::Float);
+    let log_probs = logits.log_softmax(-1, Kind::Float);
 
     match label_smoothing {
         Some(label_smoothing) => {
             // Set all labels to label_smoothing and the target to 1-label_smoothing.
-            let n_classes = n_classes;
-            let smoothed_targets = tch::no_grad(|| {
-                Tensor::full_like(&probs, label_smoothing / (n_classes - 1) as f64).scatter1(
-                    1,
-                    &targets.unsqueeze(1),
-                    1. - label_smoothing,
-                )
-            });
-            (-smoothed_targets * probs).sum1(&[-1], false, Kind::Float)
+            let smoothed_targets =
+                tch::no_grad(|| {
+                    Tensor::full_like(&log_probs, label_smoothing / (n_classes - 1) as f64)
+                        .scatter1(1, &targets.unsqueeze(1), 1. - label_smoothing)
+                });
+            (-smoothed_targets * log_probs).sum1(&[-1], false, Kind::Float)
         }
-        None => probs.g_nll_loss::<&Tensor>(&targets, None, Reduction::None, -100),
+        None => log_probs.g_nll_loss::<&Tensor>(&targets, None, Reduction::None, -100),
     }
 }
 
