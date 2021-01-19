@@ -15,6 +15,10 @@ pub struct PairwiseBilinearConfig {
 
     /// Standard deviation for random initialization.
     pub initializer_range: f64,
+
+    pub bias_u: bool,
+
+    pub bias_v: bool,
 }
 
 /// Pairwise bilinear forms.
@@ -24,6 +28,8 @@ pub struct PairwiseBilinearConfig {
 #[derive(Debug)]
 pub struct PairwiseBilinear {
     weight: Tensor,
+    bias_u: bool,
+    bias_v: bool,
 }
 
 impl PairwiseBilinear {
@@ -43,16 +49,33 @@ impl PairwiseBilinear {
 
         let vs = vs.borrow();
 
+        let bias_u_dim = if config.bias_u { 1 } else { 0 };
+        let bias_v_dim = if config.bias_v { 1 } else { 0 };
+
+        // We would normally use a separate variable for biases to enable
+        // treating biases using a different parameter group. However, in
+        // this case, the bias is not a 'constant' scalar, vector, or matrix,
+        // but actually interacts with the inputs. Therefore, it seems  more
+        // appropriate to treat biases in a biaffine classifier as regular
+        // trainable variables.
         let weight = vs.var(
             "weight",
-            &[config.in_features, config.out_features, config.in_features],
+            &[
+                config.in_features + bias_u_dim,
+                config.out_features,
+                config.in_features + bias_v_dim,
+            ],
             Init::Randn {
                 mean: 0.,
                 stdev: config.initializer_range,
             },
         );
 
-        PairwiseBilinear { weight }
+        PairwiseBilinear {
+            bias_u: config.bias_u,
+            bias_v: config.bias_v,
+            weight,
+        }
     }
 
     /// Apply this layer to the given inputs.
@@ -60,30 +83,46 @@ impl PairwiseBilinear {
     /// Both inputs must have the same shape. Returns a tensor of
     /// shape `[batch_size, seq_len, seq_len, out_features]` given
     /// inputs of shape `[batch_size, seq_len, in_features]`.
-    pub fn forward(&self, input1: &Tensor, input2: &Tensor) -> Tensor {
+    pub fn forward(&self, u: &Tensor, v: &Tensor) -> Tensor {
         assert_eq!(
-            input1.size(),
-            input2.size(),
+            u.size(),
+            v.size(),
             "Inputs to Bilinear must have the same shape: {:?} {:?}",
-            input1.size(),
-            input2.size()
+            u.size(),
+            v.size()
         );
 
         assert_eq!(
-            input1.dim(),
+            u.dim(),
             3,
             "Shape should have 3 dimensions, has: {}",
-            input1.dim()
+            u.dim()
         );
 
-        // The shapes of the inputs are [batch_size, max_seq_len, features].
-        // After matrix multiplication, we get the intermediate shape
-        // [batch_size, max_seq_len, out_features, in_features].
-        let intermediate = Tensor::einsum("blh,hfh->blfh", &[input1, &self.weight]);
+        let (batch_size, seq_len, _) = u.size3().unwrap();
+
+        let ones = Tensor::ones(&[batch_size, seq_len, 1], (u.kind(), u.device()));
+
+        let u = if self.bias_u {
+            Tensor::cat(&[u, &ones], -1)
+        } else {
+            u.shallow_clone()
+        };
+
+        let v = if self.bias_v {
+            Tensor::cat(&[v, &ones], -1)
+        } else {
+            v.shallow_clone()
+        };
+
+        // [batch_size, max_seq_len, out_features, v features].
+        let intermediate = Tensor::einsum("blu,uov->blov", &[&u, &self.weight]);
 
         // We perform a matrix multiplication to get the output with
         // the shape [batch_size, seq_len, seq_len, out_features].
-        Tensor::einsum("blh,bmfh->blmf", &[input2, &intermediate])
+        let bilinear = Tensor::einsum("bmv,blov->bmlo", &[&v, &intermediate]);
+
+        bilinear.squeeze1(-1)
     }
 }
 
@@ -107,6 +146,8 @@ mod tests {
         let bilinear = PairwiseBilinear::new(
             vs.root_ext(|_| 0),
             &PairwiseBilinearConfig {
+                bias_u: true,
+                bias_v: false,
                 in_features: 200,
                 out_features: 5,
                 initializer_range: 0.02,
@@ -114,5 +155,25 @@ mod tests {
         );
 
         assert_eq!(bilinear.forward(&input1, &input2).size(), &[64, 10, 10, 5]);
+    }
+
+    #[test]
+    fn bilinear_1_output_correct_shapes() {
+        let input1 = Tensor::rand(&[64, 10, 200], (Kind::Float, Device::Cpu));
+        let input2 = Tensor::rand(&[64, 10, 200], (Kind::Float, Device::Cpu));
+
+        let vs = VarStore::new(Device::Cpu);
+        let bilinear = PairwiseBilinear::new(
+            vs.root_ext(|_| 0),
+            &PairwiseBilinearConfig {
+                bias_u: true,
+                bias_v: false,
+                in_features: 200,
+                out_features: 1,
+                initializer_range: 0.02,
+            },
+        );
+
+        assert_eq!(bilinear.forward(&input1, &input2).size(), &[64, 10, 10]);
     }
 }
