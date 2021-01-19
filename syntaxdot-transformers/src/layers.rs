@@ -172,3 +172,34 @@ impl Module for LayerNorm {
         )
     }
 }
+
+/// Variational dropout (Gal and Ghahramani, 2016)
+///
+/// For a tensor with `[batch_size, seq_len, repr_size]`, apply
+/// the same dropout `[batch_size, 1, repr_size]` to each sequence
+/// element.
+#[derive(Debug)]
+pub struct VariationalDropout {
+    p: f64,
+}
+
+impl VariationalDropout {
+    /// Create a variational dropout layer with the given dropout probability.
+    pub fn new(p: f64) -> Self {
+        VariationalDropout { p }
+    }
+}
+
+impl ModuleT for VariationalDropout {
+    fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
+        // Avoid unnecessary work during prediction.
+        if !train {
+            return xs.shallow_clone();
+        }
+
+        let (batch_size, _, repr_size) = xs.size3().unwrap();
+        let dropout_mask = Tensor::ones(&[batch_size, 1, repr_size], (xs.kind(), xs.device()))
+            .dropout_(self.p, true);
+        xs * dropout_mask
+    }
+}
