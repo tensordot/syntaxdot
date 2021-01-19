@@ -6,8 +6,6 @@ pub mod error;
 
 pub mod encoders;
 
-pub mod graph;
-
 pub mod lr;
 
 pub mod model;
