@@ -16,6 +16,12 @@ pub use xlm_roberta::XlmRobertaTokenizer;
 /// Trait for wordpiece tokenizers.
 pub trait Tokenize: Send + Sync {
     /// Tokenize the tokens in a sentence into word pieces.
+    ///
+    /// Implementations **must** prefix the first piece corresponding to a
+    /// token by one or more special pieces marking the beginning of the
+    /// sentence. The representation of this piece can be used for special
+    /// purposes, such as classification or acting is the pseudo-root in
+    /// dependency parsing.
     fn tokenize(&self, sentence: Sentence) -> SentenceWithPieces;
 }
 
