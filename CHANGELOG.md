@@ -10,3 +10,9 @@
   updated to insert the `[CLS]` piece as a beginning of sentence marker.
   **Warning:** this breaks existing models with `tokenizer = "bert"`, which should
   be retrained.
+
+### Removed
+
+- Support for parsing as sequence labeling was removed in favor of biaffine
+  parsing. Biaffine parsing results in higher accuracies and does not require
+  tailored part-of-speech tags.

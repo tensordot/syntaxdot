@@ -281,14 +281,13 @@ fn relativize_path(config_path: &Path, filename: &str) -> Result<String, SyntaxD
 
 #[cfg(test)]
 mod tests {
-    use syntaxdot_encoders::deprel::POSLayer;
     use syntaxdot_encoders::layer::Layer;
     use syntaxdot_encoders::lemma::BackoffStrategy;
 
     use crate::config::{
         Config, Input, Labeler, Model, PositionEmbeddings, PretrainModelType, Tokenizer, TomlRead,
     };
-    use crate::encoders::{DependencyEncoder, EncoderType, EncodersConfig, NamedEncoderConfig};
+    use crate::encoders::{EncoderType, EncodersConfig, NamedEncoderConfig};
 
     #[test]
     fn config() {
@@ -306,13 +305,6 @@ mod tests {
                 labeler: Labeler {
                     labels: "sticker.labels".to_string(),
                     encoders: EncodersConfig(vec![
-                        NamedEncoderConfig {
-                            name: "dep".to_string(),
-                            encoder: EncoderType::Dependency {
-                                encoder: DependencyEncoder::RelativePOS(POSLayer::XPos),
-                                root_relation: "root".to_string()
-                            }
-                        },
                         NamedEncoderConfig {
                             name: "lemma".to_string(),
                             encoder: EncoderType::Lemma(BackoffStrategy::Form)
