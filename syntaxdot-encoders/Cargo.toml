@@ -11,12 +11,24 @@ license = "BlueOak-1.0.0"
 
 [dependencies]
 conllu = "0.5"
+itertools = "0.9"
 numberer = "0.2"
 lazy_static = "1"
+ndarray = "0.13"
 ohnomore = "0.2.2"
 ordered-float = "1"
 petgraph = "0.5"
+rand = "0.7"
+rand_xorshift = "0.2"
 seqalign = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
 thiserror = "1"
+
+[dev-dependencies]
+criterion = "0.3"
+ndarray-rand = "0.11"
+
+[[bench]]
+name = "mst"
+harness = false

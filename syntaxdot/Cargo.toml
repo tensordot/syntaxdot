@@ -29,10 +29,5 @@ toml = "0.5"
 
 [dev-dependencies]
 approx = "0.3"
-criterion = "0.3"
 maplit = "1"
-ndarray-rand = "0.11"
 
-[[bench]]
-name = "mst"
-harness = false

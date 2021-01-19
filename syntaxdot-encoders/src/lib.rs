@@ -6,6 +6,8 @@ use conllu::graph::Sentence;
 
 pub mod categorical;
 
+pub mod dependency;
+
 pub mod layer;
 
 pub mod lemma;

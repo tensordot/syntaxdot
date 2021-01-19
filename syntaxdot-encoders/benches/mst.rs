@@ -5,7 +5,7 @@ use ndarray_rand::rand_distr::Uniform;
 use ndarray_rand::RandomExt;
 use rand_xorshift::XorShiftRng;
 
-use syntaxdot::graph::chu_liu_edmonds;
+use syntaxdot_encoders::dependency::mst::chu_liu_edmonds;
 
 fn mst_benchmark(c: &mut Criterion) {
     let mut rng = XorShiftRng::seed_from_u64(42);
