@@ -18,11 +18,6 @@ task, but so far the focus has been on:
 * Dependency parsing
 * Named entity recognition
 
-The easiest way to get started with SyntaxDot is to [use a pretrained
-sticker2
-model](https://github.com/stickeritis/sticker2/blob/master/doc/pretrained.md)
-(SyntaxDot is currently compatbile with sticker2 models).
-
 ## Features
 
 * Input representations:
@@ -55,17 +50,6 @@ SyntaxDot uses techniques from or was inspired by the following papers:
   Universally](https://www.aclweb.org/anthology/D19-1279.pdf).  Dan
   Kondratyuk and Milan Straka, 2019, Proceedings of the EMNLP 2019 and
   the 9th IJCNLP.
-* The tagging as sequence labeling scheme was proposed by [Dependency
-  Parsing as a Sequence Labeling
-  Task](https://www.degruyter.com/downloadpdf/j/pralin.2010.94.issue--1/v10108-010-0017-3/v10108-010-0017-3.pdf). Drahomíra
-  Spoustová, Miroslav Spousta, 2010, The Prague Bulletin of
-  Mathematical Linguistics, Volume 94.
-* The idea to combine this scheme with neural networks comes from
-  [Viable Dependency Parsing as Sequence
-  Labeling](https://www.aclweb.org/anthology/papers/N/N19/N19-1077/). Michalina
-  Strzyz, David Vilares, Carlos Gómez-Rodríguez, 2019, Proceedings of
-  the 2019 Conference of the North American Chapter of the Association
-  for Computational Linguistics: Human Language Technologies
 * The encoding of lemmatization as edit trees was proposed in [Towards
   a Machine-Learning Architecture for Lexical Functional Grammar
   Parsing](http://grzegorz.chrupala.me/papers/phd-single.pdf).
