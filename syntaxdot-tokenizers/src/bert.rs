@@ -68,6 +68,12 @@ impl Tokenize for BertTokenizer {
         let mut pieces = Vec::with_capacity((sentence.len() - 1) * 3);
         let mut token_offsets = Vec::with_capacity(sentence.len());
 
+        pieces.push(
+            self.word_pieces
+                .get_initial("[CLS]")
+                .expect("BERT model does not have a [CLS] token") as i64,
+        );
+
         for token in sentence.iter().filter_map(Node::token) {
             token_offsets.push(pieces.len());
 
@@ -128,8 +134,8 @@ mod tests {
         let sentence_pieces = tokenizer.tokenize(sentence);
         assert_eq!(
             sentence_pieces.pieces,
-            array![133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2]
+            array![3i64, 133, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2]
         );
-        assert_eq!(sentence_pieces.token_offsets, &[0, 3, 4, 7, 9]);
+        assert_eq!(sentence_pieces.token_offsets, &[1, 4, 5, 8, 10]);
     }
 }
