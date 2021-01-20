@@ -1,6 +1,7 @@
 use std::io::{BufReader, Read, Seek, SeekFrom};
 
 use conllu::io::{ReadSentence, Reader};
+use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tokenizers::{SentenceWithPieces, Tokenize};
 
 use crate::dataset::sentence_iter::SentenceIter;
@@ -48,6 +49,7 @@ where
     fn batches(
         self,
         tokenizer: &'a dyn Tokenize,
+        biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
         encoders: Option<&'a [NamedEncoder]>,
         batch_size: usize,
         max_len: Option<SequenceLength>,
@@ -75,6 +77,7 @@ where
 
         Ok(TensorIter {
             batch_size,
+            biaffine_encoder,
             encoders,
             sentences,
         })

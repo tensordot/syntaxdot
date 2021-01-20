@@ -1,11 +1,12 @@
 use std::io;
 
 use ndarray::ShapeError;
+use syntaxdot_encoders::dependency;
+use syntaxdot_tokenizers::TokenizerError;
 use syntaxdot_transformers::TransformerError;
 use thiserror::Error;
 
 use crate::encoders::{DecoderError, EncoderError};
-use syntaxdot_tokenizers::TokenizerError;
 
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -18,6 +19,9 @@ pub enum SyntaxDotError {
 
     #[error(transparent)]
     DecoderError(#[from] DecoderError),
+
+    #[error(transparent)]
+    DependencyEncodeError(#[from] dependency::EncodeError),
 
     #[error(transparent)]
     EncoderError(#[from] EncoderError),

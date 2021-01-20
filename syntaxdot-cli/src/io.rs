@@ -1,9 +1,10 @@
 use std::fs::File;
 
 use anyhow::{Context, Result};
-use syntaxdot::config::{Config, PretrainConfig, TomlRead};
+use syntaxdot::config::{BiaffineParserConfig, Config, PretrainConfig, TomlRead};
 use syntaxdot::encoders::Encoders;
 use syntaxdot::model::bert::BertModel;
+use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
 use tch::nn::VarStore;
@@ -11,6 +12,7 @@ use tch::Device;
 
 /// Wrapper around different parts of a model.
 pub struct Model {
+    pub biaffine_encoder: Option<ImmutableDependencyEncoder>,
     pub encoders: Encoders,
     pub model: BertModel,
     pub tokenizer: Box<dyn Tokenize>,
@@ -73,6 +75,11 @@ impl Model {
         F: 'static + Fn(&str) -> usize,
     {
         let config = load_config(config_path)?;
+        let biaffine_decoder = config
+            .biaffine
+            .as_ref()
+            .map(|config| load_biaffine_decoder(config))
+            .transpose()?;
         let encoders = load_encoders(&config)?;
         let tokenizer = load_tokenizer(&config)?;
         let pretrain_config = load_pretrain_config(&config)?;
@@ -101,6 +108,7 @@ impl Model {
         }
 
         Ok(Model {
+            biaffine_encoder: biaffine_decoder,
             encoders,
             model,
             tokenizer,
@@ -127,6 +135,22 @@ pub fn load_config(config_path: &str) -> Result<Config> {
     ))?;
 
     Ok(config)
+}
+
+fn load_biaffine_decoder(config: &BiaffineParserConfig) -> Result<ImmutableDependencyEncoder> {
+    let f = File::open(&config.labels).context(format!(
+        "Cannot open dependency label file: {}",
+        config.labels
+    ))?;
+
+    let encoder: ImmutableDependencyEncoder = serde_yaml::from_reader(&f).context(format!(
+        "Cannot deserialize dependency labels from: {}",
+        config.labels
+    ))?;
+
+    log::info!("Loaded biaffine encoder: {} labels", encoder.n_relations());
+
+    Ok(encoder)
 }
 
 fn load_encoders(config: &Config) -> Result<Encoders> {

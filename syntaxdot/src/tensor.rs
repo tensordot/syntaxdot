@@ -3,7 +3,32 @@ use std::convert::TryInto;
 use std::ops::{Deref, DerefMut};
 
 use ndarray::{s, Array1, Array2, ArrayView1};
-use tch::Tensor;
+use tch::{Device, Tensor};
+
+/// Tensors for biaffine encodings.
+#[derive(Debug, PartialEq)]
+pub struct BiaffineTensors<T> {
+    pub heads: T,
+    pub relations: T,
+}
+
+impl BiaffineTensors<Array2<i64>> {
+    fn from_shape(batch_size: usize, time_steps: usize) -> Self {
+        BiaffineTensors {
+            heads: Array2::from_elem((batch_size, time_steps), -1),
+            relations: Array2::from_elem((batch_size, time_steps), -1),
+        }
+    }
+}
+
+impl BiaffineTensors<Tensor> {
+    pub fn to_device(&self, device: Device) -> Self {
+        BiaffineTensors {
+            heads: self.heads.to_device(device),
+            relations: self.relations.to_device(device),
+        }
+    }
+}
 
 /// Labels per encoder.
 pub struct LabelTensor {
@@ -42,6 +67,7 @@ impl DerefMut for LabelTensor {
 
 /// Build Torch `Tensor`s from `ndarray` vectors.
 pub struct TensorBuilder {
+    biaffine_encodings: Option<BiaffineTensors<Array2<i64>>>,
     current_sequence: usize,
     inputs: Array2<i64>,
     labels: Option<LabelTensor>,
@@ -56,6 +82,7 @@ impl TensorBuilder {
     /// time steps.
     pub fn new_without_labels(batch_size: usize, max_seq_len: usize) -> Self {
         TensorBuilder {
+            biaffine_encodings: None,
             current_sequence: 0,
             inputs: Array2::zeros((batch_size, max_seq_len)),
             token_mask: Array2::zeros((batch_size, max_seq_len)),
@@ -71,9 +98,17 @@ impl TensorBuilder {
     pub fn new_with_labels(
         batch_size: usize,
         max_seq_len: usize,
+        biaffine_encoder: bool,
         encoder_names: impl IntoIterator<Item = impl Into<String>>,
     ) -> Self {
+        let biaffine_encodings = if biaffine_encoder {
+            Some(BiaffineTensors::from_shape(batch_size, max_seq_len))
+        } else {
+            None
+        };
+
         TensorBuilder {
+            biaffine_encodings,
             current_sequence: 0,
             inputs: Array2::zeros((batch_size, max_seq_len)),
             token_mask: Array2::zeros((batch_size, max_seq_len)),
@@ -118,7 +153,8 @@ impl TensorBuilder {
     pub fn add_with_labels(
         &mut self,
         input: ArrayView1<i64>,
-        labels: HashMap<&str, Array1<i64>>,
+        biaffine_labels: Option<(Array1<i64>, Array1<i64>)>,
+        sequence_labels: HashMap<&str, Array1<i64>>,
         token_mask: ArrayView1<i32>,
     ) {
         assert!(
@@ -128,13 +164,49 @@ impl TensorBuilder {
 
         assert_eq!(
             self.labels.as_ref().unwrap().len(),
-            labels.len(),
+            sequence_labels.len(),
             "Expected labels for {} encoders, got labels for {}",
             self.labels.as_ref().unwrap().len(),
-            labels.len(),
+            sequence_labels.len(),
         );
 
-        for (encoder_name, labels) in labels {
+        assert!(
+            (self.biaffine_encodings.is_some() && biaffine_labels.is_some()),
+            "Expected biaffine encodings, none were provided"
+        );
+
+        if let (Some(biaffine_encodings), Some(instance_biaffine_encodings)) =
+            (self.biaffine_encodings.as_mut(), biaffine_labels)
+        {
+            assert_eq!(
+                instance_biaffine_encodings.0.len(),
+                token_mask.len(),
+                "Biaffine heads has length {}, but the mask length is {}",
+                instance_biaffine_encodings.0.len(),
+                token_mask.len()
+            );
+            assert_eq!(
+                instance_biaffine_encodings.1.len(),
+                token_mask.len(),
+                "Biaffine relations has length {}, but the mask length is {}",
+                instance_biaffine_encodings.1.len(),
+                token_mask.len()
+            );
+
+            biaffine_encodings
+                .heads
+                .row_mut(self.current_sequence)
+                .slice_mut(s![0..input.len()])
+                .assign(&instance_biaffine_encodings.0);
+
+            biaffine_encodings
+                .relations
+                .row_mut(self.current_sequence)
+                .slice_mut(s![0..input.len()])
+                .assign(&instance_biaffine_encodings.1);
+        };
+
+        for (encoder_name, labels) in sequence_labels {
             assert_eq!(
                 labels.len(),
                 token_mask.len(),
@@ -165,6 +237,9 @@ pub struct Tensors {
     /// Input representations.
     pub inputs: Tensor,
 
+    /// Biaffine encodings.
+    pub biaffine_encodings: Option<BiaffineTensors<Tensor>>,
+
     /// Labels.
     pub labels: Option<HashMap<String, Tensor>>,
 
@@ -185,8 +260,14 @@ impl From<TensorBuilder> for Tensors {
                 .collect()
         });
 
+        let biaffine_encodings = builder.biaffine_encodings.map(|encodings| BiaffineTensors {
+            heads: encodings.heads.try_into().unwrap(),
+            relations: encodings.relations.try_into().unwrap(),
+        });
+
         Tensors {
             inputs: builder.inputs.try_into().unwrap(),
+            biaffine_encodings,
             labels,
             token_mask: builder.token_mask.try_into().unwrap(),
             seq_lens: builder.seq_lens.try_into().unwrap(),
@@ -200,6 +281,7 @@ mod tests {
     use tch::Tensor;
 
     use super::{TensorBuilder, Tensors};
+    use crate::tensor::BiaffineTensors;
 
     #[test]
     fn instances_are_added() {
@@ -225,9 +307,10 @@ mod tests {
 
     #[test]
     fn instances_are_added_with_labels() {
-        let mut builder: TensorBuilder = TensorBuilder::new_with_labels(2, 3, vec!["a", "b"]);
+        let mut builder: TensorBuilder = TensorBuilder::new_with_labels(2, 3, true, vec!["a", "b"]);
         builder.add_with_labels(
             arr1(&[1, 2]).view(),
+            Some((arr1(&[1, 0]), arr1(&[1, 2]))),
             vec![("a", arr1(&[11, 12])), ("b", arr1(&[21, 22]))]
                 .into_iter()
                 .collect(),
@@ -235,6 +318,7 @@ mod tests {
         );
         builder.add_with_labels(
             arr1(&[3, 4, 5]).view(),
+            Some((arr1(&[0, 2, 1]), arr1(&[3, 2, 1]))),
             vec![("a", arr1(&[13, 14, 15])), ("b", arr1(&[23, 24, 25]))]
                 .into_iter()
                 .collect(),
@@ -242,6 +326,15 @@ mod tests {
         );
 
         let tensors: Tensors = builder.into();
+
+        // Biaffine encodings
+        assert_eq!(
+            tensors.biaffine_encodings,
+            Some(BiaffineTensors {
+                heads: Tensor::of_slice(&[1, 0, -1, 0, 2, 1]).reshape(&[2, 3]),
+                relations: Tensor::of_slice(&[1, 2, -1, 3, 2, 1]).reshape(&[2, 3])
+            })
+        );
 
         // Labels.
         assert_eq!(
@@ -276,9 +369,11 @@ mod tests {
     #[should_panic]
     #[test]
     fn panics_when_labels_and_mask_len_differ() {
-        let mut builder: TensorBuilder = TensorBuilder::new_with_labels(2, 3, vec!["a", "b"]);
+        let mut builder: TensorBuilder =
+            TensorBuilder::new_with_labels(2, 3, false, vec!["a", "b"]);
         builder.add_with_labels(
             arr1(&[1, 2]).view(),
+            None,
             vec![("a", arr1(&[11])), ("b", arr1(&[21, 22]))]
                 .into_iter()
                 .collect(),
@@ -297,9 +392,11 @@ mod tests {
     #[should_panic]
     #[test]
     fn panics_when_labels_for_encoder_missing() {
-        let mut builder: TensorBuilder = TensorBuilder::new_with_labels(2, 3, vec!["a", "b"]);
+        let mut builder: TensorBuilder =
+            TensorBuilder::new_with_labels(2, 3, false, vec!["a", "b"]);
         builder.add_with_labels(
             arr1(&[1, 2]).view(),
+            None,
             vec![("b", arr1(&[21, 22]))].into_iter().collect(),
             arr1(&[1, 0]).view(),
         );

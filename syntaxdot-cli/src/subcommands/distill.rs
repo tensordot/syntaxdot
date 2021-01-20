@@ -171,6 +171,7 @@ impl DistillApp {
             let teacher_train_batches = teacher_train_dataset.batches(
                 &*teacher.tokenizer,
                 None,
+                None,
                 self.batch_size,
                 self.max_len,
                 None,
@@ -178,6 +179,7 @@ impl DistillApp {
 
             let student_train_batches = student_train_dataset.batches(
                 &*student.tokenizer,
+                None,
                 None,
                 self.batch_size,
                 self.max_len,
@@ -534,6 +536,7 @@ impl DistillApp {
 
         for batch in dataset.batches(
             tokenizer,
+            None, // XXX: support for biaffine encoder
             Some(encoders),
             self.batch_size,
             self.max_len,

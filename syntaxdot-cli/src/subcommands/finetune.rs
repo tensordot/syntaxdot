@@ -11,6 +11,7 @@ use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule, PlateauLearningRate}
 use syntaxdot::model::bert::{BertModel, FreezeLayers};
 use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::util::seq_len_to_mask;
+use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tokenizers::Tokenize;
 use tch::nn::{self, AdamW};
 use tch::{self, Device, Kind};
@@ -113,6 +114,7 @@ impl FinetuneApp {
     #[allow(clippy::too_many_arguments)]
     fn run_epoch(
         &self,
+        biaffine_encoder: Option<&ImmutableDependencyEncoder>,
         encoders: &Encoders,
         tokenizer: &dyn Tokenize,
         model: &BertModel,
@@ -123,6 +125,7 @@ impl FinetuneApp {
         epoch: usize,
     ) -> Result<f32> {
         let epoch_stats = self.run_epoch_steps(
+            biaffine_encoder,
             encoders,
             tokenizer,
             model,
@@ -173,6 +176,7 @@ impl FinetuneApp {
     #[allow(clippy::too_many_arguments)]
     fn run_epoch_steps(
         &self,
+        biaffine_encoder: Option<&ImmutableDependencyEncoder>,
         encoders: &Encoders,
         tokenizer: &dyn Tokenize,
         model: &BertModel,
@@ -207,6 +211,7 @@ impl FinetuneApp {
 
         for batch in dataset.batches(
             tokenizer,
+            biaffine_encoder,
             Some(encoders),
             self.batch_size,
             self.max_len,
@@ -611,6 +616,7 @@ impl SyntaxDotApp for FinetuneApp {
                 .compute_epoch_learning_rate(epoch, last_acc);
 
             self.run_epoch(
+                model.biaffine_encoder.as_ref(),
                 &model.encoders,
                 &*model.tokenizer,
                 &model.model,
@@ -624,6 +630,7 @@ impl SyntaxDotApp for FinetuneApp {
 
             last_acc = self
                 .run_epoch(
+                    model.biaffine_encoder.as_ref(),
                     &model.encoders,
                     &*model.tokenizer,
                     &model.model,

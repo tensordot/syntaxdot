@@ -1,16 +1,17 @@
 //! Iterators over data sets.
 
+use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tokenizers::Tokenize;
 
 use crate::encoders::NamedEncoder;
 use crate::error::SyntaxDotError;
 use crate::tensor::Tensors;
 
-pub(crate) mod tensor_iter;
-
+mod conll;
 pub use conll::ConlluDataSet;
 
-mod conll;
+pub(crate) mod tensor_iter;
+
 pub(crate) mod sentence_iter;
 
 /// A set of training/validation data.
@@ -37,6 +38,7 @@ pub trait DataSet<'a> {
     fn batches(
         self,
         tokenizer: &'a dyn Tokenize,
+        biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
         encoders: Option<&'a [NamedEncoder]>,
         batch_size: usize,
         max_len: Option<SequenceLength>,
