@@ -11,6 +11,35 @@ use syntaxdot_transformers::models::squeeze_bert::SqueezeBertConfig;
 
 use crate::encoders::EncodersConfig;
 use crate::error::SyntaxDotError;
+use syntaxdot_encoders::dependency::MutableDependencyEncoder;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename = "biaffine")]
+pub struct BiaffineConfig {
+    pub dims: usize,
+    pub head_bias: bool,
+    pub dependent_bias: bool,
+}
+
+/// Configuration for bi-affine dependency parsing.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename = "biaffine_parser")]
+pub struct BiaffineParserConfig {
+    /// Configuration for biaffine dependency head layer.
+    pub head: BiaffineConfig,
+
+    /// Configuration for biaffine dependency relation layer.
+    pub relation: BiaffineConfig,
+
+    /// Label file for biaffine dependency parsing relation labels.
+    pub labels: String,
+}
+
+impl From<&BiaffineParserConfig> for MutableDependencyEncoder {
+    fn from(_config: &BiaffineParserConfig) -> Self {
+        MutableDependencyEncoder::new()
+    }
+}
 
 /// Input configuration.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -159,6 +188,9 @@ pub struct Config {
     /// Configuration of the input representations.
     pub input: Input,
 
+    /// Configuration of the optional biaffine parsing layer.
+    pub biaffine: Option<BiaffineParserConfig>,
+
     /// Configuration of the labeler.
     pub labeler: Labeler,
 
@@ -174,6 +206,9 @@ impl Config {
     {
         let config_path = config_path.as_ref();
 
+        if let Some(ref mut biaffine) = self.biaffine {
+            biaffine.labels = relativize_path(config_path, &biaffine.labels)?;
+        }
         *self.input.tokenizer.vocab_mut() =
             relativize_path(config_path, &self.input.tokenizer.vocab())?;
         self.labeler.labels = relativize_path(config_path, &self.labeler.labels)?;
@@ -285,7 +320,8 @@ mod tests {
     use syntaxdot_encoders::lemma::BackoffStrategy;
 
     use crate::config::{
-        Config, Input, Labeler, Model, PositionEmbeddings, PretrainModelType, Tokenizer, TomlRead,
+        BiaffineConfig, BiaffineParserConfig, Config, Input, Labeler, Model, PositionEmbeddings,
+        PretrainModelType, Tokenizer, TomlRead,
     };
     use crate::encoders::{EncoderType, EncodersConfig, NamedEncoderConfig};
 
@@ -302,6 +338,19 @@ mod tests {
                         vocab: "bert-base-german-cased-vocab.txt".to_string()
                     },
                 },
+                biaffine: Some(BiaffineParserConfig {
+                    head: BiaffineConfig {
+                        dims: 50,
+                        head_bias: true,
+                        dependent_bias: false
+                    },
+                    relation: BiaffineConfig {
+                        dims: 25,
+                        head_bias: true,
+                        dependent_bias: true
+                    },
+                    labels: "sticker.biaffine_labels".to_string()
+                }),
                 labeler: Labeler {
                     labels: "sticker.labels".to_string(),
                     encoders: EncodersConfig(vec![
