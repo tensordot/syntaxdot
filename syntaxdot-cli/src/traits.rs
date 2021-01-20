@@ -29,7 +29,7 @@ where
 pub trait SyntaxDotTrainApp: SyntaxDotApp {
     fn build_parameter_group_fun() -> fn(&str) -> usize {
         |name: &str| {
-            if name.starts_with("classifiers") {
+            if name.starts_with("classifiers") || name.starts_with("biaffine") {
                 if name.contains("layer_norm") || name.contains("bias") {
                     ParameterGroup::ClassifierNoWeightDecay as usize
                 } else {
