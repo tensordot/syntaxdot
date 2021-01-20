@@ -8,6 +8,7 @@ use tch::{Kind, Reduction, Tensor};
 
 use crate::cow::CowTensor;
 use crate::layers::{Dropout, LayerNorm};
+use crate::loss::CrossEntropyLoss;
 use crate::models::LayerOutput;
 
 /// Non-linear ReLU layer with layer normalization and dropout.
@@ -226,9 +227,9 @@ impl ScalarWeightClassifier {
 
         let predicted = logits.argmax(-1, false);
 
-        let losses =
-            cross_entropy_loss(&logits, &targets, self.linear.bs.size()[0], label_smoothing)
-                .view([batch_size, seq_len]);
+        let losses = CrossEntropyLoss::new(-1, label_smoothing, Reduction::None)
+            .forward(&logits, &targets)
+            .view([batch_size, seq_len]);
 
         (losses, predicted.eq1(&targets).view([batch_size, seq_len]))
     }
@@ -258,41 +259,16 @@ pub struct ScalarWeightClassifierConfig {
     pub layer_norm_eps: f64,
 }
 
-fn cross_entropy_loss(
-    logits: &Tensor,
-    targets: &Tensor,
-    n_classes: i64,
-    label_smoothing: Option<f64>,
-) -> Tensor {
-    let log_probs = logits.log_softmax(-1, Kind::Float);
-
-    match label_smoothing {
-        Some(label_smoothing) => {
-            // Set all labels to label_smoothing and the target to 1-label_smoothing.
-            let smoothed_targets =
-                tch::no_grad(|| {
-                    Tensor::full_like(&log_probs, label_smoothing / (n_classes - 1) as f64)
-                        .scatter1(1, &targets.unsqueeze(1), 1. - label_smoothing)
-                });
-            (-smoothed_targets * log_probs).sum1(&[-1], false, Kind::Float)
-        }
-        None => log_probs.g_nll_loss::<&Tensor>(&targets, None, Reduction::None, -100),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
-    use std::convert::TryInto;
     use std::iter::FromIterator;
 
-    use approx::assert_abs_diff_eq;
-    use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
-    use super::{cross_entropy_loss, ScalarWeightClassifier, ScalarWeightClassifierConfig};
+    use super::{ScalarWeightClassifier, ScalarWeightClassifierConfig};
     use crate::models::{HiddenLayer, LayerOutput};
 
     fn varstore_variables(vs: &VarStore) -> BTreeSet<String> {
@@ -300,27 +276,6 @@ mod tests {
             .into_iter()
             .map(|(k, _)| k)
             .collect::<BTreeSet<_>>()
-    }
-
-    #[test]
-    fn cross_entropy_loss_without_label_smoothing() {
-        let logits = Tensor::of_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
-        let targets = Tensor::of_slice(&[2i64]).view([1]);
-        let loss: ArrayD<f32> = (&cross_entropy_loss(&logits, &targets, 5, None))
-            .try_into()
-            .unwrap();
-
-        assert_abs_diff_eq!(loss, array![0.432653].into_dyn(), epsilon = 1e-6);
-    }
-
-    #[test]
-    fn cross_entropy_with_label_smoothing() {
-        let logits = Tensor::of_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
-        let targets = Tensor::of_slice(&[2i64]).view([1]);
-        let loss: ArrayD<f32> = (&cross_entropy_loss(&logits, &targets, 5, Some(0.1)))
-            .try_into()
-            .unwrap();
-        assert_abs_diff_eq!(loss, array![0.632653].into_dyn(), epsilon = 1e-6);
     }
 
     #[test]
