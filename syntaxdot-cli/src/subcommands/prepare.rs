@@ -5,13 +5,14 @@ use anyhow::{Context, Result};
 use clap::{App, Arg, ArgMatches};
 use conllu::io::{ReadSentence, Reader};
 use indicatif::ProgressStyle;
-use syntaxdot::config::Config;
+use syntaxdot::config::{BiaffineParserConfig, Config};
 use syntaxdot::encoders::Encoders;
 use syntaxdot_encoders::SentenceEncoder;
 
 use crate::io::load_config;
 use crate::progress::ReadProgress;
 use crate::traits::{SyntaxDotApp, DEFAULT_CLAP_SETTINGS};
+use syntaxdot_encoders::dependency::MutableDependencyEncoder;
 
 const CONFIG: &str = "CONFIG";
 static TRAIN_DATA: &str = "TRAIN_DATA";
@@ -22,6 +23,20 @@ pub struct PrepareApp {
 }
 
 impl PrepareApp {
+    fn write_dependency_labels(
+        config: &BiaffineParserConfig,
+        encoder: &MutableDependencyEncoder,
+    ) -> Result<()> {
+        let mut f = File::create(&config.labels).context(format!(
+            "Cannot create dependency label file: {}",
+            config.labels
+        ))?;
+        let serialized_labels =
+            serde_yaml::to_string(&encoder).context("Cannot serialize labels")?;
+        f.write_all(serialized_labels.as_bytes())
+            .context("Cannot write labels")
+    }
+
     fn write_labels(config: &Config, encoders: &Encoders) -> Result<()> {
         let mut f = File::create(&config.labeler.labels).context(format!(
             "Cannot create label file: {}",
@@ -63,6 +78,8 @@ impl SyntaxDotApp for PrepareApp {
     fn run(&self) -> Result<()> {
         let config = load_config(&self.config)?;
 
+        let mut biaffine_decoder = config.biaffine.as_ref().map(MutableDependencyEncoder::from);
+
         let encoders: Encoders = (&config.labeler.encoders).into();
 
         let train_file = File::open(&self.train_data)
@@ -85,8 +102,24 @@ impl SyntaxDotApp for PrepareApp {
                     encoder.name()
                 ))?;
             }
+
+            if let Some(biaffine_decoder) = biaffine_decoder.as_mut() {
+                biaffine_decoder.encode(&sentence)?;
+            }
         }
 
-        Self::write_labels(&config, &encoders)
+        Self::write_labels(&config, &encoders)?;
+
+        if let Some(biaffine_decoder) = biaffine_decoder.as_ref() {
+            Self::write_dependency_labels(
+                config
+                    .biaffine
+                    .as_ref()
+                    .expect("Biaffine parser without configuration?"),
+                biaffine_decoder,
+            )?;
+        }
+
+        Ok(())
     }
 }
