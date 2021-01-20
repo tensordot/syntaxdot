@@ -14,6 +14,8 @@ pub use error::TransformerError;
 
 pub mod layers;
 
+pub mod loss;
+
 pub mod models;
 
 pub mod scalar_weighting;
