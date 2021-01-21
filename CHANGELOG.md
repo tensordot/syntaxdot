@@ -13,6 +13,8 @@
 
 ### Removed
 
-- Support for parsing as sequence labeling was removed in favor of biaffine
+- Support for parsing as sequence labeling is removed in favor of biaffine
   parsing. Biaffine parsing results in higher accuracies and does not require
   tailored part-of-speech tags.
+- Support for hard loss is removed from the distillation subcommand. Hard loss
+  never worked well compared to soft loss.
