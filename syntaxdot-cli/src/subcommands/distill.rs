@@ -38,7 +38,6 @@ const EVAL_STEPS: &str = "EVAL_STEPS";
 const TEACHER_CONFIG: &str = "TEACHER_CONFIG";
 const STUDENT_CONFIG: &str = "STUDENT_CONFIG";
 const GPU: &str = "GPU";
-const HARD_LOSS: &str = "HARD_LOSS";
 const INITIAL_LR_CLASSIFIER: &str = "INITIAL_LR_CLASSIFIER";
 const INITIAL_LR_ENCODER: &str = "INITIAL_LR_ENCODER";
 const LR_DECAY_RATE: &str = "LR_DECAY_RATE";
@@ -54,7 +53,6 @@ const WEIGHT_DECAY: &str = "WEIGHT_DECAY";
 struct DistillLoss {
     pub loss: Tensor,
     pub attention_loss: Tensor,
-    pub hard_loss: Tensor,
     pub soft_loss: Tensor,
 }
 
@@ -63,7 +61,6 @@ pub struct DistillApp {
     batch_size: usize,
     device: Device,
     eval_steps: usize,
-    hard_loss: bool,
     max_len: Option<SequenceLength>,
     mixed_precision: bool,
     lr_schedules: RefCell<LearningRateSchedules>,
@@ -295,7 +292,6 @@ impl DistillApp {
             let student_logits = student.logits_from_encoding(&student_layer_outputs, true);
 
             let mut soft_loss = Tensor::zeros(&[], (Kind::Float, self.device));
-            let mut hard_loss = Tensor::zeros(&[], (Kind::Float, self.device));
 
             for (encoder_name, teacher_logits) in teacher_logits {
                 let n_labels = teacher_logits.size()[2];
@@ -315,17 +311,6 @@ impl DistillApp {
                 soft_loss += soft_losses
                     .sum1(&[-1], false, Kind::Float)
                     .mean(Kind::Float);
-
-                if self.hard_loss {
-                    let teacher_predictions = teacher_logits.argmax(-1, false);
-
-                    hard_loss += student_logprobs.g_nll_loss::<&Tensor>(
-                        &teacher_predictions,
-                        None,
-                        Reduction::Mean,
-                        -100,
-                    );
-                }
             }
 
             let attention_loss = if self.attention_loss {
@@ -335,9 +320,8 @@ impl DistillApp {
             };
 
             Ok(DistillLoss {
-                loss: &hard_loss + &soft_loss + &attention_loss,
+                loss: &soft_loss + &attention_loss,
                 attention_loss,
-                hard_loss,
                 soft_loss,
             })
         })
@@ -393,11 +377,10 @@ impl DistillApp {
             )?;
 
             progress.set_message(&format!(
-                "step: {} | lr enc: {:+.1e}, class: {:+.1e} | loss hard: {:+.1e}, soft: {:+.1e}, attention: {:+.1e}",
+                "step: {} | lr enc: {:+.1e}, class: {:+.1e} | loss soft: {:+.1e}, attention: {:+.1e}",
                 global_step,
                 lr_encoder,
                 lr_classifier,
-                f32::from(distill_loss.hard_loss),
                 f32::from(distill_loss.soft_loss),
                 f32::from(distill_loss.attention_loss)
             ));
@@ -679,11 +662,6 @@ impl SyntaxDotApp for DistillApp {
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
-                Arg::with_name(HARD_LOSS)
-                    .long("hard-loss")
-                    .help("Add hard loss (predicted label) to the soft loss"),
-            )
-            .arg(
                 Arg::with_name(INITIAL_LR_CLASSIFIER)
                     .long("lr-classifier")
                     .value_name("LR")
@@ -777,7 +755,6 @@ impl SyntaxDotApp for DistillApp {
             .unwrap()
             .parse()
             .context("Cannot parse number of batches after which to save")?;
-        let hard_loss = matches.is_present(HARD_LOSS);
         let initial_lr_classifier = matches
             .value_of(INITIAL_LR_CLASSIFIER)
             .unwrap()
@@ -836,7 +813,6 @@ impl SyntaxDotApp for DistillApp {
             batch_size,
             device,
             eval_steps,
-            hard_loss,
             max_len,
             mixed_precision,
             lr_schedules: RefCell::new(Self::create_lr_schedules(
