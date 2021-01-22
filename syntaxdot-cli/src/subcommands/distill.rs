@@ -207,8 +207,8 @@ impl DistillApp {
         to_token_mask: &Tensor,
         heads: &Tensor,
     ) -> Result<Tensor> {
-        let (from_batch_size, _from_seq_len) = from_token_mask.size2()?;
-        let (to_batch_size, to_seq_len) = to_token_mask.size2()?;
+        let (from_batch_size, from_seq_len) = from_token_mask.size2()?;
+        let (to_batch_size, _to_seq_len) = to_token_mask.size2()?;
         let (heads_batch_size, heads_seq_len) = heads.size2()?;
 
         assert_eq!(
@@ -220,7 +220,7 @@ impl DistillApp {
             "Token mask and heads have different batch sizes"
         );
         assert_eq!(
-            to_seq_len, heads_seq_len,
+            from_seq_len, heads_seq_len,
             "Token mask and heads have different sequence lengths"
         );
 
