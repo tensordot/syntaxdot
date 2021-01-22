@@ -2,9 +2,9 @@
 
 ## Introduction
 
-**SyntaxDot** is a sequence labeler using
-[Transformer](https://arxiv.org/abs/1706.03762) networks. SyntaxDot
-models can be trained from scratch or using pretrained models, such as
+**SyntaxDot** is a sequence labeler and dependency parser using
+[Transformer](https://arxiv.org/abs/1706.03762) networks. SyntaxDot models can
+be trained from scratch or using pretrained models, such as
 [BERT](https://arxiv.org/abs/1810.04805v2) or
 [XLM-RoBERTa](https://arxiv.org/abs/1911.02116).
 
@@ -12,7 +12,6 @@ In principle, SyntaxDot can be used to perform any sequence labeling
 task, but so far the focus has been on:
 
 * Part-of-speech tagging
-* Dependency parsing
 * Morphological tagging
 * Topological field tagging
 * Lemmatization
@@ -28,10 +27,10 @@ task, but so far the focus has been on:
   * Lemmatization, based on edit trees
   * Simple API to extend to other tasks
 * Dependency parsing using deep biaffine attention and MST decoding.
-* Models representations:
-  * Transformers
-  * Pretraining from BERT and XLM-RoBERTa models
 * Multi-task training and classification using scalar weighting.
+* Encoder models:
+  * Transformers
+  * Finetuning of BERT, XLM-RoBERTa, ALBERT, and SqueezeBERT models
 * Model distillation
 * Deployment:
   * Standalone binary that links against PyTorch's `libtorch`
