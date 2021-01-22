@@ -12,10 +12,10 @@ In principle, SyntaxDot can be used to perform any sequence labeling
 task, but so far the focus has been on:
 
 * Part-of-speech tagging
+* Dependency parsing
 * Morphological tagging
 * Topological field tagging
 * Lemmatization
-* Dependency parsing
 * Named entity recognition
 
 ## Features
@@ -26,8 +26,8 @@ task, but so far the focus has been on:
 * Flexible sequence encoder/decoder architecture, which supports:
   * Simple sequence labels (e.g. POS, morphology, named entities)
   * Lemmatization, based on edit trees
-  * Dependency parsing
   * Simple API to extend to other tasks
+* Dependency parsing using deep biaffine attention and MST decoding.
 * Models representations:
   * Transformers
   * Pretraining from BERT and XLM-RoBERTa models
@@ -45,6 +45,9 @@ task, but so far the focus has been on:
 
 SyntaxDot uses techniques from or was inspired by the following papers:
 
+* The biaffine dependency parsing layer is based on [Deep biaffine attention for
+  neural dependency parsing](https://arxiv.org/pdf/1611.01734.pdf).
+  Timothy Dozat and Christopher Manning, ICLR 2017.
 * The model architecture and training regime was largely based on [75
   Languages, 1 Model: Parsing Universal Dependencies
   Universally](https://www.aclweb.org/anthology/D19-1279.pdf).  Dan

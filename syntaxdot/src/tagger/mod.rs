@@ -10,11 +10,15 @@ use tch::Device;
 use crate::encoders::Encoders;
 use crate::error::SyntaxDotError;
 use crate::model::bert::BertModel;
+use crate::model::biaffine_dependency_layer::BiaffineScoreLogits;
+use crate::model::seq_classifiers::TopK;
 use crate::tensor::{TensorBuilder, Tensors};
 use crate::util::seq_len_to_mask;
+use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 
 /// A sequence tagger.
 pub struct Tagger {
+    biaffine_encoder: Option<ImmutableDependencyEncoder>,
     device: Device,
     encoders: Encoders,
     model: BertModel,
@@ -22,10 +26,16 @@ pub struct Tagger {
 
 impl Tagger {
     /// Construct a new tagger.
-    pub fn new(device: Device, model: BertModel, encoders: Encoders) -> Self {
+    pub fn new(
+        device: Device,
+        model: BertModel,
+        biaffine_encoder: Option<ImmutableDependencyEncoder>,
+        encoders: Encoders,
+    ) -> Self {
         Tagger {
             device,
             model,
+            biaffine_encoder,
             encoders,
         }
     }
@@ -35,17 +45,31 @@ impl Tagger {
         &self,
         sentences: &mut [impl BorrowMut<SentenceWithPieces>],
     ) -> Result<(), SyntaxDotError> {
-        let top_k_numeric = self.top_k_numeric_(sentences)?;
+        let tensors = self.prepare_batch(sentences)?;
 
-        for (top_k, sentence) in top_k_numeric.into_iter().zip(sentences.iter_mut()) {
-            let sentence = sentence.borrow_mut();
+        // Get model predictions.
+        let attention_mask = seq_len_to_mask(&tensors.seq_lens, tensors.inputs.size()[1]);
+        let predictions = self.model.predict(
+            &tensors.inputs.to_device(self.device),
+            &attention_mask.to_device(self.device),
+            &tensors.token_mask.to_device(self.device),
+        );
 
-            for encoder in &*self.encoders {
-                let encoder_top_k = &top_k[encoder.name()];
-                encoder
-                    .encoder()
-                    .decode(&encoder_top_k, &mut sentence.sentence)?;
-            }
+        assert_eq!(
+            self.biaffine_encoder.is_some(),
+            predictions.biaffine_score_logits.is_some(),
+            "Biaffine encoder and predictions should both be present (or absent), was: {} {}",
+            self.biaffine_encoder.is_some(),
+            predictions.biaffine_score_logits.is_some(),
+        );
+
+        self.decode_sequence_labels(sentences, predictions.sequences_top_k)?;
+
+        if let (Some(encoder), Some(biaffine_score_logits)) = (
+            self.biaffine_encoder.as_ref(),
+            predictions.biaffine_score_logits,
+        ) {
+            tch::no_grad(|| self.decode_biaffine(encoder, sentences, biaffine_score_logits))?
         }
 
         Ok(())
@@ -79,29 +103,69 @@ impl Tagger {
         Ok(builder.into())
     }
 
-    /// Get the top-k numeric labels for the sequences.
-    #[allow(clippy::type_complexity)]
-    fn top_k_numeric_<S>(
+    /// Decode biaffine score matrices.
+    fn decode_biaffine<S>(
         &self,
-        sentences: &[S],
-    ) -> Result<Vec<HashMap<String, Vec<Vec<EncodingProb<usize>>>>>, SyntaxDotError>
+        decoder: &ImmutableDependencyEncoder,
+        sentences: &mut [S],
+        biaffine_score_logits: BiaffineScoreLogits,
+    ) -> Result<(), SyntaxDotError>
     where
-        S: Borrow<SentenceWithPieces>,
+        S: BorrowMut<SentenceWithPieces>,
     {
-        let tensors = self.prepare_batch(sentences)?;
+        let head_score_logits: ArrayD<f32> =
+            (&biaffine_score_logits.head_score_logits).try_into()?;
 
-        // Convert the top-k labels and arrays into ndarray tensors.
-        let mut top_k_tensors = HashMap::new();
+        // For dependency relations, we only care about the best-scoring relations.
+        // This changes the shape from [batch_size, seq_len, seq_len, n_relations] to
+        // [batch_size, seq_len, seq_len].
+        let best_relations = biaffine_score_logits
+            .relation_score_logits
+            .argmax(-1, false);
+        let best_relations: ArrayD<i32> = (&best_relations).try_into()?;
 
-        // Get the top-k labels. For each encoder, we get a tensor
-        // of shape [batch_size, seq_len, k]. Convert the tensors
-        // to ndarray tensors, since they are easier to work with
+        for (idx, sentence) in sentences.iter_mut().enumerate() {
+            let sentence = sentence.borrow_mut();
+
+            let mut root_token_offsets = Vec::with_capacity(sentence.token_offsets.len() + 1);
+            root_token_offsets.push(0);
+            root_token_offsets.extend_from_slice(&sentence.token_offsets);
+
+            let sent_head_scores = head_score_logits
+                .index_axis(Axis(0), idx)
+                .select(Axis(0), &root_token_offsets)
+                .select(Axis(1), &root_token_offsets);
+
+            let sent_best_relations = best_relations
+                .index_axis(Axis(0), idx)
+                .select(Axis(0), &root_token_offsets)
+                .select(Axis(1), &root_token_offsets);
+
+            //decoder.decode_greedy(
+            decoder.decode(
+                sent_head_scores.view().into_dimensionality()?,
+                sent_best_relations.view().into_dimensionality()?,
+                &mut sentence.sentence,
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Decode sequence labels.
+    fn decode_sequence_labels<S>(
+        &self,
+        sentences: &mut [S],
+        sequences_top_k: HashMap<String, TopK>,
+    ) -> Result<(), SyntaxDotError>
+    where
+        S: BorrowMut<SentenceWithPieces>,
+    {
+        // For each encoder, we get a tensor of shape [batch_size, seq_len, k].
+        // Convert the tensors to ndarray tensors, since they are easier to work with
         // in Rust.
-        let mask = seq_len_to_mask(&tensors.seq_lens, tensors.inputs.size()[1]);
-        for (encoder_name, top_k) in self.model.top_k(
-            &tensors.inputs.to_device(self.device),
-            &mask.to_device(self.device),
-        ) {
+        let mut top_k_tensors = HashMap::new();
+        for (encoder_name, top_k) in sequences_top_k {
             let top_k_labels: ArrayD<i32> = (&top_k.labels).try_into()?;
             let top_k_probs: ArrayD<f32> = (&top_k.probs).try_into()?;
 
@@ -109,21 +173,23 @@ impl Tagger {
         }
 
         // Extract tensors per sentence.
-        let mut labels = Vec::new();
-        for (idx, sentence) in sentences.iter().enumerate() {
-            let mut sent_labels = HashMap::new();
-            let token_offsets = &sentence.borrow().token_offsets;
+        for (idx, sentence) in sentences.iter_mut().enumerate() {
+            let sentence = sentence.borrow_mut();
 
-            for (encoder_name, (top_k_labels, top_k_probs)) in &top_k_tensors {
+            for encoder in self.encoders.iter() {
+                let (top_k_labels, top_k_probs) = &top_k_tensors[encoder.name()];
+
+                // Get the sentence and within the sentence the sequence elements
+                // that represent tokens.
                 let sent_top_k_labels = top_k_labels
                     .index_axis(Axis(0), idx)
-                    .select(Axis(0), &token_offsets);
+                    .select(Axis(0), &sentence.token_offsets);
                 let sent_top_k_probs = &top_k_probs
                     .index_axis(Axis(0), idx)
-                    .select(Axis(0), &token_offsets);
+                    .select(Axis(0), &sentence.token_offsets);
 
                 // Collect sentence top-k
-                let label_probs = sent_top_k_labels
+                let label_probs: Vec<Vec<EncodingProb<usize>>> = sent_top_k_labels
                     .outer_iter()
                     .zip(sent_top_k_probs.outer_iter())
                     .map(|(token_top_k_labels, token_top_k_probs)| {
@@ -136,12 +202,12 @@ impl Tagger {
                     })
                     .collect();
 
-                sent_labels.insert(encoder_name.clone(), label_probs);
+                encoder
+                    .encoder()
+                    .decode(&label_probs, &mut sentence.sentence)?;
             }
-
-            labels.push(sent_labels);
         }
 
-        Ok(labels)
+        Ok(())
     }
 }
