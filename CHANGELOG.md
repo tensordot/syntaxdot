@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added support for biaffine dependency parsing (Dozat & Manning, 2016).
+  Biaffine parsing is enabled through the `biaffine` configuration option.
+
 ### Changed
 
 - Implementations of `Tokenizer` are now required to put a piece that marks the

@@ -89,6 +89,11 @@ impl Model {
         let model = BertModel::new(
             vs.root_ext(parameter_group_fun),
             &pretrain_config,
+            config.biaffine.as_ref(),
+            biaffine_decoder
+                .as_ref()
+                .map(ImmutableDependencyEncoder::n_relations)
+                .unwrap_or(0),
             &encoders,
             0.0,
             config.model.position_embeddings,

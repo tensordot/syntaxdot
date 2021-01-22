@@ -170,6 +170,7 @@ pub struct SequenceClassifiersLoss {
 }
 
 /// The top-K results for a classifier.
+#[derive(Debug)]
 pub struct TopK {
     /// Labels.
     pub labels: Tensor,

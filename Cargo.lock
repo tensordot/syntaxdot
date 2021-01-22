@@ -1245,6 +1245,7 @@ dependencies = [
  "indicatif",
  "itertools 0.9.0",
  "log",
+ "ndarray",
  "ordered-float",
  "serde_yaml",
  "stdinout",

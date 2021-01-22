@@ -1,5 +1,6 @@
 use std::borrow::{Borrow, Cow};
 use std::collections::HashMap;
+use std::time::Instant;
 
 use syntaxdot_tch_ext::PathExt;
 use syntaxdot_transformers::layers::Dropout;
@@ -15,10 +16,13 @@ use syntaxdot_transformers::TransformerError;
 use tch::nn::ModuleT;
 use tch::{self, Tensor};
 
-use crate::config::{PositionEmbeddings, PretrainConfig};
+use crate::config::{BiaffineParserConfig, PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
+use crate::model::biaffine_dependency_layer::{
+    BiaffineDependencyLayer, BiaffineLoss, BiaffineScoreLogits,
+};
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
-use std::time::Instant;
+use crate::tensor::BiaffineTensors;
 
 pub trait PretrainBertConfig {
     fn bert_config(&self) -> Cow<BertConfig>;
@@ -180,9 +184,15 @@ impl Encoder {
     }
 }
 
+pub struct BertLoss {
+    pub biaffine: Option<BiaffineLoss>,
+    pub seq_classifiers: SequenceClassifiersLoss,
+}
+
 /// Multi-task classifier using the BERT architecture with scalar weighting.
 #[derive(Debug)]
 pub struct BertModel {
+    biaffine: Option<BiaffineDependencyLayer>,
     embeddings: BertEmbeddingLayer,
     encoder: Encoder,
     seq_classifiers: SequenceClassifiers,
@@ -197,6 +207,8 @@ impl BertModel {
     pub fn new<'a>(
         vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
+        biaffine_config: Option<&BiaffineParserConfig>,
+        n_relations: usize,
         encoders: &Encoders,
         layers_dropout: f64,
         position_embeddings: PositionEmbeddings,
@@ -206,6 +218,11 @@ impl BertModel {
         let embeddings = BertEmbeddingLayer::new(vs, pretrain_config, position_embeddings);
 
         let encoder = Encoder::new(vs, pretrain_config)?;
+
+        let biaffine = biaffine_config.map(|config| {
+            BiaffineDependencyLayer::new(vs, pretrain_config, config, n_relations as i64)
+        });
+
         let seq_classifiers =
             SequenceClassifiers::new(vs, pretrain_config, encoder.n_layers(), encoders);
 
@@ -213,8 +230,21 @@ impl BertModel {
             embeddings,
             encoder,
             layers_dropout: Dropout::new(layers_dropout),
+            biaffine,
             seq_classifiers,
         })
+    }
+
+    /// Compute the biaffine logits for a batch of inputs from the transformer's encoding.
+    pub fn biaffine_logits_from_encoding(
+        &self,
+        layer_outputs: &[LayerOutput],
+        token_mask: &Tensor,
+        train: bool,
+    ) -> Option<BiaffineScoreLogits> {
+        self.biaffine
+            .as_ref()
+            .map(|biaffine| biaffine.forward(layer_outputs, token_mask, train))
     }
 
     /// Encode an input.
@@ -285,7 +315,7 @@ impl BertModel {
     ///   for backpropagation.
     /// * `freeze_embeddings`: exclude embeddings from backpropagation.
     /// * `freeze_encoder`: exclude the encoder from backpropagation.
-    pub fn logits_from_encoding(
+    pub fn encoder_logits_from_encoding(
         &self,
         layer_outputs: &[LayerOutput],
         train: bool,
@@ -313,17 +343,28 @@ impl BertModel {
         inputs: &Tensor,
         attention_mask: &Tensor,
         token_mask: &Tensor,
+        biaffine_tensors: Option<BiaffineTensors<Tensor>>,
         targets: &HashMap<String, Tensor>,
         label_smoothing: Option<f64>,
         train: bool,
         freeze_layers: FreezeLayers,
         include_continuations: bool,
-    ) -> SequenceClassifiersLoss {
+    ) -> BertLoss {
         let encoding = self.encode(inputs, attention_mask, train, freeze_layers);
 
         if freeze_layers.classifiers {
             tch::no_grad(|| {
-                self.seq_classifiers.loss(
+                let biaffine_loss = self.biaffine.as_ref().map(|biaffine| {
+                    biaffine.loss(
+                        &encoding,
+                        token_mask,
+                        biaffine_tensors.as_ref().unwrap(),
+                        label_smoothing,
+                        train,
+                    )
+                });
+
+                let seq_classifiers_loss = self.seq_classifiers.loss(
                     &encoding,
                     attention_mask,
                     token_mask,
@@ -331,10 +372,25 @@ impl BertModel {
                     label_smoothing,
                     train,
                     include_continuations,
-                )
+                );
+
+                BertLoss {
+                    biaffine: biaffine_loss,
+                    seq_classifiers: seq_classifiers_loss,
+                }
             })
         } else {
-            self.seq_classifiers.loss(
+            let biaffine_loss = self.biaffine.as_ref().map(|biaffine| {
+                biaffine.loss(
+                    &encoding,
+                    token_mask,
+                    biaffine_tensors.as_ref().unwrap(),
+                    label_smoothing,
+                    train,
+                )
+            });
+
+            let seq_classifiers_loss = self.seq_classifiers.loss(
                 &encoding,
                 attention_mask,
                 token_mask,
@@ -342,15 +398,27 @@ impl BertModel {
                 label_smoothing,
                 train,
                 include_continuations,
-            )
+            );
+
+            BertLoss {
+                biaffine: biaffine_loss,
+                seq_classifiers: seq_classifiers_loss,
+            }
         }
     }
 
     /// Compute the top-k labels for each encoder for the input.
     ///
+    /// * `token_mask`: specifies which sequence elements represent
+    ///    tokens.
     /// * `attention_mask`: specifies which sequence elements should
     ///    be masked when applying the encoder.
-    pub fn top_k(&self, inputs: &Tensor, attention_mask: &Tensor) -> HashMap<String, TopK> {
+    pub fn predict(
+        &self,
+        inputs: &Tensor,
+        attention_mask: &Tensor,
+        token_mask: &Tensor,
+    ) -> Predictions {
         let encoding = self.encode(
             inputs,
             attention_mask,
@@ -362,7 +430,16 @@ impl BertModel {
             },
         );
 
-        self.seq_classifiers.top_k(&encoding, 3)
+        let biaffine_score_logits = self
+            .biaffine
+            .as_ref()
+            .map(|biaffine| biaffine.forward(&encoding, token_mask, false));
+        let sequences_top_k = self.seq_classifiers.top_k(&encoding, 3);
+
+        Predictions {
+            biaffine_score_logits,
+            sequences_top_k,
+        }
     }
 }
 
@@ -371,4 +448,10 @@ pub struct FreezeLayers {
     pub embeddings: bool,
     pub encoder: bool,
     pub classifiers: bool,
+}
+
+#[derive(Debug)]
+pub struct Predictions {
+    pub biaffine_score_logits: Option<BiaffineScoreLogits>,
+    pub sequences_top_k: HashMap<String, TopK>,
 }

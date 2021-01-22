@@ -80,7 +80,15 @@ pub struct LearningRateSchedules {
     pub encoder: PlateauLearningRate<ExponentialDecay>,
 }
 
+struct BiaffineEpochStats {
+    las: f32,
+    uas: f32,
+    head_loss: f32,
+    relation_loss: f32,
+}
+
 struct EpochStats {
+    biaffine: Option<BiaffineEpochStats>,
     encoder_accuracy: BTreeMap<String, f32>,
     encoder_loss: BTreeMap<String, f32>,
     n_tokens: i64,
@@ -136,19 +144,55 @@ impl FinetuneApp {
             epoch,
         )?;
 
-        self.log_epoch_stats(encoders, global_step, epoch_stats, grad_scaler.is_some())
+        self.log_epoch_stats(global_step, epoch_stats, grad_scaler.is_some())
     }
 
     fn log_epoch_stats(
         &self,
-        encoders: &Encoders,
         global_step: &usize,
         epoch_stats: EpochStats,
         train: bool,
     ) -> Result<f32> {
         let epoch_type = if train { "train" } else { "validation" };
 
-        let mut acc_sum = 0.0;
+        let mut accs = Vec::new();
+
+        if let Some(biaffine_stats) = epoch_stats.biaffine {
+            accs.push(biaffine_stats.las / epoch_stats.n_tokens as f32);
+
+            log::info!(
+                "biaffine head loss: {:.4}, rel loss: {:.4}, las: {:.4}, uas: {:.4}",
+                biaffine_stats.head_loss / epoch_stats.n_tokens as f32,
+                biaffine_stats.relation_loss / epoch_stats.n_tokens as f32,
+                biaffine_stats.las / epoch_stats.n_tokens as f32,
+                biaffine_stats.uas / epoch_stats.n_tokens as f32
+            );
+
+            self.summary_writer.write_scalar(
+                &format!("loss:{},biaffine:head", epoch_type),
+                *global_step as i64,
+                biaffine_stats.head_loss,
+            )?;
+
+            self.summary_writer.write_scalar(
+                &format!("loss:{},biaffine:relation", epoch_type),
+                *global_step as i64,
+                biaffine_stats.relation_loss,
+            )?;
+
+            self.summary_writer.write_scalar(
+                &format!("las:{},biaffine", epoch_type),
+                *global_step as i64,
+                biaffine_stats.las / epoch_stats.n_tokens as f32,
+            )?;
+
+            self.summary_writer.write_scalar(
+                &format!("uas:{},biaffine", epoch_type),
+                *global_step as i64,
+                biaffine_stats.uas / epoch_stats.n_tokens as f32,
+            )?;
+        }
+
         for (encoder_name, loss) in epoch_stats.encoder_loss {
             let acc = epoch_stats.encoder_accuracy[&encoder_name] / epoch_stats.n_tokens as f32;
             let loss = loss / epoch_stats.n_tokens as f32;
@@ -167,10 +211,10 @@ impl FinetuneApp {
                 acc,
             )?;
 
-            acc_sum += acc;
+            accs.push(acc);
         }
 
-        Ok(acc_sum / encoders.len() as f32)
+        Ok(accs.iter().sum::<f32>() / accs.len() as f32)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -206,6 +250,10 @@ impl FinetuneApp {
         // Freeze the encoder during the first epoch.
         let freeze_encoder = epoch == 0;
 
+        let mut biaffine_las = 0f32;
+        let mut biaffine_uas = 0f32;
+        let mut biaffine_head_loss = 0f32;
+        let mut biaffine_relation_loss = 0f32;
         let mut encoder_accuracy = BTreeMap::new();
         let mut encoder_loss = BTreeMap::new();
 
@@ -241,6 +289,9 @@ impl FinetuneApp {
                     &batch.inputs.to_device(self.device),
                     &attention_mask.to_device(self.device),
                     &batch.token_mask.to_device(self.device),
+                    batch
+                        .biaffine_encodings
+                        .map(|tensors| tensors.to_device(self.device)),
                     &batch
                         .labels
                         .expect("Batch without labels.")
@@ -260,7 +311,11 @@ impl FinetuneApp {
 
             n_tokens += n_batch_tokens;
 
-            let scalar_loss: f32 = model_loss.summed_loss.sum(Kind::Float).into();
+            let scalar_loss: f32 = model_loss
+                .seq_classifiers
+                .summed_loss
+                .sum(Kind::Float)
+                .into();
 
             if let Some(scaler) = &mut grad_scaler {
                 let optimizer = scaler.optimizer_mut();
@@ -276,7 +331,12 @@ impl FinetuneApp {
                     lr_classifier.into(),
                 );
 
-                scaler.backward_step(&model_loss.summed_loss.sum(Kind::Float));
+                let mut loss = model_loss.seq_classifiers.summed_loss.sum(Kind::Float);
+                if let Some(biaffine_loss) = model_loss.biaffine.as_ref() {
+                    loss += &biaffine_loss.head_loss + &biaffine_loss.relation_loss;
+                }
+
+                scaler.backward_step(&loss);
 
                 if epoch != 0 {
                     self.summary_writer.write_scalar(
@@ -291,23 +351,46 @@ impl FinetuneApp {
                 }
             };
 
-            for (encoder_name, loss) in model_loss.encoder_losses {
+            for (encoder_name, loss) in model_loss.seq_classifiers.encoder_losses {
                 *encoder_accuracy.entry(encoder_name.clone()).or_insert(0f32) +=
-                    f32::from(&model_loss.encoder_accuracies[&encoder_name])
+                    f32::from(&model_loss.seq_classifiers.encoder_accuracies[&encoder_name])
                         * n_batch_tokens as f32;
                 *encoder_loss.entry(encoder_name).or_insert(0f32) +=
                     f32::from(loss) * n_batch_tokens as f32;
             }
 
-            progress_bar.set_message(&format!(
-                "classifier lr: {:.1e}, encoder lr: {:.1e}, batch loss: {:.4}, global step: {}",
-                lr_classifier, lr_encoder, scalar_loss, global_step
-            ));
+            if let Some(biaffine_loss) = model_loss.biaffine.as_ref() {
+                let head_loss = f32::from(&biaffine_loss.head_loss);
+                let relation_loss = f32::from(&biaffine_loss.relation_loss);
+
+                biaffine_las += f32::from(&biaffine_loss.acc.las) * n_batch_tokens as f32;
+                biaffine_uas += f32::from(&biaffine_loss.acc.uas) * n_batch_tokens as f32;
+                biaffine_head_loss += head_loss * n_batch_tokens as f32;
+                biaffine_relation_loss += relation_loss * n_batch_tokens as f32;
+
+                progress_bar.set_message(&format!(
+                    "classifier lr: {:.1e}, encoder lr: {:.1e}, seq loss: {:.4}, head loss: {:.4}, rel loss: {:.4}, global step: {}",
+                    lr_classifier, lr_encoder, scalar_loss, head_loss, relation_loss, global_step
+                ));
+            } else {
+                progress_bar.set_message(&format!(
+                    "classifier lr: {:.1e}, encoder lr: {:.1e}, seq loss: {:.4}, global step: {}",
+                    lr_classifier, lr_encoder, scalar_loss, global_step
+                ));
+            }
         }
 
         progress_bar.finish();
 
+        let biaffine_stats = biaffine_encoder.map(|_| BiaffineEpochStats {
+            las: biaffine_las,
+            uas: biaffine_uas,
+            head_loss: biaffine_head_loss,
+            relation_loss: biaffine_relation_loss,
+        });
+
         Ok(EpochStats {
+            biaffine: biaffine_stats,
             encoder_accuracy,
             encoder_loss,
             n_tokens,
