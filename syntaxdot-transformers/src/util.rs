@@ -150,7 +150,26 @@ pub mod tests {
     use ndarray::{array, ArrayD};
     use tch::{Device, Kind, Tensor};
 
-    use crate::util::SinusoidalPositions;
+    use crate::util::{LogitsMask, SinusoidalPositions};
+
+    #[test]
+    #[should_panic]
+    fn mask_dimensionality_should_be_correct_for_logits_mask() {
+        LogitsMask::from_bool_mask(&Tensor::of_slice(&[false]));
+    }
+
+    #[test]
+    fn logits_mask_is_constructed_correctly() {
+        let mask = LogitsMask::from_bool_mask(
+            &Tensor::of_slice(&[true, false, true, false, true, true, false, false]).view((2, 4)),
+        );
+
+        assert_eq!(
+            mask.inner,
+            Tensor::of_slice(&[0i64, -10_000, 0, -10_000, 0, 0, -10_000, -10_000])
+                .view((2, 1, 1, 4))
+        );
+    }
 
     #[test]
     #[should_panic]
