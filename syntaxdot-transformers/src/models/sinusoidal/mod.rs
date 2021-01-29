@@ -3,12 +3,14 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::{Init, Module, ModuleT};
+use tch::nn::Init;
 use tch::{Kind, Tensor};
 
 use crate::layers::{Dropout, Embedding, LayerNorm};
 use crate::models::traits::WordEmbeddingsConfig;
+use crate::module::{FallibleModule, FallibleModuleT};
 use crate::util::SinusoidalPositions;
+use crate::TransformerError;
 
 /// Embeddings layer that uses word embeddings with sinusoidal positions.
 ///
@@ -31,7 +33,7 @@ impl SinusoidalEmbeddings {
         vs: impl Borrow<PathExt<'a>>,
         config: &impl WordEmbeddingsConfig,
         p_norm: Option<f64>,
-    ) -> Self {
+    ) -> Result<SinusoidalEmbeddings, TransformerError> {
         let vs = vs.borrow();
 
         let normal_init = Init::Randn {
@@ -45,7 +47,7 @@ impl SinusoidalEmbeddings {
             config.vocab_size(),
             config.dims(),
             normal_init,
-        );
+        )?;
 
         let layer_norm = LayerNorm::new(
             vs / "layer_norm",
@@ -56,32 +58,34 @@ impl SinusoidalEmbeddings {
 
         let dropout = Dropout::new(config.dropout());
 
-        SinusoidalEmbeddings {
+        Ok(SinusoidalEmbeddings {
             dropout,
             layer_norm,
             p_norm,
             word_embeddings,
-        }
+        })
     }
 }
 
-impl ModuleT for SinusoidalEmbeddings {
-    fn forward_t(&self, input_ids: &Tensor, train: bool) -> Tensor {
-        let word_embeddings = self.word_embeddings.forward(input_ids);
+impl FallibleModuleT for SinusoidalEmbeddings {
+    type Error = TransformerError;
 
-        let input_shape = word_embeddings.size();
-        let seq_length = input_shape[1];
-        let embedding_dim = input_shape[2];
+    fn forward_t(&self, input_ids: &Tensor, train: bool) -> Result<Tensor, Self::Error> {
+        let word_embeddings = self.word_embeddings.forward(input_ids)?;
+
+        let (_, seq_length, embedding_dim) = word_embeddings.size3()?;
 
         let position_embeddings: Tensor = SinusoidalPositions::sinusoidal_positions(
             seq_length,
             embedding_dim,
             self.p_norm,
             (Kind::Float, word_embeddings.device()),
-        );
+        )?;
 
-        let mut embeddings = tch::no_grad(|| word_embeddings + position_embeddings.unsqueeze(0));
-        embeddings = self.layer_norm.forward(&embeddings);
+        let mut embeddings = tch::no_grad::<Result<_, TransformerError>, _>(|| {
+            Ok(word_embeddings.f_add(&position_embeddings.f_unsqueeze(0)?)?)
+        })?;
+        embeddings = self.layer_norm.forward(&embeddings)?;
         self.dropout.forward_t(&embeddings, train)
     }
 }
@@ -94,11 +98,12 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
-    use tch::nn::{ModuleT, VarStore};
+    use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
     use crate::models::bert::BertConfig;
     use crate::models::sinusoidal::SinusoidalEmbeddings;
+    use crate::module::FallibleModuleT;
 
     // BERT is not trained with sinusoidal embeddings, but we will just use
     // its piece embeddings to verify that the output of the
@@ -159,7 +164,8 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = SinusoidalEmbeddings::new(root.sub("embeddings"), &config, p_norm);
+        let embeddings =
+            SinusoidalEmbeddings::new(root.sub("embeddings"), &config, p_norm).unwrap();
 
         vs.load(BERT_BASE_GERMAN_CASED).unwrap();
 
@@ -170,6 +176,7 @@ mod tests {
         let summed_embeddings =
             embeddings
                 .forward_t(&pieces, false)
+                .unwrap()
                 .sum1(&[-1], false, Kind::Float);
 
         (&summed_embeddings).try_into().unwrap()

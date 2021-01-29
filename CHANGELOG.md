@@ -21,6 +21,8 @@
   updated to insert the `[CLS]` piece as a beginning of sentence marker.
   **Warning:** this breaks existing models with `tokenizer = "bert"`, which should
   be retrained.
+- Replace all calls to the Rust Torch crate (`tch`) by fallible counterparts,
+  this makes exceptions thrown by Torch far easier to read.
 - Uses of the `eprintln!` macro are replaced by logging using `log` and
   `env_logger`. The verbosity of the logs can be controlled with the `RUST_LOG`
   environment variable (e.g. `RUST_LOG=info`).

@@ -8,3 +8,6 @@ members = [
     "syntaxdot-cli",
     "syntaxdot-tch-ext"
 ]
+
+[patch.crates-io]
+tch = { git = "https://github.com/LaurentMazare/tch-rs.git" }

@@ -18,7 +18,7 @@ use std::borrow::Borrow;
 use std::iter;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::{Init, Linear, Module, ModuleT};
+use tch::nn::{Init, Linear, Module};
 use tch::{Kind, Tensor};
 
 use crate::activations;
@@ -26,12 +26,13 @@ use crate::error::TransformerError;
 use crate::layers::{Dropout, LayerNorm};
 use crate::models::bert::config::BertConfig;
 use crate::models::layer_output::{HiddenLayer, LayerOutput};
+use crate::module::{FallibleModule, FallibleModuleT};
 use crate::util::LogitsMask;
 
 #[derive(Debug)]
 pub struct BertIntermediate {
     dense: Linear,
-    activation: Box<dyn Module>,
+    activation: Box<dyn FallibleModule<Error = TransformerError>>,
 }
 
 impl BertIntermediate {
@@ -59,13 +60,15 @@ impl BertIntermediate {
                 config.intermediate_size,
                 "weight",
                 "bias",
-            ),
+            )?,
         })
     }
 }
 
-impl Module for BertIntermediate {
-    fn forward(&self, input: &Tensor) -> Tensor {
+impl FallibleModule for BertIntermediate {
+    type Error = TransformerError;
+
+    fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
         let hidden_states = self.dense.forward(input);
         self.activation.forward(&hidden_states)
     }
@@ -89,10 +92,10 @@ impl BertLayer {
         let vs_attention = vs / "attention";
 
         Ok(BertLayer {
-            attention: BertSelfAttention::new(vs_attention.borrow() / "self", config),
-            post_attention: BertSelfOutput::new(vs_attention.borrow() / "output", config),
+            attention: BertSelfAttention::new(vs_attention.borrow() / "self", config)?,
+            post_attention: BertSelfOutput::new(vs_attention.borrow() / "output", config)?,
             intermediate: BertIntermediate::new(vs / "intermediate", config)?,
-            output: BertOutput::new(vs / "output", config),
+            output: BertOutput::new(vs / "output", config)?,
         })
     }
 
@@ -101,17 +104,21 @@ impl BertLayer {
         input: &Tensor,
         attention_mask: Option<&LogitsMask>,
         train: bool,
-    ) -> LayerOutput {
-        let (attention_output, attention) = self.attention.forward_t(input, attention_mask, train);
-        let post_attention_output = self
-            .post_attention
-            .forward_t(&attention_output, input, train);
-        let intermediate_output = self.intermediate.forward(&post_attention_output);
+    ) -> Result<LayerOutput, TransformerError> {
+        let (attention_output, attention) =
+            self.attention.forward_t(input, attention_mask, train)?;
+        let post_attention_output =
+            self.post_attention
+                .forward_t(&attention_output, input, train)?;
+        let intermediate_output = self.intermediate.forward(&post_attention_output)?;
         let output = self
             .output
-            .forward_t(&intermediate_output, &post_attention_output, train);
+            .forward_t(&intermediate_output, &post_attention_output, train)?;
 
-        LayerOutput::EncoderWithAttention(HiddenLayer { output, attention })
+        Ok(LayerOutput::EncoderWithAttention(HiddenLayer {
+            output,
+            attention,
+        }))
     }
 }
 
@@ -123,7 +130,10 @@ pub struct BertOutput {
 }
 
 impl BertOutput {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &BertConfig,
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let dense = bert_linear(
@@ -133,7 +143,7 @@ impl BertOutput {
             config.hidden_size,
             "weight",
             "bias",
-        );
+        )?;
         let dropout = Dropout::new(config.hidden_dropout_prob);
         let layer_norm = LayerNorm::new(
             vs / "layer_norm",
@@ -142,17 +152,22 @@ impl BertOutput {
             true,
         );
 
-        BertOutput {
+        Ok(BertOutput {
             dense,
             dropout,
             layer_norm,
-        }
+        })
     }
 
-    pub fn forward_t(&self, hidden_states: &Tensor, input: &Tensor, train: bool) -> Tensor {
+    pub fn forward_t(
+        &self,
+        hidden_states: &Tensor,
+        input: &Tensor,
+        train: bool,
+    ) -> Result<Tensor, TransformerError> {
         let hidden_states = self.dense.forward(hidden_states);
-        let mut hidden_states = self.dropout.forward_t(&hidden_states, train);
-        hidden_states += input;
+        let mut hidden_states = self.dropout.forward_t(&hidden_states, train)?;
+        let _ = hidden_states.f_add_(&input)?;
         self.layer_norm.forward(&hidden_states)
     }
 }
@@ -170,7 +185,10 @@ pub struct BertSelfAttention {
 }
 
 impl BertSelfAttention {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &BertConfig,
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let attention_head_size = config.hidden_size / config.num_attention_heads;
@@ -183,7 +201,7 @@ impl BertSelfAttention {
             all_head_size,
             "weight",
             "bias",
-        );
+        )?;
         let query = bert_linear(
             vs / "query",
             config,
@@ -191,7 +209,7 @@ impl BertSelfAttention {
             all_head_size,
             "weight",
             "bias",
-        );
+        )?;
         let value = bert_linear(
             vs / "value",
             config,
@@ -199,9 +217,9 @@ impl BertSelfAttention {
             all_head_size,
             "weight",
             "bias",
-        );
+        )?;
 
-        BertSelfAttention {
+        Ok(BertSelfAttention {
             all_head_size,
             attention_head_size,
             num_attention_heads: config.num_attention_heads,
@@ -210,7 +228,7 @@ impl BertSelfAttention {
             key,
             query,
             value,
-        }
+        })
     }
 
     /// Apply self-attention.
@@ -222,49 +240,49 @@ impl BertSelfAttention {
         hidden_states: &Tensor,
         attention_mask: Option<&LogitsMask>,
         train: bool,
-    ) -> (Tensor, Tensor) {
+    ) -> Result<(Tensor, Tensor), TransformerError> {
         let mixed_key_layer = self.key.forward(hidden_states);
         let mixed_query_layer = self.query.forward(hidden_states);
         let mixed_value_layer = self.value.forward(hidden_states);
 
-        let query_layer = self.transpose_for_scores(&mixed_query_layer);
-        let key_layer = self.transpose_for_scores(&mixed_key_layer);
-        let value_layer = self.transpose_for_scores(&mixed_value_layer);
+        let query_layer = self.transpose_for_scores(&mixed_query_layer)?;
+        let key_layer = self.transpose_for_scores(&mixed_key_layer)?;
+        let value_layer = self.transpose_for_scores(&mixed_value_layer)?;
 
         // Get the raw attention scores.
-        let mut attention_scores = query_layer.matmul(&key_layer.transpose(-1, -2));
-        attention_scores /= (self.attention_head_size as f64).sqrt();
+        let mut attention_scores = query_layer.f_matmul(&key_layer.transpose(-1, -2))?;
+        let _ = attention_scores.f_div_1((self.attention_head_size as f64).sqrt())?;
 
         if let Some(mask) = attention_mask {
-            attention_scores += &**mask;
+            let _ = attention_scores.f_add_(&**mask)?;
         }
 
         // Convert the raw attention scores into a probability distribution.
-        let attention_probs = attention_scores.softmax(-1, Kind::Float);
+        let attention_probs = attention_scores.f_softmax(-1, Kind::Float)?;
 
         // Drop out entire tokens to attend to, following the original
         // transformer paper.
-        let attention_probs = self.dropout.forward_t(&attention_probs, train);
+        let attention_probs = self.dropout.forward_t(&attention_probs, train)?;
 
-        let context_layer = attention_probs.matmul(&value_layer);
+        let context_layer = attention_probs.f_matmul(&value_layer)?;
 
-        let context_layer = context_layer.permute(&[0, 2, 1, 3]).contiguous();
+        let context_layer = context_layer.f_permute(&[0, 2, 1, 3])?.f_contiguous()?;
         let mut new_context_layer_shape = context_layer.size();
         new_context_layer_shape.splice(
             new_context_layer_shape.len() - 2..,
             iter::once(self.all_head_size),
         );
-        let context_layer = context_layer.view_(&new_context_layer_shape);
+        let context_layer = context_layer.f_view_(&new_context_layer_shape)?;
 
-        (context_layer, attention_scores)
+        Ok((context_layer, attention_scores))
     }
 
-    fn transpose_for_scores(&self, x: &Tensor) -> Tensor {
+    fn transpose_for_scores(&self, x: &Tensor) -> Result<Tensor, TransformerError> {
         let mut new_x_shape = x.size();
         new_x_shape.pop();
         new_x_shape.extend(&[self.num_attention_heads, self.attention_head_size]);
 
-        x.view_(&new_x_shape).permute(&[0, 2, 1, 3])
+        Ok(x.f_view_(&new_x_shape)?.f_permute(&[0, 2, 1, 3])?)
     }
 }
 
@@ -276,7 +294,10 @@ pub struct BertSelfOutput {
 }
 
 impl BertSelfOutput {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &BertConfig,
+    ) -> Result<BertSelfOutput, TransformerError> {
         let vs = vs.borrow();
 
         let dense = bert_linear(
@@ -286,7 +307,7 @@ impl BertSelfOutput {
             config.hidden_size,
             "weight",
             "bias",
-        );
+        )?;
         let dropout = Dropout::new(config.hidden_dropout_prob);
         let layer_norm = LayerNorm::new(
             vs / "layer_norm",
@@ -295,22 +316,29 @@ impl BertSelfOutput {
             true,
         );
 
-        BertSelfOutput {
+        Ok(BertSelfOutput {
             dense,
             dropout,
             layer_norm,
-        }
+        })
     }
 
-    pub fn forward_t(&self, hidden_states: &Tensor, input: &Tensor, train: bool) -> Tensor {
+    pub fn forward_t(
+        &self,
+        hidden_states: &Tensor,
+        input: &Tensor,
+        train: bool,
+    ) -> Result<Tensor, TransformerError> {
         let hidden_states = self.dense.forward(hidden_states);
-        let mut hidden_states = self.dropout.forward_t(&hidden_states, train);
-        hidden_states += input;
+        let mut hidden_states = self.dropout.forward_t(&hidden_states, train)?;
+        let _ = hidden_states.f_add_(&input)?;
         self.layer_norm.forward(&hidden_states)
     }
 }
 
-pub(crate) fn bert_activations(activation_name: &str) -> Option<Box<dyn Module>> {
+pub(crate) fn bert_activations(
+    activation_name: &str,
+) -> Option<Box<dyn FallibleModule<Error = TransformerError>>> {
     match activation_name {
         "gelu" => Some(Box::new(activations::GELU)),
         "gelu_new" => Some(Box::new(activations::GELUNew)),
@@ -325,10 +353,10 @@ pub(crate) fn bert_linear<'a>(
     out_features: i64,
     weight_name: &str,
     bias_name: &str,
-) -> Linear {
+) -> Result<Linear, TransformerError> {
     let vs = vs.borrow();
 
-    Linear {
+    Ok(Linear {
         ws: vs.var(
             weight_name,
             &[out_features, in_features],
@@ -336,7 +364,7 @@ pub(crate) fn bert_linear<'a>(
                 mean: 0.,
                 stdev: config.initializer_range,
             },
-        ),
-        bs: vs.var(bias_name, &[out_features], Init::Const(0.)),
-    }
+        )?,
+        bs: vs.var(bias_name, &[out_features], Init::Const(0.))?,
+    })
 }

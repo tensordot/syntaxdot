@@ -3,13 +3,15 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::{Init, Linear, Module, ModuleT};
+use tch::nn::{Init, Linear, Module};
 use tch::{Kind, Reduction, Tensor};
 
 use crate::cow::CowTensor;
 use crate::layers::{Dropout, LayerNorm};
 use crate::loss::CrossEntropyLoss;
 use crate::models::LayerOutput;
+use crate::module::{FallibleModule, FallibleModuleT};
+use crate::TransformerError;
 
 /// Non-linear ReLU layer with layer normalization and dropout.
 #[derive(Debug)]
@@ -26,24 +28,26 @@ impl NonLinearWithLayerNorm {
         out_size: i64,
         dropout: f64,
         layer_norm_eps: f64,
-    ) -> Self {
+    ) -> Result<NonLinearWithLayerNorm, TransformerError> {
         let vs = vs.borrow();
 
-        NonLinearWithLayerNorm {
+        Ok(NonLinearWithLayerNorm {
             dropout: Dropout::new(dropout),
             layer_norm: LayerNorm::new(vs / "layer_norm", vec![out_size], layer_norm_eps, true),
             linear: Linear {
-                ws: vs.var("weight", &[out_size, in_size], Init::KaimingUniform),
-                bs: vs.var("bias", &[out_size], Init::Const(0.)),
+                ws: vs.var("weight", &[out_size, in_size], Init::KaimingUniform)?,
+                bs: vs.var("bias", &[out_size], Init::Const(0.))?,
             },
-        }
+        })
     }
 }
 
-impl ModuleT for NonLinearWithLayerNorm {
-    fn forward_t(&self, input: &Tensor, train: bool) -> Tensor {
+impl FallibleModuleT for NonLinearWithLayerNorm {
+    type Error = TransformerError;
+
+    fn forward_t(&self, input: &Tensor, train: bool) -> Result<Tensor, Self::Error> {
         let mut hidden = self.linear.forward(input).relu();
-        hidden = self.layer_norm.forward(&hidden);
+        hidden = self.layer_norm.forward(&hidden)?;
         self.dropout.forward_t(&hidden, train)
     }
 }
@@ -67,7 +71,11 @@ pub struct ScalarWeight {
 }
 
 impl ScalarWeight {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, n_layers: i64, layer_dropout_prob: f64) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        n_layers: i64,
+        layer_dropout_prob: f64,
+    ) -> Result<Self, TransformerError> {
         assert!(
             n_layers > 0,
             "Number of layers ({}) should be larger than 0",
@@ -82,14 +90,14 @@ impl ScalarWeight {
 
         let vs = vs.borrow();
 
-        ScalarWeight {
+        Ok(ScalarWeight {
             layer_dropout_prob,
-            layer_weights: vs.var("layer_weights", &[n_layers], Init::Const(0.)),
-            scale: vs.var("scale", &[], Init::Const(1.)),
-        }
+            layer_weights: vs.var("layer_weights", &[n_layers], Init::Const(0.))?,
+            scale: vs.var("scale", &[], Init::Const(1.))?,
+        })
     }
 
-    pub fn forward(&self, layers: &[LayerOutput], train: bool) -> Tensor {
+    pub fn forward(&self, layers: &[LayerOutput], train: bool) -> Result<Tensor, TransformerError> {
         assert_eq!(
             self.layer_weights.size()[0],
             layers.len() as i64,
@@ -105,14 +113,15 @@ impl ScalarWeight {
         //
         // stack the layers to get a single tensor of shape:
         // [batch_size, sequence_len, n_layers, layer_size]
-        let layers = Tensor::stack(&layers, 2);
+        let layers = Tensor::f_stack(&layers, 2)?;
 
         let layer_weights = if train {
-            let dropout_mask = Tensor::empty_like(&self.layer_weights)
-                .fill_(1.0 - self.layer_dropout_prob)
-                .bernoulli();
-            let softmask_mask = (1.0 - dropout_mask.to_kind(Kind::Float)) * -10_000.;
-            CowTensor::Owned(&self.layer_weights + softmask_mask)
+            let dropout_mask = Tensor::f_empty_like(&self.layer_weights)?
+                .f_fill_(1.0 - self.layer_dropout_prob)?
+                .f_bernoulli()?;
+            let softmax_mask =
+                (Tensor::from(1.0).f_sub(&dropout_mask.to_kind(Kind::Float))?).f_mul1(-10_000.)?;
+            CowTensor::Owned(self.layer_weights.f_add(&softmax_mask)?)
         } else {
             CowTensor::Borrowed(&self.layer_weights)
         };
@@ -120,15 +129,17 @@ impl ScalarWeight {
         // Convert the layer weights into a probability distribution and
         // expand dimensions to get shape [1, 1, n_layers, 1].
         let layer_weights = layer_weights
-            .softmax(-1, Kind::Float)
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .unsqueeze(-1);
+            .f_softmax(-1, Kind::Float)?
+            .f_unsqueeze(0)?
+            .f_unsqueeze(0)?
+            .f_unsqueeze(-1)?;
 
-        let weighted_layers = layers * layer_weights;
+        let weighted_layers = layers.f_mul(&layer_weights)?;
 
         // Sum across all layers and scale.
-        &self.scale * weighted_layers.sum1(&[-2], false, Kind::Float)
+        Ok(weighted_layers
+            .f_sum1(&[-2], false, Kind::Float)?
+            .f_mul(&self.scale)?)
     }
 }
 
@@ -144,7 +155,10 @@ pub struct ScalarWeightClassifier {
 }
 
 impl ScalarWeightClassifier {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &ScalarWeightClassifierConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &ScalarWeightClassifierConfig,
+    ) -> Result<ScalarWeightClassifier, TransformerError> {
         assert!(
             config.n_labels > 0,
             "The number of labels should be larger than 0",
@@ -166,8 +180,8 @@ impl ScalarWeightClassifier {
             "weight",
             &[config.n_labels, config.hidden_size],
             Init::KaimingUniform,
-        );
-        let bs = vs.var("bias", &[config.n_labels], Init::Const(0.));
+        )?;
+        let bs = vs.var("bias", &[config.n_labels], Init::Const(0.))?;
 
         let non_linear = NonLinearWithLayerNorm::new(
             vs / "nonlinear",
@@ -175,9 +189,9 @@ impl ScalarWeightClassifier {
             config.hidden_size,
             config.dropout_prob,
             config.layer_norm_eps,
-        );
+        )?;
 
-        ScalarWeightClassifier {
+        Ok(ScalarWeightClassifier {
             dropout: Dropout::new(config.dropout_prob),
             linear: Linear { ws, bs },
             non_linear,
@@ -185,23 +199,23 @@ impl ScalarWeightClassifier {
                 vs / "scalar_weight",
                 config.n_layers,
                 config.layer_dropout_prob,
-            ),
-        }
+            )?,
+        })
     }
 
-    pub fn forward(&self, layers: &[LayerOutput], train: bool) -> Tensor {
-        let logits = self.logits(layers, train);
-        logits.softmax(-1, Kind::Float)
+    pub fn forward(&self, layers: &[LayerOutput], train: bool) -> Result<Tensor, TransformerError> {
+        let logits = self.logits(layers, train)?;
+        Ok(logits.f_softmax(-1, Kind::Float)?)
     }
 
-    pub fn logits(&self, layers: &[LayerOutput], train: bool) -> Tensor {
-        let mut features = self.scalar_weight.forward(layers, train);
+    pub fn logits(&self, layers: &[LayerOutput], train: bool) -> Result<Tensor, TransformerError> {
+        let mut features = self.scalar_weight.forward(layers, train)?;
 
-        features = self.dropout.forward_t(&features, train);
+        features = self.dropout.forward_t(&features, train)?;
 
-        features = self.non_linear.forward_t(&features, train);
+        features = self.non_linear.forward_t(&features, train)?;
 
-        self.linear.forward(&features)
+        Ok(self.linear.forward(&features))
     }
 
     /// Compute the losses and correctly predicted labels of the given targets.
@@ -213,25 +227,33 @@ impl ScalarWeightClassifier {
         targets: &Tensor,
         label_smoothing: Option<f64>,
         train: bool,
-    ) -> (Tensor, Tensor) {
-        let targets_shape = targets.size();
-        let batch_size = targets_shape[0];
-        let seq_len = targets_shape[1];
+    ) -> Result<(Tensor, Tensor), TransformerError> {
+        assert_eq!(
+            targets.dim(),
+            2,
+            "Targets shoul have dimensionality 2, had {}",
+            targets.dim()
+        );
+
+        let (batch_size, seq_len) = targets.size2()?;
 
         let n_labels = self.linear.ws.size()[0];
 
         let logits = self
-            .logits(layers, train)
-            .view([batch_size * seq_len, n_labels]);
-        let targets = targets.view([batch_size * seq_len]);
+            .logits(layers, train)?
+            .f_view([batch_size * seq_len, n_labels])?;
+        let targets = targets.f_view([batch_size * seq_len])?;
 
-        let predicted = logits.argmax(-1, false);
+        let predicted = logits.f_argmax(-1, false)?;
 
         let losses = CrossEntropyLoss::new(-1, label_smoothing, Reduction::None)
-            .forward(&logits, &targets)
-            .view([batch_size, seq_len]);
+            .forward(&logits, &targets)?
+            .f_view([batch_size, seq_len])?;
 
-        (losses, predicted.eq1(&targets).view([batch_size, seq_len]))
+        Ok((
+            losses,
+            predicted.f_eq1(&targets)?.f_view([batch_size, seq_len])?,
+        ))
     }
 }
 
@@ -293,7 +315,8 @@ mod tests {
                 layer_dropout_prob: 0.1,
                 layer_norm_eps: 0.01,
             },
-        );
+        )
+        .unwrap();
 
         let layer1 = LayerOutput::EncoderWithAttention(HiddenLayer {
             attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu)),
@@ -305,7 +328,7 @@ mod tests {
         });
 
         // Perform a forward pass to check that all shapes align.
-        let results = classifier.forward(&[layer1, layer2], false);
+        let results = classifier.forward(&[layer1, layer2], false).unwrap();
 
         assert_eq!(results.size(), &[1, 3, 5]);
     }

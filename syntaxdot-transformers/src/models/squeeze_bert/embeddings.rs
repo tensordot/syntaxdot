@@ -6,11 +6,12 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
-    use tch::nn::{ModuleT, VarStore};
+    use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
     use crate::models::bert::{BertConfig, BertEmbeddings};
     use crate::models::squeeze_bert::SqueezeBertConfig;
+    use crate::module::FallibleModuleT;
 
     const SQUEEZEBERT_UNCASED: &str = env!("SQUEEZEBERT_UNCASED");
 
@@ -46,7 +47,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config);
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config).unwrap();
 
         vs.load(SQUEEZEBERT_UNCASED).unwrap();
 
@@ -58,6 +59,7 @@ mod tests {
         let summed_embeddings =
             embeddings
                 .forward_t(&pieces, false)
+                .unwrap()
                 .sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_embeddings).try_into().unwrap();

@@ -5,11 +5,12 @@ mod grad;
 pub use grad::ZeroGrad;
 
 mod grad_scale;
+use crate::error::SyntaxDotError;
 pub use grad_scale::GradScaler;
 
 pub trait Optimizer {
     /// Perform a backward step on the given loss.
-    fn backward_step(&mut self, loss: &Tensor);
+    fn backward_step(&mut self, loss: &Tensor) -> Result<(), SyntaxDotError>;
 
     /// Set the learning rate for a parameter group.
     fn set_lr_group(&mut self, group: usize, learning_rate: f64);
@@ -29,8 +30,9 @@ pub trait Optimizer {
 }
 
 impl<C> Optimizer for nn::Optimizer<C> {
-    fn backward_step(&mut self, loss: &Tensor) {
-        nn::Optimizer::backward_step(self, loss)
+    fn backward_step(&mut self, loss: &Tensor) -> Result<(), SyntaxDotError> {
+        nn::Optimizer::backward_step(self, loss);
+        Ok(())
     }
 
     fn set_lr_group(&mut self, group: usize, learning_rate: f64) {

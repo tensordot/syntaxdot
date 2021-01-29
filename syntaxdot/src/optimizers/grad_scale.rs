@@ -86,12 +86,12 @@ where
     }
 
     /// Scale the given tensor.
-    fn scale(&mut self, t: &Tensor) -> Tensor {
-        if !self.enabled {
+    fn scale(&mut self, t: &Tensor) -> Result<Tensor, SyntaxDotError> {
+        Ok(if !self.enabled {
             t.shallow_clone()
         } else {
-            t * &self.scale
-        }
+            t.f_mul(&self.scale)?
+        })
     }
 
     /// Update the scale for the next step.
@@ -118,11 +118,12 @@ impl<O> Optimizer for GradScaler<O>
 where
     O: Optimizer,
 {
-    fn backward_step(&mut self, loss: &Tensor) {
+    fn backward_step(&mut self, loss: &Tensor) -> Result<(), SyntaxDotError> {
         self.optimizer.trainable_variables().zero_grad();
-        self.scale(loss).backward();
+        self.scale(loss)?.backward();
         tch::no_grad(|| self.step());
         self.update();
+        Ok(())
     }
 
     fn set_lr_group(&mut self, group: usize, learning_rate: f64) {

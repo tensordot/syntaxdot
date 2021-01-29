@@ -55,17 +55,19 @@ impl Encoder for SqueezeBertEncoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<LayerOutput> {
-        let attention_mask = attention_mask.map(|mask| LogitsMask::from_bool_mask(mask));
+    ) -> Result<Vec<LayerOutput>, TransformerError> {
+        let attention_mask = attention_mask
+            .map(|mask| LogitsMask::from_bool_mask(mask))
+            .transpose()?;
 
         // [batch_size, seq_len, hidden_size] -> [batch_size, hidden_size, seq_len]
-        let mut hidden_states = input.permute(&[0, 2, 1]);
+        let mut hidden_states = input.f_permute(&[0, 2, 1])?;
 
         let mut all_layer_outputs = Vec::with_capacity(self.layers.len() + 1);
         all_layer_outputs.push(LayerOutput::Embedding(hidden_states.shallow_clone()));
 
         for layer in &self.layers {
-            let layer_output = layer.forward_t(&hidden_states, attention_mask.as_ref(), train);
+            let layer_output = layer.forward_t(&hidden_states, attention_mask.as_ref(), train)?;
 
             hidden_states = layer_output.output().shallow_clone();
             all_layer_outputs.push(layer_output);
@@ -73,10 +75,10 @@ impl Encoder for SqueezeBertEncoder {
 
         // Convert hidden states to [batch_size, seq_len, hidden_size].
         for layer_output in &mut all_layer_outputs {
-            *layer_output.output_mut() = layer_output.output().permute(&[0, 2, 1]);
+            *layer_output.output_mut() = layer_output.output().f_permute(&[0, 2, 1])?;
         }
 
-        all_layer_outputs
+        Ok(all_layer_outputs)
     }
 
     fn n_layers(&self) -> i64 {
@@ -94,13 +96,14 @@ mod tests {
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
-    use tch::nn::{ModuleT, VarStore};
+    use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
     use super::SqueezeBertEncoder;
     use crate::models::bert::{BertConfig, BertEmbeddings};
     use crate::models::squeeze_bert::SqueezeBertConfig;
     use crate::models::Encoder;
+    use crate::module::FallibleModuleT;
 
     const SQUEEZEBERT_UNCASED: &str = env!("SQUEEZEBERT_UNCASED");
 
@@ -175,7 +178,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config);
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config).unwrap();
         let encoder = SqueezeBertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(SQUEEZEBERT_UNCASED).unwrap();
@@ -185,9 +188,9 @@ mod tests {
             Tensor::of_slice(&[2106i64, 1996, 22091, 2080, 7861, 4783, 17644, 11440, 1029])
                 .reshape(&[1, 9]);
 
-        let embeddings = embeddings.forward_t(&pieces, false);
+        let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
-        let all_hidden_states = encoder.encode(&embeddings, None, false);
+        let all_hidden_states = encoder.encode(&embeddings, None, false).unwrap();
 
         let summed_last_hidden =
             all_hidden_states
@@ -216,7 +219,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config);
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config).unwrap();
         let encoder = SqueezeBertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(SQUEEZEBERT_UNCASED).unwrap();
@@ -230,9 +233,11 @@ mod tests {
 
         let attention_mask = seqlen_to_mask(Tensor::of_slice(&[9]), pieces.size()[1]);
 
-        let embeddings = embeddings.forward_t(&pieces, false);
+        let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
-        let all_hidden_states = encoder.encode(&embeddings, Some(&attention_mask), false);
+        let all_hidden_states = encoder
+            .encode(&embeddings, Some(&attention_mask), false)
+            .unwrap();
 
         let summed_last_hidden = all_hidden_states
             .last()

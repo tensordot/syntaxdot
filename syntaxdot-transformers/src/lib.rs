@@ -18,6 +18,8 @@ pub mod loss;
 
 pub mod models;
 
+pub mod module;
+
 pub mod scalar_weighting;
 
 pub(crate) mod util;

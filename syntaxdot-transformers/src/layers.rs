@@ -6,8 +6,11 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::{ConvConfig, Init, Module, ModuleT};
+use tch::nn::{ConvConfig, Init};
 use tch::{self, Tensor};
+
+use crate::module::{FallibleModule, FallibleModuleT};
+use crate::TransformerError;
 
 /// 1-D convolution.
 #[derive(Debug)]
@@ -24,7 +27,7 @@ impl Conv1D {
         out_features: i64,
         kernel_size: i64,
         groups: i64,
-    ) -> Self {
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let config = ConvConfig {
@@ -33,7 +36,7 @@ impl Conv1D {
         };
 
         let bs = if config.bias {
-            Some(vs.var("bias", &[out_features], config.bs_init))
+            Some(vs.var("bias", &[out_features], config.bs_init)?)
         } else {
             None
         };
@@ -42,15 +45,17 @@ impl Conv1D {
             "weight",
             &[out_features, in_features / groups, kernel_size],
             config.ws_init,
-        );
+        )?;
 
-        Conv1D { ws, bs, config }
+        Ok(Conv1D { ws, bs, config })
     }
 }
 
-impl Module for Conv1D {
-    fn forward(&self, xs: &Tensor) -> Tensor {
-        Tensor::conv1d(
+impl FallibleModule for Conv1D {
+    type Error = TransformerError;
+
+    fn forward(&self, xs: &Tensor) -> Result<Tensor, Self::Error> {
+        Ok(Tensor::f_conv1d(
             xs,
             &self.ws,
             self.bs.as_ref(),
@@ -58,7 +63,7 @@ impl Module for Conv1D {
             &[self.config.padding],
             &[self.config.dilation],
             self.config.groups,
-        )
+        )?)
     }
 }
 
@@ -79,6 +84,14 @@ impl Dropout {
     }
 }
 
+impl FallibleModuleT for Dropout {
+    type Error = TransformerError;
+
+    fn forward_t(&self, input: &Tensor, train: bool) -> Result<Tensor, Self::Error> {
+        Ok(input.f_dropout(self.p, train)?)
+    }
+}
+
 /// Embedding lookup layer.
 #[derive(Debug)]
 pub struct Embedding(pub Tensor);
@@ -90,23 +103,20 @@ impl Embedding {
         num_embeddings: i64,
         embedding_dim: i64,
         init: Init,
-    ) -> Self {
-        Embedding(
-            vs.borrow()
-                .var(name, &[num_embeddings, embedding_dim], init),
-        )
+    ) -> Result<Self, TransformerError> {
+        Ok(Embedding(vs.borrow().var(
+            name,
+            &[num_embeddings, embedding_dim],
+            init,
+        )?))
     }
 }
 
-impl Module for Embedding {
-    fn forward(&self, input: &Tensor) -> Tensor {
-        Tensor::embedding(&self.0, input, -1, false, false)
-    }
-}
+impl FallibleModule for Embedding {
+    type Error = TransformerError;
 
-impl ModuleT for Dropout {
-    fn forward_t(&self, input: &Tensor, train: bool) -> Tensor {
-        input.dropout(self.p, train)
+    fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
+        Ok(Tensor::f_embedding(&self.0, input, -1, false, false)?)
     }
 }
 
@@ -159,17 +169,19 @@ impl LayerNorm {
     }
 }
 
-impl Module for LayerNorm {
-    fn forward(&self, input: &Tensor) -> Tensor {
+impl FallibleModule for LayerNorm {
+    type Error = TransformerError;
+
+    fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
         // XXX: last parameter is `cudnn_enable`. What happens if we always
         //      set this to `true`?
-        input.layer_norm(
+        Ok(input.f_layer_norm(
             &self.normalized_shape,
             self.weight.as_ref(),
             self.bias.as_ref(),
             self.eps,
             false,
-        )
+        )?)
     }
 }
 
@@ -203,7 +215,10 @@ pub struct PairwiseBilinear {
 
 impl PairwiseBilinear {
     /// Construct a new bilinear layer.
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &PairwiseBilinearConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &PairwiseBilinearConfig,
+    ) -> Result<Self, TransformerError> {
         assert!(
             config.in_features > 0,
             "in_features should be > 0, was: {}",
@@ -238,13 +253,13 @@ impl PairwiseBilinear {
                 mean: 0.,
                 stdev: config.initializer_range,
             },
-        );
+        )?;
 
-        PairwiseBilinear {
+        Ok(PairwiseBilinear {
             bias_u: config.bias_u,
             bias_v: config.bias_v,
             weight,
-        }
+        })
     }
 
     /// Apply this layer to the given inputs.
@@ -252,7 +267,7 @@ impl PairwiseBilinear {
     /// Both inputs must have the same shape. Returns a tensor of
     /// shape `[batch_size, seq_len, seq_len, out_features]` given
     /// inputs of shape `[batch_size, seq_len, in_features]`.
-    pub fn forward(&self, u: &Tensor, v: &Tensor) -> Tensor {
+    pub fn forward(&self, u: &Tensor, v: &Tensor) -> Result<Tensor, TransformerError> {
         assert_eq!(
             u.size(),
             v.size(),
@@ -268,30 +283,30 @@ impl PairwiseBilinear {
             u.dim()
         );
 
-        let (batch_size, seq_len, _) = u.size3().unwrap();
+        let (batch_size, seq_len, _) = u.size3()?;
 
         let ones = Tensor::ones(&[batch_size, seq_len, 1], (u.kind(), u.device()));
 
         let u = if self.bias_u {
-            Tensor::cat(&[u, &ones], -1)
+            Tensor::f_cat(&[u, &ones], -1)?
         } else {
             u.shallow_clone()
         };
 
         let v = if self.bias_v {
-            Tensor::cat(&[v, &ones], -1)
+            Tensor::f_cat(&[v, &ones], -1)?
         } else {
             v.shallow_clone()
         };
 
         // [batch_size, max_seq_len, out_features, v features].
-        let intermediate = Tensor::einsum("blu,uov->blov", &[&u, &self.weight]);
+        let intermediate = Tensor::f_einsum("blu,uov->blov", &[&u, &self.weight])?;
 
         // We perform a matrix multiplication to get the output with
         // the shape [batch_size, seq_len, seq_len, out_features].
-        let bilinear = Tensor::einsum("bmv,blov->bmlo", &[&v, &intermediate]);
+        let bilinear = Tensor::f_einsum("bmv,blov->bmlo", &[&v, &intermediate])?;
 
-        bilinear.squeeze1(-1)
+        Ok(bilinear.f_squeeze1(-1)?)
     }
 }
 
@@ -312,17 +327,19 @@ impl VariationalDropout {
     }
 }
 
-impl ModuleT for VariationalDropout {
-    fn forward_t(&self, xs: &Tensor, train: bool) -> Tensor {
+impl FallibleModuleT for VariationalDropout {
+    type Error = TransformerError;
+
+    fn forward_t(&self, xs: &Tensor, train: bool) -> Result<Tensor, Self::Error> {
         // Avoid unnecessary work during prediction.
         if !train {
-            return xs.shallow_clone();
+            return Ok(xs.shallow_clone());
         }
 
-        let (batch_size, _, repr_size) = xs.size3().unwrap();
-        let dropout_mask = Tensor::ones(&[batch_size, 1, repr_size], (xs.kind(), xs.device()))
-            .dropout_(self.p, true);
-        xs * dropout_mask
+        let (batch_size, _, repr_size) = xs.size3()?;
+        let dropout_mask = Tensor::f_ones(&[batch_size, 1, repr_size], (xs.kind(), xs.device()))?
+            .f_dropout_(self.p, true)?;
+        Ok(xs.f_mul(&dropout_mask)?)
     }
 }
 
@@ -352,9 +369,13 @@ mod tests {
                 out_features: 5,
                 initializer_range: 0.02,
             },
-        );
+        )
+        .unwrap();
 
-        assert_eq!(bilinear.forward(&input1, &input2).size(), &[64, 10, 10, 5]);
+        assert_eq!(
+            bilinear.forward(&input1, &input2).unwrap().size(),
+            &[64, 10, 10, 5]
+        );
     }
 
     #[test]
@@ -372,8 +393,12 @@ mod tests {
                 out_features: 1,
                 initializer_range: 0.02,
             },
-        );
+        )
+        .unwrap();
 
-        assert_eq!(bilinear.forward(&input1, &input2).size(), &[64, 10, 10]);
+        assert_eq!(
+            bilinear.forward(&input1, &input2).unwrap().size(),
+            &[64, 10, 10]
+        );
     }
 }

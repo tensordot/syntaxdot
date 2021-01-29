@@ -53,20 +53,22 @@ impl Encoder for BertEncoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<LayerOutput> {
+    ) -> Result<Vec<LayerOutput>, TransformerError> {
         let mut all_layer_outputs = Vec::with_capacity(self.layers.len());
 
-        let attention_mask = attention_mask.map(|mask| LogitsMask::from_bool_mask(mask));
+        let attention_mask = attention_mask
+            .map(|mask| LogitsMask::from_bool_mask(mask))
+            .transpose()?;
 
         let mut hidden_states = CowTensor::Borrowed(input);
         for layer in &self.layers {
-            let layer_output = layer.forward_t(&hidden_states, attention_mask.as_ref(), train);
+            let layer_output = layer.forward_t(&hidden_states, attention_mask.as_ref(), train)?;
 
             hidden_states = CowTensor::Owned(layer_output.output().shallow_clone());
             all_layer_outputs.push(layer_output);
         }
 
-        all_layer_outputs
+        Ok(all_layer_outputs)
     }
 
     fn n_layers(&self) -> i64 {
@@ -84,11 +86,12 @@ mod tests {
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
-    use tch::nn::{ModuleT, VarStore};
+    use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
     use crate::models::bert::{BertConfig, BertEmbeddings, BertEncoder};
     use crate::models::Encoder;
+    use crate::module::FallibleModuleT;
 
     const BERT_BASE_GERMAN_CASED: &str = env!("BERT_BASE_GERMAN_CASED");
 
@@ -155,7 +158,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config);
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config).unwrap();
         let encoder = BertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(BERT_BASE_GERMAN_CASED).unwrap();
@@ -164,9 +167,9 @@ mod tests {
         let pieces = Tensor::of_slice(&[133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2])
             .reshape(&[1, 10]);
 
-        let embeddings = embeddings.forward_t(&pieces, false);
+        let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
-        let all_hidden_states = encoder.encode(&embeddings, None, false);
+        let all_hidden_states = encoder.encode(&embeddings, None, false).unwrap();
 
         let summed_last_hidden =
             all_hidden_states
@@ -195,7 +198,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config);
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config).unwrap();
         let encoder = BertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(BERT_BASE_GERMAN_CASED).unwrap();
@@ -209,9 +212,11 @@ mod tests {
 
         let attention_mask = seqlen_to_mask(Tensor::of_slice(&[10]), pieces.size()[1]);
 
-        let embeddings = embeddings.forward_t(&pieces, false);
+        let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
-        let all_hidden_states = encoder.encode(&embeddings, Some(&attention_mask), false);
+        let all_hidden_states = encoder
+            .encode(&embeddings, Some(&attention_mask), false)
+            .unwrap();
 
         let summed_last_hidden = all_hidden_states
             .last()

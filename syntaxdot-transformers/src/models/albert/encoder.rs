@@ -44,7 +44,7 @@ impl AlbertEncoder {
                 &config.into(),
             )?);
         }
-        let projection = AlbertEmbeddingProjection::new(vs, config);
+        let projection = AlbertEmbeddingProjection::new(vs, config)?;
 
         Ok(AlbertEncoder {
             groups,
@@ -60,14 +60,16 @@ impl Encoder for AlbertEncoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<LayerOutput> {
+    ) -> Result<Vec<LayerOutput>, TransformerError> {
         let mut all_layer_outputs = Vec::with_capacity(self.n_layers as usize + 1);
 
         let input = self.projection.forward(&input);
 
         all_layer_outputs.push(LayerOutput::Embedding(input.shallow_clone()));
 
-        let attention_mask = attention_mask.map(|mask| LogitsMask::from_bool_mask(mask));
+        let attention_mask = attention_mask
+            .map(|mask| LogitsMask::from_bool_mask(mask))
+            .transpose()?;
 
         let layers_per_group = self.n_layers as usize / self.groups.len();
 
@@ -77,14 +79,14 @@ impl Encoder for AlbertEncoder {
                 &hidden_states,
                 attention_mask.as_ref(),
                 train,
-            );
+            )?;
 
             hidden_states = layer_output.output().shallow_clone();
 
             all_layer_outputs.push(layer_output);
         }
 
-        all_layer_outputs
+        Ok(all_layer_outputs)
     }
 
     fn n_layers(&self) -> i64 {
@@ -102,12 +104,13 @@ mod tests {
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
-    use tch::nn::{ModuleT, VarStore};
+    use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
     use super::AlbertEncoder;
     use crate::models::albert::{AlbertConfig, AlbertEmbeddings};
     use crate::models::Encoder;
+    use crate::module::FallibleModuleT;
 
     const ALBERT_BASE_V2: &str = env!("ALBERT_BASE_V2");
 
@@ -176,7 +179,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = AlbertEmbeddings::new(root.sub("embeddings"), &config);
+        let embeddings = AlbertEmbeddings::new(root.sub("embeddings"), &config).unwrap();
         let encoder = AlbertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(ALBERT_BASE_V2).unwrap();
@@ -187,9 +190,9 @@ mod tests {
         ])
         .reshape(&[1, 13]);
 
-        let embeddings = embeddings.forward_t(&pieces, false);
+        let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
-        let all_hidden_states = encoder.encode(&embeddings, None, false);
+        let all_hidden_states = encoder.encode(&embeddings, None, false).unwrap();
 
         let summed_last_hidden =
             all_hidden_states
@@ -218,7 +221,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = AlbertEmbeddings::new(root.sub("embeddings"), &config);
+        let embeddings = AlbertEmbeddings::new(root.sub("embeddings"), &config).unwrap();
         let encoder = AlbertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(ALBERT_BASE_V2).unwrap();
@@ -231,9 +234,11 @@ mod tests {
 
         let attention_mask = seqlen_to_mask(Tensor::of_slice(&[13]), pieces.size()[1]);
 
-        let embeddings = embeddings.forward_t(&pieces, false);
+        let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
-        let all_hidden_states = encoder.encode(&embeddings, Some(&attention_mask), false);
+        let all_hidden_states = encoder
+            .encode(&embeddings, Some(&attention_mask), false)
+            .unwrap();
 
         let summed_last_hidden =
             all_hidden_states

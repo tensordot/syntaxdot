@@ -19,11 +19,12 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::ModuleT;
 use tch::{Kind, Tensor};
 
 use crate::cow::CowTensor;
 use crate::models::bert::{BertConfig, BertEmbeddings};
+use crate::module::FallibleModuleT;
+use crate::TransformerError;
 
 const PADDING_IDX: i64 = 1;
 
@@ -36,10 +37,13 @@ pub struct RobertaEmbeddings {
 impl RobertaEmbeddings {
     /// Construct new RoBERTa embeddings with the given variable store
     /// and Bert configuration.
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
-        RobertaEmbeddings {
-            inner: BertEmbeddings::new(vs, config),
-        }
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &BertConfig,
+    ) -> Result<RobertaEmbeddings, TransformerError> {
+        Ok(RobertaEmbeddings {
+            inner: BertEmbeddings::new(vs, config)?,
+        })
     }
 
     pub fn forward(
@@ -48,13 +52,13 @@ impl RobertaEmbeddings {
         token_type_ids: Option<&Tensor>,
         position_ids: Option<&Tensor>,
         train: bool,
-    ) -> Tensor {
+    ) -> Result<Tensor, TransformerError> {
         let position_ids = match position_ids {
             Some(position_ids) => CowTensor::Borrowed(position_ids),
             None => {
-                let mask = input_ids.ne(PADDING_IDX).to_kind(Kind::Int64);
-                let incremental_indices = mask.cumsum(1, Kind::Int64) * mask;
-                CowTensor::Owned(incremental_indices + PADDING_IDX)
+                let mask = input_ids.f_ne(PADDING_IDX)?.to_kind(Kind::Int64);
+                let incremental_indices = mask.f_cumsum(1, Kind::Int64)?.f_mul(&mask)?;
+                CowTensor::Owned(incremental_indices.f_add1(PADDING_IDX)?)
             }
         };
 
@@ -67,8 +71,10 @@ impl RobertaEmbeddings {
     }
 }
 
-impl ModuleT for RobertaEmbeddings {
-    fn forward_t(&self, input: &Tensor, train: bool) -> Tensor {
+impl FallibleModuleT for RobertaEmbeddings {
+    type Error = TransformerError;
+
+    fn forward_t(&self, input: &Tensor, train: bool) -> Result<Tensor, Self::Error> {
         self.forward(input, None, None, train)
     }
 }
@@ -81,12 +87,13 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
-    use tch::nn::{ModuleT, VarStore};
+    use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
     use crate::models::bert::{BertConfig, BertEncoder};
     use crate::models::roberta::RobertaEmbeddings;
     use crate::models::Encoder;
+    use crate::module::FallibleModuleT;
 
     const XLM_ROBERTA_BASE: &str = env!("XLM_ROBERTA_BASE");
 
@@ -113,7 +120,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = RobertaEmbeddings::new(root.sub("embeddings"), &config);
+        let embeddings = RobertaEmbeddings::new(root.sub("embeddings"), &config).unwrap();
 
         vs.load(XLM_ROBERTA_BASE).unwrap();
 
@@ -126,6 +133,7 @@ mod tests {
         let summed_embeddings =
             embeddings
                 .forward_t(&pieces, false)
+                .unwrap()
                 .sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_embeddings).try_into().unwrap();
@@ -149,7 +157,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = RobertaEmbeddings::new(root.sub("embeddings"), &config);
+        let embeddings = RobertaEmbeddings::new(root.sub("embeddings"), &config).unwrap();
         let encoder = BertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(XLM_ROBERTA_BASE).unwrap();
@@ -160,9 +168,9 @@ mod tests {
         ])
         .reshape(&[1, 12]);
 
-        let embeddings = embeddings.forward_t(&pieces, false);
+        let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
-        let all_hidden_states = encoder.encode(&embeddings, None, false);
+        let all_hidden_states = encoder.encode(&embeddings, None, false).unwrap();
 
         let summed_last_hidden =
             all_hidden_states
