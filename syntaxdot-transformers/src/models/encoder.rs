@@ -1,6 +1,7 @@
 use tch::Tensor;
 
 use crate::models::layer_output::LayerOutput;
+use crate::TransformerError;
 
 /// Encoder networks.
 pub trait Encoder {
@@ -15,7 +16,7 @@ pub trait Encoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<LayerOutput>;
+    ) -> Result<Vec<LayerOutput>, TransformerError>;
 
     /// Get the number of layers that is returned by the encoder.
     fn n_layers(&self) -> i64;

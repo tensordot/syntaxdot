@@ -282,7 +282,7 @@ impl FinetuneApp {
 
             let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1]);
 
-            let n_batch_tokens = i64::from(batch.token_mask.sum(Kind::Int64));
+            let n_batch_tokens = i64::from(batch.token_mask.f_sum(Kind::Int64)?);
 
             let model_loss = autocast_or_preserve(self.mixed_precision, || {
                 model.loss(
@@ -307,14 +307,14 @@ impl FinetuneApp {
                     },
                     self.include_continuations,
                 )
-            });
+            })?;
 
             n_tokens += n_batch_tokens;
 
             let scalar_loss: f32 = model_loss
                 .seq_classifiers
                 .summed_loss
-                .sum(Kind::Float)
+                .f_sum(Kind::Float)?
                 .into();
 
             if let Some(scaler) = &mut grad_scaler {
@@ -331,12 +331,16 @@ impl FinetuneApp {
                     lr_classifier.into(),
                 );
 
-                let mut loss = model_loss.seq_classifiers.summed_loss.sum(Kind::Float);
+                let mut loss = model_loss.seq_classifiers.summed_loss.f_sum(Kind::Float)?;
                 if let Some(biaffine_loss) = model_loss.biaffine.as_ref() {
-                    loss += &biaffine_loss.head_loss + &biaffine_loss.relation_loss;
+                    let _ = loss.f_add_(
+                        &biaffine_loss
+                            .head_loss
+                            .f_add(&biaffine_loss.relation_loss)?,
+                    )?;
                 }
 
-                scaler.backward_step(&loss);
+                scaler.backward_step(&loss)?;
 
                 if epoch != 0 {
                     self.summary_writer.write_scalar(

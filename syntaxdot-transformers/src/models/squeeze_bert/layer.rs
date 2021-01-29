@@ -16,7 +16,6 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::{Module, ModuleT};
 use tch::{Kind, Tensor};
 
 use crate::error::TransformerError;
@@ -24,6 +23,7 @@ use crate::layers::{Conv1D, Dropout, LayerNorm};
 use crate::models::bert::bert_activations;
 use crate::models::layer_output::{HiddenLayer, LayerOutput};
 use crate::models::squeeze_bert::SqueezeBertConfig;
+use crate::module::{FallibleModule, FallibleModuleT};
 use crate::util::LogitsMask;
 
 /// Layer normalization for NCW data layout with normalization in C.
@@ -45,11 +45,13 @@ impl SqueezeBertLayerNorm {
     }
 }
 
-impl Module for SqueezeBertLayerNorm {
-    fn forward(&self, xs: &Tensor) -> Tensor {
-        let xs_perm = xs.permute(&[0, 2, 1]);
-        let xs_perm_norm = self.layer_norm.forward(&xs_perm);
-        xs_perm_norm.permute(&[0, 2, 1])
+impl FallibleModule for SqueezeBertLayerNorm {
+    type Error = TransformerError;
+
+    fn forward(&self, xs: &Tensor) -> Result<Tensor, Self::Error> {
+        let xs_perm = xs.f_permute(&[0, 2, 1])?;
+        let xs_perm_norm = self.layer_norm.forward(&xs_perm)?;
+        Ok(xs_perm_norm.f_permute(&[0, 2, 1])?)
     }
 }
 
@@ -69,20 +71,25 @@ impl ConvDropoutLayerNorm {
         groups: i64,
         dropout_prob: f64,
         layer_norm_eps: f64,
-    ) -> Self {
+    ) -> Result<ConvDropoutLayerNorm, TransformerError> {
         let vs = vs.borrow();
 
-        ConvDropoutLayerNorm {
-            conv1d: Conv1D::new(vs / "conv1d", cin, cout, 1, groups),
+        Ok(ConvDropoutLayerNorm {
+            conv1d: Conv1D::new(vs / "conv1d", cin, cout, 1, groups)?,
             layer_norm: SqueezeBertLayerNorm::new(vs, cout, layer_norm_eps),
             dropout: Dropout::new(dropout_prob),
-        }
+        })
     }
 
-    fn forward_t(&self, hidden_states: &Tensor, input_tensor: &Tensor, train: bool) -> Tensor {
-        let x = self.conv1d.forward(hidden_states);
-        let x = self.dropout.forward_t(&x, train);
-        let x = x + input_tensor;
+    fn forward_t(
+        &self,
+        hidden_states: &Tensor,
+        input_tensor: &Tensor,
+        train: bool,
+    ) -> Result<Tensor, TransformerError> {
+        let x = self.conv1d.forward(hidden_states)?;
+        let x = self.dropout.forward_t(&x, train)?;
+        let x = x.f_add(&input_tensor)?;
         self.layer_norm.forward_t(&x, true)
     }
 }
@@ -91,7 +98,7 @@ impl ConvDropoutLayerNorm {
 #[derive(Debug)]
 struct ConvActivation {
     conv1d: Conv1D,
-    activation: Box<dyn Module>,
+    activation: Box<dyn FallibleModule<Error = TransformerError>>,
 }
 
 impl ConvActivation {
@@ -110,15 +117,17 @@ impl ConvActivation {
         };
 
         Ok(ConvActivation {
-            conv1d: Conv1D::new(vs.borrow() / "conv1d", cin, cout, 1, groups),
+            conv1d: Conv1D::new(vs.borrow() / "conv1d", cin, cout, 1, groups)?,
             activation,
         })
     }
 }
 
-impl Module for ConvActivation {
-    fn forward(&self, xs: &Tensor) -> Tensor {
-        let output = self.conv1d.forward(&xs);
+impl FallibleModule for ConvActivation {
+    type Error = TransformerError;
+
+    fn forward(&self, xs: &Tensor) -> Result<Tensor, Self::Error> {
+        let output = self.conv1d.forward(&xs)?;
         self.activation.forward(&output)
     }
 }
@@ -137,7 +146,10 @@ pub struct SqueezeBertSelfAttention {
 }
 
 impl SqueezeBertSelfAttention {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &SqueezeBertConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &SqueezeBertConfig,
+    ) -> Result<SqueezeBertSelfAttention, TransformerError> {
         let vs = vs.borrow();
 
         let attention_head_size = config.hidden_size / config.num_attention_heads;
@@ -149,23 +161,23 @@ impl SqueezeBertSelfAttention {
             config.hidden_size,
             1,
             config.k_groups,
-        );
+        )?;
         let query = Conv1D::new(
             vs / "query",
             config.hidden_size,
             config.hidden_size,
             1,
             config.q_groups,
-        );
+        )?;
         let value = Conv1D::new(
             vs / "value",
             config.hidden_size,
             config.hidden_size,
             1,
             config.v_groups,
-        );
+        )?;
 
-        SqueezeBertSelfAttention {
+        Ok(SqueezeBertSelfAttention {
             all_head_size,
             attention_head_size,
             num_attention_heads: config.num_attention_heads,
@@ -174,7 +186,7 @@ impl SqueezeBertSelfAttention {
             key,
             query,
             value,
-        }
+        })
     }
 
     /// Apply self-attention.
@@ -188,38 +200,38 @@ impl SqueezeBertSelfAttention {
         hidden_states: &Tensor,
         attention_mask: Option<&LogitsMask>,
         train: bool,
-    ) -> (Tensor, Tensor) {
-        let mixed_key_layer = self.key.forward(hidden_states);
-        let mixed_query_layer = self.query.forward(hidden_states);
-        let mixed_value_layer = self.value.forward(hidden_states);
+    ) -> Result<(Tensor, Tensor), TransformerError> {
+        let mixed_key_layer = self.key.forward(hidden_states)?;
+        let mixed_query_layer = self.query.forward(hidden_states)?;
+        let mixed_value_layer = self.value.forward(hidden_states)?;
 
-        let query_layer = self.transpose_for_scores(&mixed_query_layer);
-        let key_layer = self.transpose_key_for_scores(&mixed_key_layer);
-        let value_layer = self.transpose_for_scores(&mixed_value_layer);
+        let query_layer = self.transpose_for_scores(&mixed_query_layer)?;
+        let key_layer = self.transpose_key_for_scores(&mixed_key_layer)?;
+        let value_layer = self.transpose_for_scores(&mixed_value_layer)?;
 
         // Get the raw attention scores.
-        let mut attention_scores = query_layer.matmul(&key_layer);
-        attention_scores /= (self.attention_head_size as f64).sqrt();
+        let mut attention_scores = query_layer.f_matmul(&key_layer)?;
+        let _ = attention_scores.f_div_1((self.attention_head_size as f64).sqrt());
 
         if let Some(mask) = attention_mask {
-            attention_scores += &**mask;
+            let _ = attention_scores.f_add_(&**mask)?;
         }
 
         // Convert the raw attention scores into a probability distribution.
-        let attention_probs = attention_scores.softmax(-1, Kind::Float);
+        let attention_probs = attention_scores.f_softmax(-1, Kind::Float)?;
 
         // Drop out entire tokens to attend to, following the original
         // transformer paper.
-        let attention_probs = self.dropout.forward_t(&attention_probs, train);
+        let attention_probs = self.dropout.forward_t(&attention_probs, train)?;
 
-        let context_layer = attention_probs.matmul(&value_layer);
+        let context_layer = attention_probs.f_matmul(&value_layer)?;
 
-        let context_layer = self.transpose_output(&context_layer);
+        let context_layer = self.transpose_output(&context_layer)?;
 
-        (context_layer, attention_scores)
+        Ok((context_layer, attention_scores))
     }
 
-    fn transpose_for_scores(&self, x: &Tensor) -> Tensor {
+    fn transpose_for_scores(&self, x: &Tensor) -> Result<Tensor, TransformerError> {
         let x_size = x.size();
         let new_x_shape = &[
             x_size[0],
@@ -228,10 +240,10 @@ impl SqueezeBertSelfAttention {
             *x_size.last().unwrap(),
         ];
 
-        x.view_(new_x_shape).permute(&[0, 1, 3, 2])
+        Ok(x.f_view_(new_x_shape)?.f_permute(&[0, 1, 3, 2])?)
     }
 
-    fn transpose_key_for_scores(&self, x: &Tensor) -> Tensor {
+    fn transpose_key_for_scores(&self, x: &Tensor) -> Result<Tensor, TransformerError> {
         let x_size = x.size();
         let new_x_shape = &[
             x_size[0],
@@ -240,14 +252,14 @@ impl SqueezeBertSelfAttention {
             *x_size.last().unwrap(),
         ];
 
-        x.view_(new_x_shape)
+        Ok(x.f_view_(new_x_shape)?)
     }
 
-    fn transpose_output(&self, x: &Tensor) -> Tensor {
-        let x = x.permute(&[0, 1, 3, 2]).contiguous();
+    fn transpose_output(&self, x: &Tensor) -> Result<Tensor, TransformerError> {
+        let x = x.f_permute(&[0, 1, 3, 2])?.f_contiguous()?;
         let x_size = x.size();
         let new_x_shape = &[x_size[0], self.all_head_size, x_size[3]];
-        x.view_(new_x_shape)
+        Ok(x.f_view_(new_x_shape)?)
     }
 }
 
@@ -268,7 +280,7 @@ impl SqueezeBertLayer {
         let vs = vs.borrow();
 
         Ok(SqueezeBertLayer {
-            attention: SqueezeBertSelfAttention::new(vs / "attention", config),
+            attention: SqueezeBertSelfAttention::new(vs / "attention", config)?,
             post_attention: ConvDropoutLayerNorm::new(
                 vs / "post_attention",
                 config.hidden_size,
@@ -276,7 +288,7 @@ impl SqueezeBertLayer {
                 config.post_attention_groups,
                 config.hidden_dropout_prob,
                 config.layer_norm_eps,
-            ),
+            )?,
             intermediate: ConvActivation::new(
                 vs / "intermediate",
                 config.hidden_size,
@@ -291,7 +303,7 @@ impl SqueezeBertLayer {
                 config.output_groups,
                 config.hidden_dropout_prob,
                 config.layer_norm_eps,
-            ),
+            )?,
         })
     }
 }
@@ -306,16 +318,20 @@ impl SqueezeBertLayer {
         input: &Tensor,
         attention_mask: Option<&LogitsMask>,
         train: bool,
-    ) -> LayerOutput {
-        let (attention_output, attention) = self.attention.forward_t(input, attention_mask, train);
-        let post_attention_output = self
-            .post_attention
-            .forward_t(&attention_output, input, train);
-        let intermediate_output = self.intermediate.forward(&post_attention_output);
+    ) -> Result<LayerOutput, TransformerError> {
+        let (attention_output, attention) =
+            self.attention.forward_t(input, attention_mask, train)?;
+        let post_attention_output =
+            self.post_attention
+                .forward_t(&attention_output, input, train)?;
+        let intermediate_output = self.intermediate.forward(&post_attention_output)?;
         let output = self
             .output
-            .forward_t(&intermediate_output, &post_attention_output, train);
+            .forward_t(&intermediate_output, &post_attention_output, train)?;
 
-        LayerOutput::EncoderWithAttention(HiddenLayer { output, attention })
+        Ok(LayerOutput::EncoderWithAttention(HiddenLayer {
+            output,
+            attention,
+        }))
     }
 }

@@ -53,7 +53,7 @@ impl Tagger {
             &tensors.inputs.to_device(self.device),
             &attention_mask.to_device(self.device),
             &tensors.token_mask.to_device(self.device),
-        );
+        )?;
 
         assert_eq!(
             self.biaffine_encoder.is_some(),

@@ -7,12 +7,14 @@ use syntaxdot_transformers::layers::{
 use syntaxdot_transformers::loss::CrossEntropyLoss;
 use syntaxdot_transformers::models::LayerOutput;
 use syntaxdot_transformers::scalar_weighting::ScalarWeight;
-use tch::nn::{Init, Linear, Module, ModuleT};
+use tch::nn::{Init, Linear, Module};
 use tch::{Kind, Reduction, Tensor};
 
 use crate::config::{BiaffineParserConfig, PretrainConfig};
+use crate::error::SyntaxDotError;
 use crate::model::bert::PretrainBertConfig;
 use crate::tensor::BiaffineTensors;
+use syntaxdot_transformers::module::FallibleModuleT;
 
 /// Accuracy of a biaffine parsing layer.
 #[derive(Debug)]
@@ -78,7 +80,7 @@ impl BiaffineDependencyLayer {
         pretrain_config: &PretrainConfig,
         biaffine_config: &BiaffineParserConfig,
         n_relations: i64,
-    ) -> Self {
+    ) -> Result<BiaffineDependencyLayer, SyntaxDotError> {
         let bert_config = pretrain_config.bert_config();
 
         let vs = vs.borrow() / "biaffine";
@@ -88,7 +90,7 @@ impl BiaffineDependencyLayer {
             vs,
             bert_config.num_hidden_layers,
             bert_config.hidden_dropout_prob,
-        );
+        )?;
 
         let arc_dependent = Self::affine(
             vs / "arc_dependent",
@@ -97,7 +99,7 @@ impl BiaffineDependencyLayer {
             bert_config.initializer_range,
             "weight",
             "bias",
-        );
+        )?;
 
         let arc_head = Self::affine(
             vs / "arc_head",
@@ -106,7 +108,7 @@ impl BiaffineDependencyLayer {
             bert_config.initializer_range,
             "weight",
             "bias",
-        );
+        )?;
 
         let label_dependent = Self::affine(
             vs / "label_dependent",
@@ -115,7 +117,7 @@ impl BiaffineDependencyLayer {
             bert_config.initializer_range,
             "weight",
             "bias",
-        );
+        )?;
 
         let label_head = Self::affine(
             vs / "label_head",
@@ -124,7 +126,7 @@ impl BiaffineDependencyLayer {
             bert_config.initializer_range,
             "weight",
             "bias",
-        );
+        )?;
 
         let bilinear_arc = PairwiseBilinear::new(
             vs / "bilinear_arc",
@@ -135,7 +137,7 @@ impl BiaffineDependencyLayer {
                 in_features: biaffine_config.head.dims as i64,
                 out_features: 1,
             },
-        );
+        )?;
 
         let bilinear_label = PairwiseBilinear::new(
             vs / "bilinear_label",
@@ -146,11 +148,11 @@ impl BiaffineDependencyLayer {
                 in_features: biaffine_config.relation.dims as i64,
                 out_features: n_relations,
             },
-        );
+        )?;
 
         let dropout = VariationalDropout::new(bert_config.hidden_dropout_prob);
 
-        BiaffineDependencyLayer {
+        Ok(BiaffineDependencyLayer {
             scalar_weight,
 
             arc_dependent,
@@ -163,7 +165,7 @@ impl BiaffineDependencyLayer {
 
             dropout,
             n_relations,
-        }
+        })
     }
 
     fn affine<'a>(
@@ -173,10 +175,10 @@ impl BiaffineDependencyLayer {
         initializer_range: f64,
         weight_name: &str,
         bias_name: &str,
-    ) -> Linear {
+    ) -> Result<Linear, SyntaxDotError> {
         let vs = vs.borrow();
 
-        Linear {
+        Ok(Linear {
             ws: vs.var(
                 weight_name,
                 &[out_features, in_features],
@@ -184,9 +186,9 @@ impl BiaffineDependencyLayer {
                     mean: 0.,
                     stdev: initializer_range,
                 },
-            ),
-            bs: vs.var(bias_name, &[out_features], Init::Const(0.)),
-        }
+            )?,
+            bs: vs.var(bias_name, &[out_features], Init::Const(0.))?,
+        })
     }
 
     /// Apply the biaffine dependency layer.
@@ -203,43 +205,46 @@ impl BiaffineDependencyLayer {
         layers: &[LayerOutput],
         token_mask: &Tensor,
         train: bool,
-    ) -> BiaffineScoreLogits {
+    ) -> Result<BiaffineScoreLogits, SyntaxDotError> {
         // Mask for non-tokens (continuations pieces and padding). But do not mask BOS/ROOT
         // as a possible head for each token.
-        let logits_mask: Tensor = (1.0 - token_mask.to_kind(Kind::Float)) * -10_000.;
-        let _ = logits_mask.slice(1, 0, 1, 1).fill_(0);
+        let logits_mask: Tensor = Tensor::from(1.0)
+            .f_sub(&token_mask.to_kind(Kind::Float))?
+            .f_mul1(-10_000.)?;
+        let _ = logits_mask.f_slice(1, 0, 1, 1)?.f_fill_(0)?;
 
         // Get weighted hidden representation.
-        let hidden = self.scalar_weight.forward(layers, train);
+        let hidden = self.scalar_weight.forward(layers, train)?;
 
         // Compute dependent/head arc representations of each token.
         let arc_dependent = self
             .dropout
-            .forward_t(&self.arc_dependent.forward(&hidden).gelu(), train);
+            .forward_t(&self.arc_dependent.forward(&hidden).gelu(), train)?;
         let arc_head = self
             .dropout
-            .forward_t(&self.arc_head.forward(&hidden).gelu(), train);
+            .forward_t(&self.arc_head.forward(&hidden).gelu(), train)?;
 
         // From these representations, compute the arc score matrix.
-        let mut head_score_logits = self.bilinear_arc.forward(&arc_head, &arc_dependent);
-        head_score_logits += logits_mask.unsqueeze(1);
+        let mut head_score_logits = self.bilinear_arc.forward(&arc_head, &arc_dependent)?;
+        let _ = head_score_logits.f_add_(&logits_mask.f_unsqueeze(1)?)?;
 
         // Compute dependent/head label representations of each token.
         let label_dependent = self
             .dropout
-            .forward_t(&self.label_dependent.forward(&hidden).gelu(), train);
+            .forward_t(&self.label_dependent.forward(&hidden).f_gelu()?, train)?;
         let label_head = self
             .dropout
-            .forward_t(&self.label_head.forward(&hidden).gelu(), train);
+            .forward_t(&self.label_head.forward(&hidden).f_gelu()?, train)?;
 
         // From from these representations, compute the label score matrix.
-        let mut relation_score_logits = self.bilinear_label.forward(&label_head, &label_dependent);
-        relation_score_logits += logits_mask.unsqueeze(1).unsqueeze(-1);
+        let mut relation_score_logits =
+            self.bilinear_label.forward(&label_head, &label_dependent)?;
+        let _ = relation_score_logits.f_add_(&logits_mask.f_unsqueeze(1)?.f_unsqueeze(-1)?)?;
 
-        BiaffineScoreLogits {
+        Ok(BiaffineScoreLogits {
             head_score_logits,
             relation_score_logits,
-        }
+        })
     }
 
     /// Compute the biaffine layer loss
@@ -261,14 +266,33 @@ impl BiaffineDependencyLayer {
         targets: &BiaffineTensors<Tensor>,
         label_smoothing: Option<f64>,
         train: bool,
-    ) -> BiaffineLoss {
-        let biaffine_logits = self.forward(layers, token_mask, train);
+    ) -> Result<BiaffineLoss, SyntaxDotError> {
+        assert_eq!(
+            targets.heads.dim(),
+            2,
+            "Head targets should have dimensionality 2, had {}",
+            targets.heads.dim()
+        );
+        assert_eq!(
+            targets.relations.dim(),
+            2,
+            "Relation targets should have dimensionality 2, had {}",
+            targets.relations.dim()
+        );
+        assert_eq!(
+            token_mask.dim(),
+            2,
+            "Token mask should have dimensionality 2, had {}",
+            token_mask.dim()
+        );
 
-        let (batch_size, seq_len) = targets.heads.size2().unwrap();
+        let biaffine_logits = self.forward(layers, token_mask, train)?;
+
+        let (batch_size, seq_len) = targets.heads.size2()?;
 
         // Compute head loss
-        let head_logits = biaffine_logits.head_score_logits.view_(&[-1, seq_len]);
-        let head_targets = &targets.heads.view_(&[-1]);
+        let head_logits = biaffine_logits.head_score_logits.f_view_(&[-1, seq_len])?;
+        let head_targets = &targets.heads.f_view_(&[-1])?;
         let head_loss = CrossEntropyLoss::new(
             -1,
             // We do not apply label smoothing (yet). It would be strange,
@@ -279,38 +303,38 @@ impl BiaffineDependencyLayer {
             None,
             Reduction::Mean,
         )
-        .forward(&head_logits, &head_targets);
+        .forward(&head_logits, &head_targets)?;
 
         // Get the logits for the correct heads.
         let label_score_logits = biaffine_logits
             .relation_score_logits
-            .gather(
+            .f_gather(
                 2,
                 &targets
                     .heads
                     // -1 is used for non-token elements, we do not really care
                     // what is selected in these cases, since they won't be used
                     // in the loss.
-                    .abs()
-                    .view([batch_size, seq_len, 1, 1])
-                    .expand(&[-1, -1, 1, self.n_relations], true),
+                    .f_abs()?
+                    .f_view([batch_size, seq_len, 1, 1])?
+                    .f_expand(&[-1, -1, 1, self.n_relations], true)?,
                 false,
-            )
-            .squeeze1(2)
-            .view_(&[-1, self.n_relations]);
-        let relation_targets = targets.relations.view_(&[-1]);
+            )?
+            .f_squeeze1(2)?
+            .f_view_(&[-1, self.n_relations])?;
+        let relation_targets = targets.relations.f_view_(&[-1])?;
         let relation_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean)
-            .forward(&label_score_logits, &relation_targets);
+            .forward(&label_score_logits, &relation_targets)?;
 
         // Compute greedy decoding accuracy.
         let (uas, las) =
-            tch::no_grad(|| Self::greedy_decode_accuracy(&biaffine_logits, targets, &token_mask));
+            tch::no_grad(|| Self::greedy_decode_accuracy(&biaffine_logits, targets, &token_mask))?;
 
-        BiaffineLoss {
+        Ok(BiaffineLoss {
             acc: BiaffineAccuracy { uas, las },
             head_loss,
             relation_loss,
-        }
+        })
     }
 
     /// Greedily decode the head/relation score tensors and return the LAS/UAS.
@@ -318,29 +342,37 @@ impl BiaffineDependencyLayer {
         biaffine_score_logits: &BiaffineScoreLogits,
         targets: &BiaffineTensors<Tensor>,
         token_mask: &Tensor,
-    ) -> (Tensor, Tensor) {
-        let (batch_size, seq_len) = token_mask.size2().unwrap();
+    ) -> Result<(Tensor, Tensor), SyntaxDotError> {
+        let (batch_size, seq_len) = token_mask.size2()?;
 
         let token_mask = token_mask.to_kind(Kind::Float);
-        let token_mask_sum = token_mask.sum(Kind::Float);
+        let token_mask_sum = token_mask.f_sum(Kind::Float)?;
 
-        let head_predicted = biaffine_score_logits.head_score_logits.argmax(-1, false);
-        let head_correct = head_predicted.eq1(&targets.heads);
+        let head_predicted = biaffine_score_logits
+            .head_score_logits
+            .f_argmax(-1, false)?;
+        let head_correct = head_predicted.f_eq1(&targets.heads)?;
 
         let relations_predicted = biaffine_score_logits
             .relation_score_logits
-            .argmax(-1, false)
-            .gather(2, &head_predicted.unsqueeze(-1), false)
-            .squeeze();
+            .f_argmax(-1, false)?
+            .f_gather(2, &head_predicted.f_unsqueeze(-1)?, false)?
+            .f_squeeze()?;
         let relations_correct = relations_predicted
-            .eq1(&targets.relations)
-            .view_(&[batch_size, seq_len]);
+            .f_eq1(&targets.relations)?
+            .f_view_(&[batch_size, seq_len])?;
 
-        let head_and_relations_correct = head_correct.logical_and(&relations_correct);
+        let head_and_relations_correct = head_correct.f_logical_and(&relations_correct)?;
 
-        let uas = (head_correct * &token_mask).sum(Kind::Float) / &token_mask_sum;
-        let las = (head_and_relations_correct * &token_mask).sum(Kind::Float) / &token_mask_sum;
+        let uas = head_correct
+            .f_mul(&token_mask)?
+            .f_sum(Kind::Float)?
+            .f_div(&token_mask_sum)?;
+        let las = head_and_relations_correct
+            .f_mul(&token_mask)?
+            .f_sum(Kind::Float)?
+            .f_div(&token_mask_sum)?;
 
-        (uas, las)
+        Ok((uas, las))
     }
 }

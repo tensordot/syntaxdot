@@ -4,6 +4,7 @@ use ndarray::ShapeError;
 use syntaxdot_encoders::dependency;
 use syntaxdot_tokenizers::TokenizerError;
 use syntaxdot_transformers::TransformerError;
+use tch::TchError;
 use thiserror::Error;
 
 use crate::encoders::{DecoderError, EncoderError};
@@ -43,6 +44,9 @@ pub enum SyntaxDotError {
 
     #[error(transparent)]
     ShapeError(#[from] ShapeError),
+
+    #[error(transparent)]
+    Tch(#[from] TchError),
 
     #[error(transparent)]
     TOMLDeserializationError(#[from] toml::de::Error),

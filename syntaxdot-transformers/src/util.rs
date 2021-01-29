@@ -2,6 +2,7 @@
 
 use std::ops::Deref;
 
+use crate::TransformerError;
 use tch::{Device, Kind, Tensor};
 
 /// Mask of logit values
@@ -15,7 +16,7 @@ pub struct LogitsMask {
 impl LogitsMask {
     /// Construct a logits mask from a boolean mask (consisting of
     /// bools, or a numeric type with 0/1).
-    pub fn from_bool_mask(mask: &Tensor) -> Self {
+    pub fn from_bool_mask(mask: &Tensor) -> Result<Self, TransformerError> {
         assert_eq!(
             mask.size().len(),
             2,
@@ -24,12 +25,14 @@ impl LogitsMask {
 
         // The attention mask has shape [batch_size, seq_len], extend
         // to [batch_size, 1, 1, seq_len].
-        let extended_mask = mask.unsqueeze(1).unsqueeze(1);
+        let extended_mask = mask.f_unsqueeze(1)?.f_unsqueeze(1)?;
 
         // Use (very) negative values for time steps that should be masked.
-        let logits_mask = (1.0 - extended_mask.to_kind(Kind::Float)) * -10_000.;
+        let logits_mask = Tensor::from(1.0)
+            .f_sub(&extended_mask.f_to_kind(Kind::Float)?)?
+            .f_mul1(-10_000)?;
 
-        LogitsMask { inner: logits_mask }
+        Ok(LogitsMask { inner: logits_mask })
     }
 }
 
@@ -42,7 +45,7 @@ impl Deref for LogitsMask {
 }
 
 /// Trait for realizing sinusoidal positions into a tensor.
-pub trait SinusoidalPositions {
+pub trait SinusoidalPositions: Sized {
     /// Create sinusoidal positions in-place.
     ///
     /// If `p_norm` is specified, the sinusoidal embeddings are
@@ -51,7 +54,7 @@ pub trait SinusoidalPositions {
     ///
     /// This method panics if the the shape of tensor is not `[a, b]`,
     /// where `b % 2 == 0`.
-    fn sinusoidal_positions_(&mut self, p_norm: Option<f64>);
+    fn sinusoidal_positions_(&mut self, p_norm: Option<f64>) -> Result<(), TransformerError>;
 
     /// Create new tensor with sinusoidal positions.
     ///
@@ -61,13 +64,12 @@ pub trait SinusoidalPositions {
         dims: i64,
         p_norm: Option<f64>,
         options: (Kind, Device),
-    ) -> Self;
+    ) -> Result<Self, TransformerError>;
 }
 
 impl SinusoidalPositions for Tensor {
-    fn sinusoidal_positions_(&mut self, p_norm: Option<f64>) {
+    fn sinusoidal_positions_(&mut self, p_norm: Option<f64>) -> Result<(), TransformerError> {
         let shape = self.size();
-        let dims = shape[1];
 
         assert_eq!(
             shape.len(),
@@ -75,8 +77,11 @@ impl SinusoidalPositions for Tensor {
             "Sinusoidal positions should be realized into a matrix"
         );
 
-        assert!(
-            dims % 2 == 0,
+        let dims = shape[1];
+
+        assert_eq!(
+            dims % 2,
+            0,
             "Dimensionality of sinusoidal positions should be even, was: {}",
             dims
         );
@@ -98,29 +103,32 @@ impl SinusoidalPositions for Tensor {
         // = pos * exp(x * (-ln(10000) / d))
         //
         // Avoids the use of larger numbers with decreased precision.
-        let position = Tensor::arange(num_embeddings, (Kind::Float, self.device())).unsqueeze(1);
-        let div_term = (Tensor::arange2(0, embedding_dim, 2, (Kind::Float, self.device()))
-            * (-(10_000f64.ln()) / embedding_dim as f64))
-            .exp();
-        let position_encodings = position * div_term;
+        let position =
+            Tensor::f_arange(num_embeddings, (Kind::Float, self.device()))?.f_unsqueeze(1)?;
+        let div_term = (Tensor::f_arange2(0, embedding_dim, 2, (Kind::Float, self.device()))?
+            .f_mul1(-(10_000f64.ln()) / embedding_dim as f64))?
+        .f_exp()?;
+        let position_encodings = position.f_mul(&div_term)?;
 
         // Copy the sinusoidal embeddings into the output shape. Run with
         // no_grad to ensure that the tensors created in this function do
         // not become leaf nodes of the graph.
         tch::no_grad(|| {
-            self.slice(1, 0, embedding_dim, 2)
-                .copy_(&position_encodings.sin());
-            self.slice(1, 1, embedding_dim, 2)
-                .copy_(&position_encodings.cos());
+            self.f_slice(1, 0, embedding_dim, 2)?
+                .f_copy_(&position_encodings.sin())?;
+            self.f_slice(1, 1, embedding_dim, 2)?
+                .f_copy_(&position_encodings.cos())?;
 
             if let Some(p) = p_norm {
                 // Compute the p-norm.
-                let norm = self.norm2(p, &[-1], true);
+                let norm = self.f_norm2(p, &[-1], true)?;
 
                 // Normalize embeddings.
-                *self /= &norm;
+                let _ = self.f_div_(&norm)?;
             }
-        });
+
+            Ok(())
+        })
     }
 
     fn sinusoidal_positions(
@@ -128,17 +136,17 @@ impl SinusoidalPositions for Tensor {
         dims: i64,
         p_norm: Option<f64>,
         options: (Kind, Device),
-    ) -> Self {
+    ) -> Result<Self, TransformerError> {
         assert!(
             dims % 2 == 0,
             "Dimensionality of sinusoidal positions should be even, was: {}",
             dims
         );
 
-        let mut positions = Tensor::empty(&[n_positions, dims], options);
-        positions.sinusoidal_positions_(p_norm);
+        let mut positions = Tensor::f_empty(&[n_positions, dims], options)?;
+        positions.sinusoidal_positions_(p_norm)?;
 
-        positions
+        Ok(positions)
     }
 }
 
@@ -155,14 +163,15 @@ pub mod tests {
     #[test]
     #[should_panic]
     fn mask_dimensionality_should_be_correct_for_logits_mask() {
-        LogitsMask::from_bool_mask(&Tensor::of_slice(&[false]));
+        LogitsMask::from_bool_mask(&Tensor::of_slice(&[false])).unwrap();
     }
 
     #[test]
     fn logits_mask_is_constructed_correctly() {
         let mask = LogitsMask::from_bool_mask(
             &Tensor::of_slice(&[true, false, true, false, true, true, false, false]).view((2, 4)),
-        );
+        )
+        .unwrap();
 
         assert_eq!(
             mask.inner,
@@ -175,13 +184,15 @@ pub mod tests {
     #[should_panic]
     fn positions_dimensionality_must_be_even() {
         let _positions: Tensor =
-            SinusoidalPositions::sinusoidal_positions(5, 9, None, (Kind::Float, Device::Cpu));
+            SinusoidalPositions::sinusoidal_positions(5, 9, None, (Kind::Float, Device::Cpu))
+                .unwrap();
     }
 
     #[test]
     fn positions_are_l1_normalized() {
         let positions: Tensor =
-            SinusoidalPositions::sinusoidal_positions(5, 8, Some(1.), (Kind::Float, Device::Cpu));
+            SinusoidalPositions::sinusoidal_positions(5, 8, Some(1.), (Kind::Float, Device::Cpu))
+                .unwrap();
         let norms: ArrayD<f32> = (&positions.abs().sum1(&[-1], false, Kind::Float))
             .try_into()
             .unwrap();
@@ -191,7 +202,8 @@ pub mod tests {
     #[test]
     fn positions_are_l2_normalized() {
         let positions: Tensor =
-            SinusoidalPositions::sinusoidal_positions(5, 8, Some(2.), (Kind::Float, Device::Cpu));
+            SinusoidalPositions::sinusoidal_positions(5, 8, Some(2.), (Kind::Float, Device::Cpu))
+                .unwrap();
         let norms: ArrayD<f32> = (&positions.norm2(2., &[-1], false)).try_into().unwrap();
         assert_abs_diff_eq!(norms, array![1., 1., 1., 1., 1.].into_dyn(), epsilon = 1e-4);
     }
@@ -199,7 +211,8 @@ pub mod tests {
     #[test]
     fn positions_are_sinusoidal() {
         let positions: Tensor =
-            SinusoidalPositions::sinusoidal_positions(5, 8, None, (Kind::Float, Device::Cpu));
+            SinusoidalPositions::sinusoidal_positions(5, 8, None, (Kind::Float, Device::Cpu))
+                .unwrap();
 
         let positions: ArrayD<f32> = (&positions).try_into().unwrap();
 
@@ -254,6 +267,6 @@ pub mod tests {
     #[should_panic]
     fn positions_tensor_must_be_matrix() {
         let mut positions = Tensor::empty(&[8, 8, 8], (Kind::Float, Device::Cpu));
-        positions.sinusoidal_positions_(None);
+        positions.sinusoidal_positions_(None).unwrap();
     }
 }

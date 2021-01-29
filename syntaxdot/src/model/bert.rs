@@ -12,12 +12,13 @@ use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertEncoder;
 use syntaxdot_transformers::models::squeeze_bert::SqueezeBertEncoder;
 use syntaxdot_transformers::models::Encoder as _;
 use syntaxdot_transformers::models::LayerOutput;
+use syntaxdot_transformers::module::FallibleModuleT;
 use syntaxdot_transformers::TransformerError;
-use tch::nn::ModuleT;
 use tch::{self, Tensor};
 
 use crate::config::{BiaffineParserConfig, PositionEmbeddings, PretrainConfig};
 use crate::encoders::Encoders;
+use crate::error::SyntaxDotError;
 use crate::model::biaffine_dependency_layer::{
     BiaffineDependencyLayer, BiaffineLoss, BiaffineScoreLogits,
 };
@@ -53,12 +54,12 @@ impl BertEmbeddingLayer {
         vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         position_embeddings: PositionEmbeddings,
-    ) -> Self {
+    ) -> Result<BertEmbeddingLayer, SyntaxDotError> {
         let vs = vs.borrow();
 
-        match (pretrain_config, position_embeddings) {
+        let embedding_layer = match (pretrain_config, position_embeddings) {
             (PretrainConfig::Albert(config), PositionEmbeddings::Model) => {
-                BertEmbeddingLayer::Albert(AlbertEmbeddings::new(vs / "embeddings", config))
+                BertEmbeddingLayer::Albert(AlbertEmbeddings::new(vs / "embeddings", config)?)
             }
             (PretrainConfig::Albert(config), PositionEmbeddings::Sinusoidal { normalize }) => {
                 let normalize = if normalize { Some(2.) } else { None };
@@ -66,10 +67,10 @@ impl BertEmbeddingLayer {
                     vs / "embeddings",
                     config,
                     normalize,
-                ))
+                )?)
             }
             (PretrainConfig::Bert(config), PositionEmbeddings::Model) => {
-                BertEmbeddingLayer::Bert(BertEmbeddings::new(vs / "embeddings", config))
+                BertEmbeddingLayer::Bert(BertEmbeddings::new(vs / "embeddings", config)?)
             }
             (PretrainConfig::Bert(config), PositionEmbeddings::Sinusoidal { normalize }) => {
                 let normalize = if normalize { Some(2.) } else { None };
@@ -77,11 +78,14 @@ impl BertEmbeddingLayer {
                     vs / "embeddings",
                     config,
                     normalize,
-                ))
+                )?)
             }
             (PretrainConfig::SqueezeAlbert(config), PositionEmbeddings::Model) => {
                 let albert_config: AlbertConfig = config.into();
-                BertEmbeddingLayer::Albert(AlbertEmbeddings::new(vs / "embeddings", &albert_config))
+                BertEmbeddingLayer::Albert(AlbertEmbeddings::new(
+                    vs / "embeddings",
+                    &albert_config,
+                )?)
             }
             (
                 PretrainConfig::SqueezeAlbert(config),
@@ -92,11 +96,11 @@ impl BertEmbeddingLayer {
                     vs / "embeddings",
                     config,
                     normalize,
-                ))
+                )?)
             }
             (PretrainConfig::SqueezeBert(config), PositionEmbeddings::Model) => {
                 let bert_config: BertConfig = config.into();
-                BertEmbeddingLayer::Bert(BertEmbeddings::new(vs / "embeddings", &bert_config))
+                BertEmbeddingLayer::Bert(BertEmbeddings::new(vs / "embeddings", &bert_config)?)
             }
             (PretrainConfig::SqueezeBert(config), PositionEmbeddings::Sinusoidal { normalize }) => {
                 let bert_config: BertConfig = config.into();
@@ -105,28 +109,34 @@ impl BertEmbeddingLayer {
                     vs / "embeddings",
                     &bert_config,
                     normalize,
-                ))
+                )?)
             }
             (PretrainConfig::XlmRoberta(config), PositionEmbeddings::Model) => {
-                BertEmbeddingLayer::Roberta(RobertaEmbeddings::new(vs / "embeddings", config))
+                BertEmbeddingLayer::Roberta(RobertaEmbeddings::new(vs / "embeddings", config)?)
             }
             (PretrainConfig::XlmRoberta(_), PositionEmbeddings::Sinusoidal { .. }) => {
                 unreachable!()
             }
-        }
+        };
+
+        Ok(embedding_layer)
     }
 }
 
-impl ModuleT for BertEmbeddingLayer {
-    fn forward_t(&self, input: &Tensor, train: bool) -> Tensor {
+impl FallibleModuleT for BertEmbeddingLayer {
+    type Error = SyntaxDotError;
+
+    fn forward_t(&self, input: &Tensor, train: bool) -> Result<Tensor, Self::Error> {
         use BertEmbeddingLayer::*;
 
-        match self {
+        let embeddings = match self {
             Albert(ref embeddings) => embeddings.forward_t(input, train),
             Bert(ref embeddings) => embeddings.forward_t(input, train),
             Roberta(ref embeddings) => embeddings.forward_t(input, train),
             Sinusoidal(ref embeddings) => embeddings.forward_t(input, train),
-        }
+        }?;
+
+        Ok(embeddings)
     }
 }
 
@@ -165,7 +175,7 @@ impl Encoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<LayerOutput> {
+    ) -> Result<Vec<LayerOutput>, TransformerError> {
         match self {
             Encoder::Bert(encoder) => encoder.encode(input, attention_mask, train),
             Encoder::Albert(encoder) => encoder.encode(input, attention_mask, train),
@@ -212,19 +222,21 @@ impl BertModel {
         encoders: &Encoders,
         layers_dropout: f64,
         position_embeddings: PositionEmbeddings,
-    ) -> Result<Self, TransformerError> {
+    ) -> Result<Self, SyntaxDotError> {
         let vs = vs.borrow();
 
-        let embeddings = BertEmbeddingLayer::new(vs, pretrain_config, position_embeddings);
+        let embeddings = BertEmbeddingLayer::new(vs, pretrain_config, position_embeddings)?;
 
         let encoder = Encoder::new(vs, pretrain_config)?;
 
-        let biaffine = biaffine_config.map(|config| {
-            BiaffineDependencyLayer::new(vs, pretrain_config, config, n_relations as i64)
-        });
+        let biaffine = biaffine_config
+            .map(|config| {
+                BiaffineDependencyLayer::new(vs, pretrain_config, config, n_relations as i64)
+            })
+            .transpose()?;
 
         let seq_classifiers =
-            SequenceClassifiers::new(vs, pretrain_config, encoder.n_layers(), encoders);
+            SequenceClassifiers::new(vs, pretrain_config, encoder.n_layers(), encoders)?;
 
         Ok(BertModel {
             embeddings,
@@ -241,10 +253,11 @@ impl BertModel {
         layer_outputs: &[LayerOutput],
         token_mask: &Tensor,
         train: bool,
-    ) -> Option<BiaffineScoreLogits> {
+    ) -> Result<Option<BiaffineScoreLogits>, SyntaxDotError> {
         self.biaffine
             .as_ref()
             .map(|biaffine| biaffine.forward(layer_outputs, token_mask, train))
+            .transpose()
     }
 
     /// Encode an input.
@@ -254,26 +267,26 @@ impl BertModel {
         attention_mask: &Tensor,
         train: bool,
         freeze_layers: FreezeLayers,
-    ) -> Vec<LayerOutput> {
+    ) -> Result<Vec<LayerOutput>, SyntaxDotError> {
         let start = Instant::now();
 
         let embeds = if freeze_layers.embeddings {
-            tch::no_grad(|| self.embeddings.forward_t(inputs, train))
+            tch::no_grad(|| self.embeddings.forward_t(inputs, train))?
         } else {
-            self.embeddings.forward_t(inputs, train)
+            self.embeddings.forward_t(inputs, train)?
         };
 
         let mut encoded = if freeze_layers.encoder {
-            tch::no_grad(|| self.encoder.encode(&embeds, Some(&attention_mask), train))
+            tch::no_grad(|| self.encoder.encode(&embeds, Some(&attention_mask), train))?
         } else {
-            self.encoder.encode(&embeds, Some(&attention_mask), train)
+            self.encoder.encode(&embeds, Some(&attention_mask), train)?
         };
 
         for layer in &mut encoded {
             *layer.output_mut() = if freeze_layers.classifiers {
-                tch::no_grad(|| self.layers_dropout.forward_t(&layer.output(), train))
+                tch::no_grad(|| self.layers_dropout.forward_t(&layer.output(), train))?
             } else {
-                self.layers_dropout.forward_t(&layer.output(), train)
+                self.layers_dropout.forward_t(&layer.output(), train)?
             };
         }
 
@@ -285,7 +298,7 @@ impl BertModel {
             start.elapsed().as_millis()
         );
 
-        encoded
+        Ok(encoded)
     }
 
     /// Compute the logits for a batch of inputs.
@@ -302,8 +315,8 @@ impl BertModel {
         attention_mask: &Tensor,
         train: bool,
         freeze_layers: FreezeLayers,
-    ) -> HashMap<String, Tensor> {
-        let encoding = self.encode(inputs, attention_mask, train, freeze_layers);
+    ) -> Result<HashMap<String, Tensor>, SyntaxDotError> {
+        let encoding = self.encode(inputs, attention_mask, train, freeze_layers)?;
         self.seq_classifiers.forward_t(&encoding, train)
     }
 
@@ -319,7 +332,7 @@ impl BertModel {
         &self,
         layer_outputs: &[LayerOutput],
         train: bool,
-    ) -> HashMap<String, Tensor> {
+    ) -> Result<HashMap<String, Tensor>, SyntaxDotError> {
         self.seq_classifiers.forward_t(layer_outputs, train)
     }
 
@@ -349,20 +362,24 @@ impl BertModel {
         train: bool,
         freeze_layers: FreezeLayers,
         include_continuations: bool,
-    ) -> BertLoss {
-        let encoding = self.encode(inputs, attention_mask, train, freeze_layers);
+    ) -> Result<BertLoss, SyntaxDotError> {
+        let encoding = self.encode(inputs, attention_mask, train, freeze_layers)?;
 
         if freeze_layers.classifiers {
             tch::no_grad(|| {
-                let biaffine_loss = self.biaffine.as_ref().map(|biaffine| {
-                    biaffine.loss(
-                        &encoding,
-                        token_mask,
-                        biaffine_tensors.as_ref().unwrap(),
-                        label_smoothing,
-                        train,
-                    )
-                });
+                let biaffine_loss = self
+                    .biaffine
+                    .as_ref()
+                    .map(|biaffine| {
+                        biaffine.loss(
+                            &encoding,
+                            token_mask,
+                            biaffine_tensors.as_ref().unwrap(),
+                            label_smoothing,
+                            train,
+                        )
+                    })
+                    .transpose()?;
 
                 let seq_classifiers_loss = self.seq_classifiers.loss(
                     &encoding,
@@ -372,23 +389,27 @@ impl BertModel {
                     label_smoothing,
                     train,
                     include_continuations,
-                );
+                )?;
 
-                BertLoss {
+                Ok(BertLoss {
                     biaffine: biaffine_loss,
                     seq_classifiers: seq_classifiers_loss,
-                }
+                })
             })
         } else {
-            let biaffine_loss = self.biaffine.as_ref().map(|biaffine| {
-                biaffine.loss(
-                    &encoding,
-                    token_mask,
-                    biaffine_tensors.as_ref().unwrap(),
-                    label_smoothing,
-                    train,
-                )
-            });
+            let biaffine_loss = self
+                .biaffine
+                .as_ref()
+                .map(|biaffine| {
+                    biaffine.loss(
+                        &encoding,
+                        token_mask,
+                        biaffine_tensors.as_ref().unwrap(),
+                        label_smoothing,
+                        train,
+                    )
+                })
+                .transpose()?;
 
             let seq_classifiers_loss = self.seq_classifiers.loss(
                 &encoding,
@@ -398,12 +419,12 @@ impl BertModel {
                 label_smoothing,
                 train,
                 include_continuations,
-            );
+            )?;
 
-            BertLoss {
+            Ok(BertLoss {
                 biaffine: biaffine_loss,
                 seq_classifiers: seq_classifiers_loss,
-            }
+            })
         }
     }
 
@@ -418,7 +439,7 @@ impl BertModel {
         inputs: &Tensor,
         attention_mask: &Tensor,
         token_mask: &Tensor,
-    ) -> Predictions {
+    ) -> Result<Predictions, SyntaxDotError> {
         let encoding = self.encode(
             inputs,
             attention_mask,
@@ -428,18 +449,19 @@ impl BertModel {
                 encoder: true,
                 classifiers: true,
             },
-        );
+        )?;
 
         let biaffine_score_logits = self
             .biaffine
             .as_ref()
-            .map(|biaffine| biaffine.forward(&encoding, token_mask, false));
-        let sequences_top_k = self.seq_classifiers.top_k(&encoding, 3);
+            .map(|biaffine| biaffine.forward(&encoding, token_mask, false))
+            .transpose()?;
+        let sequences_top_k = self.seq_classifiers.top_k(&encoding, 3)?;
 
-        Predictions {
+        Ok(Predictions {
             biaffine_score_logits,
             sequences_top_k,
-        }
+        })
     }
 }
 

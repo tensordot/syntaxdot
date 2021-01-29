@@ -1,11 +1,13 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::{Linear, Module, ModuleT};
+use tch::nn::{Linear, Module};
 use tch::Tensor;
 
 use crate::models::albert::AlbertConfig;
 use crate::models::bert::{bert_linear, BertConfig, BertEmbeddings};
+use crate::module::FallibleModuleT;
+use crate::TransformerError;
 
 /// ALBERT embeddings.
 ///
@@ -20,16 +22,19 @@ pub struct AlbertEmbeddings {
 impl AlbertEmbeddings {
     /// Construct new ALBERT embeddings with the given variable store
     /// and ALBERT configuration.
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &AlbertConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &AlbertConfig,
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         // BERT uses the hidden size as the vocab size.
         let mut bert_config: BertConfig = config.into();
         bert_config.hidden_size = config.embedding_size;
 
-        let embeddings = BertEmbeddings::new(vs, &bert_config);
+        let embeddings = BertEmbeddings::new(vs, &bert_config)?;
 
-        AlbertEmbeddings { embeddings }
+        Ok(AlbertEmbeddings { embeddings })
     }
 
     pub fn forward(
@@ -38,14 +43,16 @@ impl AlbertEmbeddings {
         token_type_ids: Option<&Tensor>,
         position_ids: Option<&Tensor>,
         train: bool,
-    ) -> Tensor {
+    ) -> Result<Tensor, TransformerError> {
         self.embeddings
             .forward(input_ids, token_type_ids, position_ids, train)
     }
 }
 
-impl ModuleT for AlbertEmbeddings {
-    fn forward_t(&self, input: &Tensor, train: bool) -> Tensor {
+impl FallibleModuleT for AlbertEmbeddings {
+    type Error = TransformerError;
+
+    fn forward_t(&self, input: &Tensor, train: bool) -> Result<Tensor, Self::Error> {
         self.forward(input, None, None, train)
     }
 }
@@ -57,7 +64,10 @@ pub struct AlbertEmbeddingProjection {
 }
 
 impl AlbertEmbeddingProjection {
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &AlbertConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &AlbertConfig,
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let projection = bert_linear(
@@ -67,9 +77,9 @@ impl AlbertEmbeddingProjection {
             config.hidden_size,
             "weight",
             "bias",
-        );
+        )?;
 
-        AlbertEmbeddingProjection { projection }
+        Ok(AlbertEmbeddingProjection { projection })
     }
 }
 

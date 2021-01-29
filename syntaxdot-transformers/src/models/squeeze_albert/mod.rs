@@ -212,7 +212,7 @@ impl SqueezeAlbertEncoder {
             )?);
         }
         let albert_config: AlbertConfig = config.into();
-        let projection = AlbertEmbeddingProjection::new(vs, &albert_config);
+        let projection = AlbertEmbeddingProjection::new(vs, &albert_config)?;
 
         Ok(SqueezeAlbertEncoder {
             groups,
@@ -228,15 +228,17 @@ impl Encoder for SqueezeAlbertEncoder {
         input: &Tensor,
         attention_mask: Option<&Tensor>,
         train: bool,
-    ) -> Vec<LayerOutput> {
+    ) -> Result<Vec<LayerOutput>, TransformerError> {
         let hidden_states = self.projection.forward(&input);
 
-        let input = hidden_states.permute(&[0, 2, 1]);
+        let input = hidden_states.f_permute(&[0, 2, 1])?;
 
         let mut all_layer_outputs = Vec::with_capacity(self.n_layers as usize + 1);
         all_layer_outputs.push(LayerOutput::Embedding(hidden_states.shallow_clone()));
 
-        let attention_mask = attention_mask.map(|mask| LogitsMask::from_bool_mask(mask));
+        let attention_mask = attention_mask
+            .map(|mask| LogitsMask::from_bool_mask(mask))
+            .transpose()?;
 
         let layers_per_group = self.n_layers as usize / self.groups.len();
 
@@ -246,7 +248,7 @@ impl Encoder for SqueezeAlbertEncoder {
                 &hidden_states,
                 attention_mask.as_ref(),
                 train,
-            );
+            )?;
 
             hidden_states = layer_output.output().shallow_clone();
 
@@ -255,10 +257,10 @@ impl Encoder for SqueezeAlbertEncoder {
 
         // Convert hidden states to [batch_size, seq_len, hidden_size].
         for layer_output in &mut all_layer_outputs {
-            *layer_output.output_mut() = layer_output.output().permute(&[0, 2, 1]);
+            *layer_output.output_mut() = layer_output.output().f_permute(&[0, 2, 1])?;
         }
 
-        all_layer_outputs
+        Ok(all_layer_outputs)
     }
 
     fn n_layers(&self) -> i64 {

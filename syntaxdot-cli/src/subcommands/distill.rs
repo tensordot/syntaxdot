@@ -157,7 +157,9 @@ impl DistillApp {
         student_token_mask: &Tensor,
     ) -> Result<Tensor> {
         // Compute teacher scores.
-        let teacher_head_probs = teacher_logits.head_score_logits.softmax(-1, Kind::Float);
+        let teacher_head_probs = teacher_logits
+            .head_score_logits
+            .f_softmax(-1, Kind::Float)?;
         let teacher_score_mask = teacher_token_mask
             .unsqueeze(1)
             .logical_and(&teacher_token_mask.unsqueeze(-1));
@@ -166,13 +168,14 @@ impl DistillApp {
         // Compute student log scores.
         let student_head_logprobs = student_logits
             .head_score_logits
-            .log_softmax(-1, Kind::Float);
+            .f_log_softmax(-1, Kind::Float)?;
         let student_score_mask = student_token_mask
             .unsqueeze(1)
             .logical_and(&student_token_mask.unsqueeze(-1));
         let student_head_logprobs = student_head_logprobs.masked_select(&student_score_mask);
 
-        let head_soft_loss = (-(&teacher_head_probs * &student_head_logprobs)).mean(Kind::Float);
+        let head_soft_loss =
+            (&teacher_head_probs.f_mul(&student_head_logprobs)?.f_neg()?).f_mean(Kind::Float)?;
 
         let teacher_head_predictions = teacher_logits.head_score_logits.argmax(-1, false);
         let teacher_relation_logits = Self::select_head_relation_logits(
@@ -192,11 +195,13 @@ impl DistillApp {
             &student_logits.relation_score_logits,
         )?;
 
-        let relation_soft_loss = (-(&teacher_relation_logits.softmax(-1, Kind::Float)
-            * &student_relation_logits.log_softmax(-1, Kind::Float)))
-            .mean(Kind::Float);
+        let relation_soft_loss = teacher_relation_logits
+            .f_softmax(-1, Kind::Float)?
+            .f_neg()?
+            .f_mul(&student_relation_logits.log_softmax(-1, Kind::Float))?
+            .f_mean(Kind::Float)?;
 
-        Ok(head_soft_loss + relation_soft_loss)
+        Ok(head_soft_loss.f_add(&relation_soft_loss)?)
     }
 
     /// Convert heads identifiers.
@@ -399,7 +404,7 @@ impl DistillApp {
         teacher_token_mask: &Tensor,
         student_encoder_logits: HashMap<String, Tensor>,
         student_token_mask: &Tensor,
-    ) -> Tensor {
+    ) -> Result<Tensor, SyntaxDotError> {
         let mut loss = Tensor::zeros(&[], (Kind::Float, student_token_mask.device()));
 
         for (encoder_name, teacher_logits) in teacher_encoder_logits {
@@ -414,15 +419,17 @@ impl DistillApp {
                 .reshape(&[-1, n_labels]);
 
             // Compute the soft loss.
-            let teacher_probs = teacher_logits.softmax(-1, Kind::Float);
-            let student_logprobs = student_logits.log_softmax(-1, Kind::Float);
-            let soft_losses = -(&teacher_probs * &student_logprobs);
-            loss += soft_losses
-                .sum1(&[-1], false, Kind::Float)
-                .mean(Kind::Float);
+            let teacher_probs = teacher_logits.f_softmax(-1, Kind::Float)?;
+            let student_logprobs = student_logits.f_log_softmax(-1, Kind::Float)?;
+            let soft_losses = teacher_probs.f_mul(&student_logprobs)?.f_neg()?;
+            let _ = loss.f_add_(
+                &soft_losses
+                    .f_sum1(&[-1], false, Kind::Float)?
+                    .f_mean(Kind::Float)?,
+            )?;
         }
 
-        loss
+        Ok(loss)
     }
 
     fn student_loss(
@@ -450,14 +457,14 @@ impl DistillApp {
                 encoder: true,
                 classifiers: true,
             },
-        );
+        )?;
         let teacher_encoder_logits =
-            teacher.encoder_logits_from_encoding(&teacher_layer_outputs, false);
+            teacher.encoder_logits_from_encoding(&teacher_layer_outputs, false)?;
         let teacher_biaffine_logits = teacher.biaffine_logits_from_encoding(
             &teacher_layer_outputs,
             &teacher_token_mask,
             false,
-        );
+        )?;
 
         let student_attention_mask =
             seq_len_to_mask(&student_batch.seq_lens, student_batch.inputs.size()[1])
@@ -477,7 +484,7 @@ impl DistillApp {
                     encoder: false,
                     classifiers: false,
                 },
-            );
+            )?;
 
             let mut soft_loss = Tensor::zeros(&[], (Kind::Float, self.device));
 
@@ -488,24 +495,25 @@ impl DistillApp {
                     &student_layer_outputs,
                     &student_token_mask,
                     true,
-                ),
+                )?,
             ) {
                 (Some(teacher_logits), Some(student_logits)) => {
-                    soft_loss += Self::biaffine_loss(&teacher_logits, &teacher_token_mask,
-                                                     &student_logits, &student_token_mask)?;
+                    let _ = soft_loss.f_add_(&Self::biaffine_loss(&teacher_logits, &teacher_token_mask,
+                                                     &student_logits, &student_token_mask)?)?;
                 }
                 (None, Some(_)) => bail!("Cannot distill biaffine parsing model from a teacher without biaffine parsing."),
                 _ => {}
             }
 
             // Compute sequence encoder/decoder loss.
-            let student_logits = student.encoder_logits_from_encoding(&student_layer_outputs, true);
-            soft_loss += Self::seq_encoders_loss(
+            let student_logits =
+                student.encoder_logits_from_encoding(&student_layer_outputs, true)?;
+            let _ = soft_loss.f_add_(&Self::seq_encoders_loss(
                 teacher_encoder_logits,
                 &teacher_token_mask,
                 student_logits,
                 &student_token_mask,
-            );
+            )?)?;
 
             let attention_loss = if self.attention_loss {
                 self.attention_loss(&teacher_layer_outputs, &student_layer_outputs)?
@@ -514,7 +522,7 @@ impl DistillApp {
             };
 
             Ok(DistillLoss {
-                loss: &soft_loss + &attention_loss,
+                loss: soft_loss.f_add(&attention_loss)?,
                 attention_loss,
                 soft_loss,
             })
@@ -562,7 +570,7 @@ impl DistillApp {
                 lr_classifier.into(),
             );
 
-            grad_scaler.backward_step(&distill_loss.loss);
+            grad_scaler.backward_step(&distill_loss.loss)?;
 
             self.summary_writer.write_scalar(
                 "gradient_scale",
@@ -771,7 +779,7 @@ impl DistillApp {
         )? {
             let batch = batch?;
 
-            let n_batch_tokens = i64::from(batch.token_mask.sum(Kind::Int64));
+            let n_batch_tokens = i64::from(batch.token_mask.f_sum(Kind::Int64)?);
 
             let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1]);
 
@@ -798,14 +806,14 @@ impl DistillApp {
                     },
                     false,
                 )
-            });
+            })?;
 
             n_tokens += n_batch_tokens;
 
             let scalar_loss: f32 = model_loss
                 .seq_classifiers
                 .summed_loss
-                .sum(Kind::Float)
+                .f_sum(Kind::Float)?
                 .into();
 
             for (encoder_name, loss) in model_loss.seq_classifiers.encoder_losses {

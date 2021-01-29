@@ -10,6 +10,7 @@ use tch::{Kind, Tensor};
 
 use crate::config::PretrainConfig;
 use crate::encoders::Encoders;
+use crate::error::SyntaxDotError;
 use crate::model::bert::PretrainBertConfig;
 use std::time::Instant;
 
@@ -30,7 +31,7 @@ impl SequenceClassifiers {
         pretrain_config: &PretrainConfig,
         n_layers: i64,
         encoders: &Encoders,
-    ) -> Self {
+    ) -> Result<SequenceClassifiers, SyntaxDotError> {
         let vs = vs.borrow();
 
         let bert_config = pretrain_config.bert_config();
@@ -38,7 +39,7 @@ impl SequenceClassifiers {
         let classifiers = encoders
             .iter()
             .map(|encoder| {
-                (
+                Ok((
                     encoder.name().to_owned(),
                     ScalarWeightClassifier::new(
                         vs.sub("classifiers")
@@ -52,20 +53,24 @@ impl SequenceClassifiers {
                             n_layers,
                             n_labels: encoder.encoder().len() as i64,
                         },
-                    ),
-                )
+                    )?,
+                ))
             })
-            .collect();
+            .collect::<Result<_, SyntaxDotError>>()?;
 
-        SequenceClassifiers { classifiers }
+        Ok(SequenceClassifiers { classifiers })
     }
 
     /// Perform a forward pass of sequence classifiers.
-    pub fn forward_t(&self, layers: &[LayerOutput], train: bool) -> HashMap<String, Tensor> {
+    pub fn forward_t(
+        &self,
+        layers: &[LayerOutput],
+        train: bool,
+    ) -> Result<HashMap<String, Tensor>, SyntaxDotError> {
         self.classifiers
             .iter()
             .map(|(encoder_name, classifier)| {
-                (encoder_name.to_string(), classifier.logits(layers, train))
+                Ok((encoder_name.to_string(), classifier.logits(layers, train)?))
             })
             .collect()
     }
@@ -93,36 +98,43 @@ impl SequenceClassifiers {
         label_smoothing: Option<f64>,
         train: bool,
         include_continuations: bool,
-    ) -> SequenceClassifiersLoss {
+    ) -> Result<SequenceClassifiersLoss, SyntaxDotError> {
         let token_mask = token_mask.to_kind(Kind::Float);
-        let token_mask_sum = token_mask.sum(Kind::Float);
+        let token_mask_sum = token_mask.f_sum(Kind::Float)?;
 
         let mut encoder_losses = HashMap::with_capacity(self.classifiers.len());
         let mut encoder_accuracies = HashMap::with_capacity(self.classifiers.len());
         for (encoder_name, classifier) in &self.classifiers {
             let (loss, correct) =
-                classifier.losses(&layers, &targets[encoder_name], label_smoothing, train);
+                classifier.losses(&layers, &targets[encoder_name], label_smoothing, train)?;
             let loss = if include_continuations {
-                (loss * attention_mask).sum(Kind::Float) / &attention_mask.sum(Kind::Float)
+                loss.f_mul(attention_mask)?
+                    .f_sum(Kind::Float)?
+                    .f_div(&attention_mask.f_sum(Kind::Float)?)?
             } else {
-                (loss * &token_mask).sum(Kind::Float) / &token_mask_sum
+                loss.f_mul(&token_mask)?
+                    .f_sum(Kind::Float)?
+                    .f_div(&token_mask_sum)?
             };
-            let acc = (correct * &token_mask).sum(Kind::Float) / &token_mask_sum;
+            let acc = correct
+                .f_mul(&token_mask)?
+                .f_sum(Kind::Float)?
+                .f_div(&token_mask_sum)?;
 
             encoder_losses.insert(encoder_name.clone(), loss);
             encoder_accuracies.insert(encoder_name.clone(), acc);
         }
 
-        let summed_loss = encoder_losses.values().fold(
-            Tensor::zeros(&[], (Kind::Float, layers[0].output().device())),
-            |summed_loss, loss| summed_loss + loss,
-        );
+        let summed_loss = encoder_losses.values().try_fold(
+            Tensor::f_zeros(&[], (Kind::Float, layers[0].output().device()))?,
+            |summed_loss, loss| summed_loss.f_add(loss),
+        )?;
 
-        SequenceClassifiersLoss {
+        Ok(SequenceClassifiersLoss {
             summed_loss,
             encoder_losses,
             encoder_accuracies,
-        }
+        })
     }
 
     /// Predict for each classifier the top-K labels and their probabilities.
@@ -130,7 +142,11 @@ impl SequenceClassifiers {
     /// This method computes the top-k labels and their probabilities for
     /// each sequence classifier, given the output of each layer. The function
     /// returns a mapping for the classifier name to `(probabilities, labels)`.
-    pub fn top_k(&self, layers: &[LayerOutput], k: usize) -> HashMap<String, TopK> {
+    pub fn top_k(
+        &self,
+        layers: &[LayerOutput],
+        k: usize,
+    ) -> Result<HashMap<String, TopK>, SyntaxDotError> {
         let start = Instant::now();
 
         let top_k = self
@@ -138,24 +154,24 @@ impl SequenceClassifiers {
             .iter()
             .map(|(encoder_name, classifier)| {
                 let (probs, mut labels) = classifier
-                    .forward(&layers, false)
+                    .forward(&layers, false)?
                     // Exclude first two classes (padding and continuation).
-                    .slice(-1, 2, -1, 1)
-                    .topk(k as i64, -1, true, true);
+                    .f_slice(-1, 2, -1, 1)?
+                    .f_topk(k as i64, -1, true, true)?;
 
                 // Fix label offsets.
-                labels += 2;
+                let _ = labels.f_add_1(2)?;
 
-                (encoder_name.to_string(), TopK { labels, probs })
+                Ok((encoder_name.to_string(), TopK { labels, probs }))
             })
             .collect();
 
-        let shape = layers[0].output().size();
+        let (batch_size, seq_len, _) = layers[0].output().size3()?;
         log::debug!(
             "Predicted top-{} labels for {} inputs with length {} in {}ms",
             k,
-            shape[0],
-            shape[1],
+            batch_size,
+            seq_len,
             start.elapsed().as_millis()
         );
 

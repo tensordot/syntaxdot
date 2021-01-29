@@ -17,12 +17,14 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
-use tch::nn::{Init, Module, ModuleT};
+use tch::nn::Init;
 use tch::{Kind, Tensor};
 
 use crate::cow::CowTensor;
 use crate::layers::{Dropout, Embedding, LayerNorm};
 use crate::models::bert::config::BertConfig;
+use crate::module::{FallibleModule, FallibleModuleT};
+use crate::TransformerError;
 
 /// Construct the embeddings from word, position and token_type embeddings.
 #[derive(Debug)]
@@ -38,7 +40,10 @@ pub struct BertEmbeddings {
 impl BertEmbeddings {
     /// Construct new Bert embeddings with the given variable store
     /// and Bert configuration.
-    pub fn new<'a>(vs: impl Borrow<PathExt<'a>>, config: &BertConfig) -> Self {
+    pub fn new<'a>(
+        vs: impl Borrow<PathExt<'a>>,
+        config: &BertConfig,
+    ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
         let normal_init = Init::Randn {
@@ -52,7 +57,7 @@ impl BertEmbeddings {
             config.vocab_size,
             config.hidden_size,
             normal_init,
-        );
+        )?;
 
         let position_embeddings = Embedding::new(
             vs / "position_embeddings",
@@ -60,7 +65,7 @@ impl BertEmbeddings {
             config.max_position_embeddings,
             config.hidden_size,
             normal_init,
-        );
+        )?;
 
         let token_type_embeddings = Embedding::new(
             vs / "token_type_embeddings",
@@ -68,7 +73,7 @@ impl BertEmbeddings {
             config.type_vocab_size,
             config.hidden_size,
             normal_init,
-        );
+        )?;
 
         let layer_norm = LayerNorm::new(
             vs / "layer_norm",
@@ -79,13 +84,13 @@ impl BertEmbeddings {
 
         let dropout = Dropout::new(config.hidden_dropout_prob);
 
-        BertEmbeddings {
+        Ok(BertEmbeddings {
             word_embeddings,
             position_embeddings,
             token_type_embeddings,
             layer_norm,
             dropout,
-        }
+        })
     }
 
     pub fn forward(
@@ -94,7 +99,7 @@ impl BertEmbeddings {
         token_type_ids: Option<&Tensor>,
         position_ids: Option<&Tensor>,
         train: bool,
-    ) -> Tensor {
+    ) -> Result<Tensor, TransformerError> {
         let input_shape = input_ids.size();
 
         let seq_length = input_shape[1];
@@ -103,30 +108,34 @@ impl BertEmbeddings {
         let position_ids = match position_ids {
             Some(position_ids) => CowTensor::Borrowed(position_ids),
             None => CowTensor::Owned(
-                Tensor::arange(seq_length, (Kind::Int64, device))
-                    .unsqueeze(0)
+                Tensor::f_arange(seq_length, (Kind::Int64, device))?
+                    .f_unsqueeze(0)?
                     // XXX: Second argument is 'implicit', do we need to set this?
-                    .expand(&input_shape, false),
+                    .f_expand(&input_shape, false)?,
             ),
         };
 
         let token_type_ids = match token_type_ids {
             Some(token_type_ids) => CowTensor::Borrowed(token_type_ids),
-            None => CowTensor::Owned(Tensor::zeros(&input_shape, (Kind::Int64, device))),
+            None => CowTensor::Owned(Tensor::f_zeros(&input_shape, (Kind::Int64, device))?),
         };
 
-        let input_embeddings = self.word_embeddings.forward(input_ids);
-        let position_embeddings = self.position_embeddings.forward(&*position_ids);
-        let token_type_embeddings = self.token_type_embeddings.forward(&*token_type_ids);
+        let input_embeddings = self.word_embeddings.forward(input_ids)?;
+        let position_embeddings = self.position_embeddings.forward(&*position_ids)?;
+        let token_type_embeddings = self.token_type_embeddings.forward(&*token_type_ids)?;
 
-        let embeddings = input_embeddings + position_embeddings + token_type_embeddings;
-        let embeddings = self.layer_norm.forward(&embeddings);
+        let embeddings = input_embeddings
+            .f_add(&position_embeddings)?
+            .f_add(&token_type_embeddings)?;
+        let embeddings = self.layer_norm.forward(&embeddings)?;
         self.dropout.forward_t(&embeddings, train)
     }
 }
 
-impl ModuleT for BertEmbeddings {
-    fn forward_t(&self, input: &Tensor, train: bool) -> Tensor {
+impl FallibleModuleT for BertEmbeddings {
+    type Error = TransformerError;
+
+    fn forward_t(&self, input: &Tensor, train: bool) -> Result<Tensor, Self::Error> {
         self.forward(input, None, None, train)
     }
 }
@@ -141,10 +150,11 @@ mod tests {
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
     use syntaxdot_tch_ext::RootExt;
-    use tch::nn::{ModuleT, VarStore};
+    use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
     use crate::models::bert::{BertConfig, BertEmbeddings};
+    use crate::module::FallibleModuleT;
 
     const BERT_BASE_GERMAN_CASED: &str = env!("BERT_BASE_GERMAN_CASED");
 
@@ -178,7 +188,7 @@ mod tests {
         let mut vs = VarStore::new(Device::Cpu);
         let root = vs.root_ext(|_| 0);
 
-        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config);
+        let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config).unwrap();
 
         vs.load(BERT_BASE_GERMAN_CASED).unwrap();
 
@@ -189,6 +199,7 @@ mod tests {
         let summed_embeddings =
             embeddings
                 .forward_t(&pieces, false)
+                .unwrap()
                 .sum1(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_embeddings).try_into().unwrap();

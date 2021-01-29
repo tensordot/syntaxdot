@@ -1,15 +1,20 @@
+use crate::TransformerError;
 use tch::{Reduction, Tensor};
 
 trait Reduce {
-    fn reduce(&self, t: &Tensor) -> Tensor;
+    type Error;
+
+    fn reduce(&self, t: &Tensor) -> Result<Tensor, Self::Error>;
 }
 
 impl Reduce for Reduction {
-    fn reduce(&self, t: &Tensor) -> Tensor {
+    type Error = TransformerError;
+
+    fn reduce(&self, t: &Tensor) -> Result<Tensor, Self::Error> {
         match self {
-            Reduction::None => t.shallow_clone(),
-            Reduction::Mean => t.mean(t.kind()),
-            Reduction::Sum => t.sum(t.kind()),
+            Reduction::None => Ok(t.shallow_clone()),
+            Reduction::Mean => Ok(t.f_mean(t.kind())?),
+            Reduction::Sum => Ok(t.f_sum(t.kind())?),
             Reduction::Other(_) => unimplemented!(),
         }
     }
@@ -43,29 +48,41 @@ impl CrossEntropyLoss {
     /// `logits` should be the unnormalized probablilities of shape
     /// `[batch_size, seq_len]` and `targets` the gold-standard labels
     /// with shape `[batch_size]`.
-    pub fn forward(&self, logits: &Tensor, targets: &Tensor) -> Tensor {
-        let (_, n_classes) = logits.size2().unwrap();
-        let log_probs = logits.log_softmax(-1, logits.kind());
+    pub fn forward(&self, logits: &Tensor, targets: &Tensor) -> Result<Tensor, TransformerError> {
+        let (_, n_classes) = logits.size2()?;
+        let log_probs = logits.f_log_softmax(-1, logits.kind())?;
 
         match self.label_smoothing {
             Some(label_smoothing) => {
-                let token_mask = targets.ne(self.ignore_index);
+                let token_mask = targets.f_ne(self.ignore_index)?;
 
                 // Do not attempt to use negative indices for the correct target.
-                let targets_non_negative = targets.where3(&targets.ne(self.ignore_index), 0);
+                let targets_non_negative =
+                    targets.f_where3(&targets.f_ne(self.ignore_index)?, 0)?;
 
                 // Set all labels to label_smoothing and the target to 1-label_smoothing.
                 let smoothed_targets = tch::no_grad(|| {
-                    Tensor::full_like(&log_probs, label_smoothing / (n_classes - 1) as f64)
-                        .scatter1(1, &targets_non_negative.unsqueeze(1), 1. - label_smoothing)
-                });
-                let losses = (-smoothed_targets * &log_probs).sum1(&[-1], false, log_probs.kind());
+                    Tensor::f_full_like(&log_probs, label_smoothing / (n_classes - 1) as f64)?
+                        .f_scatter1(
+                            1,
+                            &targets_non_negative.f_unsqueeze(1)?,
+                            1. - label_smoothing,
+                        )
+                })?;
+                let losses = (smoothed_targets.f_neg()?.f_mul(&log_probs)?).f_sum1(
+                    &[-1],
+                    false,
+                    log_probs.kind(),
+                )?;
 
-                self.reduction.reduce(&losses.masked_select(&token_mask))
+                Ok(self.reduction.reduce(&losses.masked_select(&token_mask))?)
             }
-            None => {
-                log_probs.g_nll_loss::<&Tensor>(&targets, None, self.reduction, self.ignore_index)
-            }
+            None => Ok(log_probs.f_nll_loss::<&Tensor>(
+                &targets,
+                None,
+                self.reduction,
+                self.ignore_index,
+            )?),
         }
     }
 }
@@ -85,7 +102,7 @@ mod tests {
         let logits = Tensor::of_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
         let targets = Tensor::of_slice(&[2i64]).view([1]);
         let cross_entropy_loss = CrossEntropyLoss::new(-1, None, Reduction::None);
-        let loss: ArrayD<f32> = (&cross_entropy_loss.forward(&logits, &targets))
+        let loss: ArrayD<f32> = (&cross_entropy_loss.forward(&logits, &targets).unwrap())
             .try_into()
             .unwrap();
 
@@ -97,7 +114,7 @@ mod tests {
         let logits = Tensor::of_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
         let targets = Tensor::of_slice(&[2i64]).view([1]);
         let cross_entropy_loss = CrossEntropyLoss::new(-1, Some(0.1), Reduction::None);
-        let loss: ArrayD<f32> = (&cross_entropy_loss.forward(&logits, &targets))
+        let loss: ArrayD<f32> = (&cross_entropy_loss.forward(&logits, &targets).unwrap())
             .try_into()
             .unwrap();
         assert_abs_diff_eq!(loss, array![0.632653].into_dyn(), epsilon = 1e-6);

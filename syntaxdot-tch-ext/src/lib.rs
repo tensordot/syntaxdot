@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use itertools::Itertools;
 use tch::nn::{Init, Path, VarStore};
-use tch::Tensor;
+use tch::{TchError, Tensor};
 
 /// Trait that provides the root of a variable store.
 pub trait RootExt {
@@ -53,10 +53,10 @@ impl<'a> PathExt<'a> {
     }
 
     /// Create a tensor variable initialized with the given initializer.
-    pub fn var(&self, name: &str, dims: &[i64], init: Init) -> Tensor {
+    pub fn var(&self, name: &str, dims: &[i64], init: Init) -> Result<Tensor, TchError> {
         let group = self.name_group(name);
         let path = self.inner.set_group(group);
-        path.var(name, dims, init)
+        path.f_var(name, dims, init)
     }
 
     /// Create a tensor variable initialized with the values from another tensor.
