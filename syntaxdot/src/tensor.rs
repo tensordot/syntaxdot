@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
 
 use ndarray::{s, Array1, Array2, ArrayView1};
-use tch::{Device, Tensor};
+use tch::{Device, Kind, Tensor};
 
 /// Tensors for biaffine encodings.
 #[derive(Debug, PartialEq)]
@@ -269,7 +269,9 @@ impl From<TensorBuilder> for Tensors {
             inputs: builder.inputs.try_into().unwrap(),
             biaffine_encodings,
             labels,
-            token_mask: builder.token_mask.try_into().unwrap(),
+            token_mask: Tensor::try_from(builder.token_mask)
+                .unwrap()
+                .to_kind(Kind::Bool),
             seq_lens: builder.seq_lens.try_into().unwrap(),
         }
     }

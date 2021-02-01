@@ -99,27 +99,17 @@ impl SequenceClassifiers {
         train: bool,
         include_continuations: bool,
     ) -> Result<SequenceClassifiersLoss, SyntaxDotError> {
-        let token_mask = token_mask.to_kind(Kind::Float);
-        let token_mask_sum = token_mask.f_sum(Kind::Float)?;
-
         let mut encoder_losses = HashMap::with_capacity(self.classifiers.len());
         let mut encoder_accuracies = HashMap::with_capacity(self.classifiers.len());
         for (encoder_name, classifier) in &self.classifiers {
             let (loss, correct) =
                 classifier.losses(&layers, &targets[encoder_name], label_smoothing, train)?;
             let loss = if include_continuations {
-                loss.f_mul(attention_mask)?
-                    .f_sum(Kind::Float)?
-                    .f_div(&attention_mask.f_sum(Kind::Float)?)?
+                loss.f_masked_select(attention_mask)?.f_mean(Kind::Float)?
             } else {
-                loss.f_mul(&token_mask)?
-                    .f_sum(Kind::Float)?
-                    .f_div(&token_mask_sum)?
+                loss.f_masked_select(&token_mask)?.f_mean(Kind::Float)?
             };
-            let acc = correct
-                .f_mul(&token_mask)?
-                .f_sum(Kind::Float)?
-                .f_div(&token_mask_sum)?;
+            let acc = correct.f_masked_select(&token_mask)?.f_mean(Kind::Float)?;
 
             encoder_losses.insert(encoder_name.clone(), loss);
             encoder_accuracies.insert(encoder_name.clone(), acc);

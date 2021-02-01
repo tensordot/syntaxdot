@@ -441,7 +441,7 @@ impl DistillApp {
     ) -> Result<DistillLoss> {
         // Compute masks.
         let teacher_attention_mask =
-            seq_len_to_mask(&teacher_batch.seq_lens, teacher_batch.inputs.size()[1])
+            seq_len_to_mask(&teacher_batch.seq_lens, teacher_batch.inputs.size()[1])?
                 .to_device(self.device);
         let teacher_token_mask = teacher_batch
             .token_mask
@@ -467,7 +467,7 @@ impl DistillApp {
         )?;
 
         let student_attention_mask =
-            seq_len_to_mask(&student_batch.seq_lens, student_batch.inputs.size()[1])
+            seq_len_to_mask(&student_batch.seq_lens, student_batch.inputs.size()[1])?
                 .to_device(self.device);
         let student_token_mask = student_batch
             .token_mask
@@ -781,7 +781,7 @@ impl DistillApp {
 
             let n_batch_tokens = i64::from(batch.token_mask.f_sum(Kind::Int64)?);
 
-            let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1]);
+            let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1])?;
 
             let model_loss = autocast_or_preserve(self.mixed_precision, || {
                 model.loss(

@@ -345,9 +345,6 @@ impl BiaffineDependencyLayer {
     ) -> Result<(Tensor, Tensor), SyntaxDotError> {
         let (batch_size, seq_len) = token_mask.size2()?;
 
-        let token_mask = token_mask.to_kind(Kind::Float);
-        let token_mask_sum = token_mask.f_sum(Kind::Float)?;
-
         let head_predicted = biaffine_score_logits
             .head_score_logits
             .f_argmax(-1, false)?;
@@ -365,13 +362,11 @@ impl BiaffineDependencyLayer {
         let head_and_relations_correct = head_correct.f_logical_and(&relations_correct)?;
 
         let uas = head_correct
-            .f_mul(&token_mask)?
-            .f_sum(Kind::Float)?
-            .f_div(&token_mask_sum)?;
+            .f_masked_select(&token_mask)?
+            .f_mean(Kind::Float)?;
         let las = head_and_relations_correct
-            .f_mul(&token_mask)?
-            .f_sum(Kind::Float)?
-            .f_div(&token_mask_sum)?;
+            .f_masked_select(&token_mask)?
+            .f_mean(Kind::Float)?;
 
         Ok((uas, las))
     }

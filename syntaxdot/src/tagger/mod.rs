@@ -48,7 +48,7 @@ impl Tagger {
         let tensors = self.prepare_batch(sentences)?;
 
         // Get model predictions.
-        let attention_mask = seq_len_to_mask(&tensors.seq_lens, tensors.inputs.size()[1]);
+        let attention_mask = seq_len_to_mask(&tensors.seq_lens, tensors.inputs.size()[1])?;
         let predictions = self.model.predict(
             &tensors.inputs.to_device(self.device),
             &attention_mask.to_device(self.device),

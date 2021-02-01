@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use ndarray::Array1;
+use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_encoders::SentenceEncoder;
 use syntaxdot_tokenizers::SentenceWithPieces;
 
 use crate::encoders::NamedEncoder;
 use crate::error::SyntaxDotError;
 use crate::tensor::{TensorBuilder, Tensors};
-use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 
 /// An iterator returning input and (optionally) output tensors.
 pub struct TensorIter<'a, I>
