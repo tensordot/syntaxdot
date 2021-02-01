@@ -280,7 +280,7 @@ impl FinetuneApp {
                 )
             };
 
-            let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1]);
+            let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1])?;
 
             let n_batch_tokens = i64::from(batch.token_mask.f_sum(Kind::Int64)?);
 
