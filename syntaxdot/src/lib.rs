@@ -17,3 +17,6 @@ pub mod tagger;
 pub mod tensor;
 
 pub mod util;
+
+/// The syntaxdot version.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
