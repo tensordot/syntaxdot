@@ -10,5 +10,5 @@ documentation = "https://docs.rs/syntaxdot-tch-ext/"
 license = "BlueOak-1.0.0"
 
 [dependencies]
-itertools = "0.9"
+itertools = "0.10"
 tch = "0.3"

@@ -496,6 +496,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37d572918e350e82412fe766d24b15e6682fb2ed2bbe018280caa810397cb319"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1152,7 +1161,7 @@ dependencies = [
  "conllu",
  "env_logger",
  "indicatif",
- "itertools 0.9.0",
+ "itertools 0.10.0",
  "log",
  "ndarray",
  "ordered-float",
@@ -1174,7 +1183,7 @@ version = "0.3.0-beta.0"
 dependencies = [
  "conllu",
  "criterion",
- "itertools 0.9.0",
+ "itertools 0.10.0",
  "lazy_static",
  "ndarray",
  "ndarray-rand",
@@ -1202,7 +1211,7 @@ dependencies = [
 name = "syntaxdot-tch-ext"
 version = "0.3.0-beta.0"
 dependencies = [
- "itertools 0.9.0",
+ "itertools 0.10.0",
  "tch",
 ]
 
