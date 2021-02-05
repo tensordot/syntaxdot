@@ -687,17 +687,17 @@ dependencies = [
 
 [[package]]
 name = "ohnomore"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ff292ecc7c1b14349a9c26e32ab672a9722553e2550a3376f191da546b4bd57"
+checksum = "77a85f1351b834be91a4e4d5d027cb3617dc7c9bf54b7731d376b51c53e470dd"
 dependencies = [
  "caseless",
- "conllu",
  "fst",
  "lazy_static",
  "maplit",
  "seqalign",
  "thiserror",
+ "udgraph",
  "unicode-normalization",
 ]
 
@@ -1367,6 +1367,15 @@ dependencies = [
  "curl",
  "libc",
  "zip",
+]
+
+[[package]]
+name = "udgraph"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a8abeedb97ece847696e6d956f8899fddcdd96e5552c5401ba10ac69faecd42"
+dependencies = [
+ "petgraph",
 ]
 
 [[package]]
