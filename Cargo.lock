@@ -40,6 +40,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "approx"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -615,9 +624,22 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac06db03ec2f46ee0ecdca1a1c34a99c0d188a0d83439b84bf0cb4b386e4ab09"
 dependencies = [
- "approx",
  "matrixmultiply",
- "num-complex",
+ "num-complex 0.2.4",
+ "num-integer",
+ "num-traits",
+ "rawpointer",
+]
+
+[[package]]
+name = "ndarray"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c0d5c9540a691d153064dc47a4db2504587a75eae07bf1d73f7a596ebc73c04"
+dependencies = [
+ "approx 0.4.0",
+ "matrixmultiply",
+ "num-complex 0.3.1",
  "num-integer",
  "num-traits",
  "rawpointer",
@@ -629,7 +651,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f32fec793307a7299dc1c05d2e9bda21d30b13b7e5bf9b9f8afec6ad6c3ce7"
 dependencies = [
- "ndarray",
+ "ndarray 0.13.1",
  "rand",
  "rand_distr",
 ]
@@ -641,6 +663,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6b19411a9719e753aff12e5187b74d60d3dc449ec3f4dc21e3989c3f554bc95"
 dependencies = [
  "autocfg",
+ "num-traits",
+]
+
+[[package]]
+name = "num-complex"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "747d632c0c558b87dbabbe6a82f3b4ae03720d0646ac5b7b4dae89394be5f2c5"
+dependencies = [
  "num-traits",
 ]
 
@@ -1161,11 +1192,11 @@ dependencies = [
 name = "syntaxdot"
 version = "0.3.0-beta.0"
 dependencies = [
- "approx",
+ "approx 0.3.2",
  "conllu",
  "log",
  "maplit",
- "ndarray",
+ "ndarray 0.14.0",
  "numberer",
  "ordered-float",
  "rand",
@@ -1193,7 +1224,7 @@ dependencies = [
  "indicatif",
  "itertools 0.10.0",
  "log",
- "ndarray",
+ "ndarray 0.14.0",
  "ordered-float",
  "serde_yaml",
  "stdinout",
@@ -1216,7 +1247,7 @@ dependencies = [
  "criterion",
  "itertools 0.10.0",
  "lazy_static",
- "ndarray",
+ "ndarray 0.14.0",
  "ndarray-rand",
  "numberer",
  "ohnomore",
@@ -1251,7 +1282,7 @@ dependencies = [
 name = "syntaxdot-tokenizers"
 version = "0.3.0-beta.0"
 dependencies = [
- "ndarray",
+ "ndarray 0.14.0",
  "sentencepiece",
  "thiserror",
  "udgraph",
@@ -1262,9 +1293,9 @@ dependencies = [
 name = "syntaxdot-transformers"
 version = "0.3.0-beta.0"
 dependencies = [
- "approx",
+ "approx 0.3.2",
  "maplit",
- "ndarray",
+ "ndarray 0.14.0",
  "serde",
  "syntaxdot-tch-ext",
  "tch",
@@ -1279,7 +1310,7 @@ dependencies = [
  "half",
  "lazy_static",
  "libc",
- "ndarray",
+ "ndarray 0.13.1",
  "rand",
  "thiserror",
  "torch-sys",
