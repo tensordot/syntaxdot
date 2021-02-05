@@ -93,10 +93,10 @@ impl Tokenize for AlbertTokenizer {
 mod tests {
     use std::iter::FromIterator;
 
-    use conllu::graph::Sentence;
-    use conllu::token::Token;
     use ndarray::array;
     use sentencepiece::SentencePieceProcessor;
+    use udgraph::graph::Sentence;
+    use udgraph::token::Token;
 
     use super::AlbertTokenizer;
     use crate::Tokenize;

@@ -108,9 +108,9 @@ mod tests {
     use std::io::{BufRead, BufReader};
     use std::iter::FromIterator;
 
-    use conllu::graph::Sentence;
-    use conllu::token::Token;
     use ndarray::array;
+    use udgraph::graph::Sentence;
+    use udgraph::token::Token;
     use wordpieces::WordPieces;
 
     use super::BertTokenizer;
