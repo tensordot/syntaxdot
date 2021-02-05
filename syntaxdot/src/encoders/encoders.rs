@@ -1,7 +1,6 @@
 use std::hash::Hash;
 use std::ops::Deref;
 
-use conllu::graph::Sentence;
 use numberer::Numberer;
 use serde::{Deserialize, Serialize};
 use syntaxdot_encoders::categorical::{ImmutableCategoricalEncoder, MutableCategoricalEncoder};
@@ -9,6 +8,7 @@ use syntaxdot_encoders::layer::LayerEncoder;
 use syntaxdot_encoders::lemma::{EditTree, EditTreeEncoder, TdzLemmaEncoder};
 use syntaxdot_encoders::{EncodingProb, SentenceDecoder, SentenceEncoder};
 use thiserror::Error;
+use udgraph::graph::Sentence;
 
 use crate::encoders::{EncoderType, EncodersConfig};
 

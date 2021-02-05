@@ -2,14 +2,15 @@
 
 use std::convert::{Infallible, TryFrom};
 
-use conllu::graph::{Node, Sentence};
-use conllu::token::{Features, Token};
 use serde_derive::{Deserialize, Serialize};
+use udgraph::graph::{Node, Sentence};
+use udgraph::token::Token;
 
 use super::{EncodingProb, SentenceDecoder, SentenceEncoder};
 
 mod error;
 use self::error::*;
+use conllu::display::ConlluFeatures;
 
 /// Tagging layer.
 #[serde(rename_all = "lowercase")]
@@ -76,7 +77,9 @@ impl LayerValue for Token {
             }
             Layer::FeatureString => {
                 self.set_features(
-                    Features::try_from(value.as_str()).expect("Invalid feature representation"),
+                    ConlluFeatures::try_from(value.as_str())
+                        .expect("Invalid feature representation")
+                        .into_owned(),
                 );
             }
             Layer::Misc { feature, .. } => {
@@ -90,7 +93,7 @@ impl LayerValue for Token {
         match layer {
             Layer::UPos => self.upos().map(ToOwned::to_owned),
             Layer::XPos => self.xpos().map(ToOwned::to_owned),
-            Layer::FeatureString => Some(self.features().into()),
+            Layer::FeatureString => Some(ConlluFeatures::borrowed(self.features()).to_string()),
             Layer::Feature { feature, default } => self
                 .features()
                 .get(feature)
@@ -176,7 +179,8 @@ impl SentenceEncoder for LayerEncoder {
 mod tests {
     use std::convert::TryFrom;
 
-    use conllu::token::{Features, Misc, Token, TokenBuilder};
+    use conllu::display::{ConlluFeatures, ConlluMisc};
+    use udgraph::token::{Token, TokenBuilder};
 
     use crate::layer::{Layer, LayerValue};
 
@@ -185,8 +189,8 @@ mod tests {
         let token: Token = TokenBuilder::new("test")
             .upos("CP")
             .xpos("P")
-            .features(Features::try_from("c=d|a=b").unwrap())
-            .misc(Misc::from("u=v|x=y"))
+            .features(ConlluFeatures::try_from("c=d|a=b").unwrap().into_owned())
+            .misc(ConlluMisc::from("u=v|x=y").into_owned())
             .into();
 
         assert_eq!(token.value(&Layer::UPos), Some("CP".to_string()));

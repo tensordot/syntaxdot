@@ -1,9 +1,9 @@
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use conllu::graph::Sentence;
 use numberer::Numberer;
 use serde_derive::{Deserialize, Serialize};
+use udgraph::graph::Sentence;
 
 use crate::categorical::{ImmutableNumberer, MutableNumberer, Number};
 use crate::{EncodingProb, SentenceDecoder, SentenceEncoder};

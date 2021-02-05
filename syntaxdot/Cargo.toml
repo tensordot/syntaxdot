@@ -10,7 +10,7 @@ documentation = "https://docs.rs/syntaxdot/"
 license = "BlueOak-1.0.0"
 
 [dependencies]
-conllu = "0.5"
+conllu = "0.6"
 ndarray = "0.13"
 numberer = "0.2"
 log = "0.4"
@@ -26,6 +26,7 @@ syntaxdot-transformers = { path = "../syntaxdot-transformers", default-features 
 tch = "0.3"
 thiserror = "1"
 toml = "0.5"
+udgraph = "0.6"
 
 [dev-dependencies]
 approx = "0.3"

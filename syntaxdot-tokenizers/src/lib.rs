@@ -1,5 +1,5 @@
-use conllu::graph::Sentence;
 use ndarray::Array1;
+use udgraph::graph::Sentence;
 
 mod albert;
 pub use albert::AlbertTokenizer;

@@ -1,6 +1,6 @@
 use anyhow::Result;
-use conllu::graph::Sentence;
 use conllu::io::WriteSentence;
+use udgraph::graph::Sentence;
 
 use syntaxdot::tagger::Tagger;
 use syntaxdot_tokenizers::{SentenceWithPieces, Tokenize};

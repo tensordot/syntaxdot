@@ -10,12 +10,12 @@ documentation = "https://docs.rs/syntaxdot-encoders/"
 license = "BlueOak-1.0.0"
 
 [dependencies]
-conllu = "0.5"
+conllu = "0.6"
 itertools = "0.10"
 numberer = "0.2"
 lazy_static = "1"
 ndarray = "0.13"
-ohnomore = "0.2.2"
+ohnomore = "0.3"
 ordered-float = "1"
 petgraph = "0.5"
 rand = "0.7"
@@ -24,6 +24,7 @@ seqalign = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
 thiserror = "1"
+udgraph = "0.6"
 
 [dev-dependencies]
 criterion = "0.3"

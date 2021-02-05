@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use conllu::graph::{Node, Sentence};
 use sentencepiece::SentencePieceProcessor;
+use udgraph::graph::{Node, Sentence};
 
 use super::{SentenceWithPieces, Tokenize};
 use crate::TokenizerError;
