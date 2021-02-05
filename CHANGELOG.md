@@ -6,6 +6,9 @@
 
 - Added support for biaffine dependency parsing (Dozat & Manning, 2016).
   Biaffine parsing is enabled through the `biaffine` configuration option.
+- Add the `keep-best-steps` option to the `distill` subcommand. With
+  this option only the parameter files for the N best steps are
+  retained during distillation.
 
 ### Changed
 

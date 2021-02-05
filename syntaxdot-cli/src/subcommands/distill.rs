@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::collections::btree_map::{BTreeMap, Entry};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::convert::TryInto;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufReader, Read, Seek};
 
 use anyhow::{bail, Context, Result};
@@ -45,6 +45,7 @@ const STUDENT_CONFIG: &str = "STUDENT_CONFIG";
 const GPU: &str = "GPU";
 const INITIAL_LR_CLASSIFIER: &str = "INITIAL_LR_CLASSIFIER";
 const INITIAL_LR_ENCODER: &str = "INITIAL_LR_ENCODER";
+const KEEP_BEST_STEPS: &str = "KEEP_BEST_STEPS";
 const LR_DECAY_RATE: &str = "LR_DECAY_RATE";
 const LR_DECAY_STEPS: &str = "LR_DECAY_STEPS";
 const MAX_LEN: &str = "MAX_LEN";
@@ -73,6 +74,7 @@ pub struct DistillApp {
     batch_size: usize,
     device: Device,
     eval_steps: usize,
+    keep_best_steps: Option<usize>,
     max_len: Option<SequenceLength>,
     mixed_precision: bool,
     lr_schedules: RefCell<LearningRateSchedules>,
@@ -287,6 +289,8 @@ impl DistillApp {
 
         let mut global_step = 0;
 
+        let mut best_step_paths = self.keep_best_steps.map(VecDeque::with_capacity);
+
         let n_steps = self
             .train_duration
             .to_steps(&teacher_train_file, self.batch_size)
@@ -350,13 +354,14 @@ impl DistillApp {
                     best_step = global_step;
                     best_acc = acc;
 
-                    student
-                        .vs
-                        .save(format!("distill-step-{}", global_step))
-                        .context(format!(
-                            "Cannot save variable store for step {}",
-                            global_step
-                        ))?;
+                    let step_path = format!("distill-step-{}", global_step);
+
+                    student.vs.save(&step_path).context(format!(
+                        "Cannot save variable store for step {}",
+                        global_step
+                    ))?;
+
+                    self.cleanup_old_best_steps(&mut best_step_paths, step_path);
                 }
 
                 let step_status = if best_step == global_step { "🎉" } else { "" };
@@ -377,6 +382,23 @@ impl DistillApp {
         }
 
         Ok(())
+    }
+
+    fn cleanup_old_best_steps(
+        &self,
+        best_step_paths: &mut Option<VecDeque<String>>,
+        step_path: String,
+    ) {
+        if let Some(best_step_paths) = best_step_paths.as_mut() {
+            if best_step_paths.len() == self.keep_best_steps.unwrap() {
+                let cleanup_step = best_step_paths.pop_front().expect("No steps?");
+                if let Err(err) = fs::remove_file(&cleanup_step) {
+                    log::error!("Cannot remove step parameters {}: {}", cleanup_step, err);
+                }
+            }
+
+            best_step_paths.push_back(step_path);
+        }
     }
 
     fn select_head_relation_logits(
@@ -959,6 +981,12 @@ impl SyntaxDotApp for DistillApp {
                     .default_value("5e-5"),
             )
             .arg(
+                Arg::with_name(KEEP_BEST_STEPS)
+                    .long("keep-best-steps")
+                    .value_name("N")
+                    .help("Only keep the N best steps"),
+            )
+            .arg(
                 Arg::with_name(MIXED_PRECISION)
                     .long("mixed-precision")
                     .help("Enable automatic mixed-precision"),
@@ -1049,6 +1077,18 @@ impl SyntaxDotApp for DistillApp {
             .parse()
             .context("Cannot parse initial encoder learning rate")?;
         let summary_writer = SummaryOption::parse(matches)?;
+
+        let keep_best_steps = matches
+            .value_of(KEEP_BEST_STEPS)
+            .map(|n| {
+                n.parse()
+                    .context("Cannot parse number of best steps to keep")
+            })
+            .transpose()?;
+        if keep_best_steps == Some(0) {
+            bail!("Refusing to keep zero steps")
+        }
+
         let lr_decay_rate = matches
             .value_of(LR_DECAY_RATE)
             .unwrap()
@@ -1096,6 +1136,7 @@ impl SyntaxDotApp for DistillApp {
             batch_size,
             device,
             eval_steps,
+            keep_best_steps,
             max_len,
             mixed_precision,
             lr_schedules: RefCell::new(Self::create_lr_schedules(
