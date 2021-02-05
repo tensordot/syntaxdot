@@ -16,9 +16,9 @@ tch = "0.3"
 thiserror = "1"
 
 [dev-dependencies]
-approx = "0.3"
+approx = "0.4"
 maplit = "1"
-ndarray = { version = "0.13", features = ["approx"] }
+ndarray = { version = "0.14", features = ["approx"] }
 
 [features]
 model-tests = []
