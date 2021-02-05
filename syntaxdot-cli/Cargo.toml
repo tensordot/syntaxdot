@@ -16,7 +16,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 clap = "2"
-conllu = "0.5"
+conllu = "0.6"
 env_logger = "0.8"
 indicatif = "0.15"
 itertools = "0.10"
@@ -33,3 +33,4 @@ syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", version = "0.3.0-beta
 syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.3.0-beta", default-features = false }
 tch = "0.3"
 threadpool = "1"
+udgraph = "0.6"

@@ -10,10 +10,10 @@ documentation = "https://docs.rs/syntaxdot-tokenizers/"
 license = "BlueOak-1.0.0"
 
 [dependencies]
-conllu = "0.5"
 ndarray = "0.13"
 sentencepiece = "0.5"
 thiserror = "1"
+udgraph = "0.6"
 wordpieces = "0.4"
 
 [features]

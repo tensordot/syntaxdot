@@ -1,13 +1,13 @@
 use std::fmt;
 
-use conllu::graph::{DepTriple, Node, Sentence};
-use conllu::token::Token;
 use itertools::{multizip, Itertools};
 use ndarray::{ArrayView2, Axis};
 use numberer::Numberer;
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use udgraph::graph::{DepTriple, Node, Sentence};
+use udgraph::token::Token;
 
 use crate::categorical::{ImmutableNumberer, MutableNumberer, Number};
 use crate::dependency::mst::chu_liu_edmonds;
@@ -257,9 +257,9 @@ mod tests {
     use std::fs::File;
     use std::io::BufReader;
 
-    use conllu::graph::{DepTriple, Sentence};
     use conllu::io::Reader;
-    use conllu::token::Token;
+    use udgraph::graph::{DepTriple, Sentence};
+    use udgraph::token::Token;
 
     use crate::dependency::{DependencyEncoding, EncodeError, MutableDependencyEncoder};
     use ndarray::Array2;

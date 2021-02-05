@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 
-use conllu::graph::{Node, Sentence};
 use serde::{Deserialize, Serialize};
+use udgraph::graph::{Node, Sentence};
 
 use crate::lemma::edit_tree::EditTree;
 use crate::lemma::EncodeError;
@@ -116,8 +116,8 @@ impl SentenceEncoder for EditTreeEncoder {
 mod tests {
     use std::iter;
 
-    use conllu::graph::{Node, Sentence};
-    use conllu::token::{Token, TokenBuilder};
+    use udgraph::graph::{Node, Sentence};
+    use udgraph::token::{Token, TokenBuilder};
 
     use super::{BackoffStrategy, EditTree, EditTreeEncoder};
     use crate::{EncodingProb, SentenceDecoder, SentenceEncoder};

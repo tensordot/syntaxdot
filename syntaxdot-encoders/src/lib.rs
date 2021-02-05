@@ -2,7 +2,7 @@
 
 use std::error::Error;
 
-use conllu::graph::Sentence;
+use udgraph::graph::Sentence;
 
 pub mod categorical;
 

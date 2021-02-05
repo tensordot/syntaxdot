@@ -1,4 +1,3 @@
-use conllu::graph::Sentence;
 use lazy_static::lazy_static;
 use ohnomore::transform::delemmatization::{
     RemoveAlternatives, RemoveReflexiveTag, RemoveSepVerbPrefix, RemoveTruncMarker,
@@ -11,6 +10,7 @@ use ohnomore::transform::misc::{
 };
 use ohnomore::transform::Transforms;
 use serde::{Deserialize, Serialize};
+use udgraph::graph::Sentence;
 
 use crate::lemma::{BackoffStrategy, EditTreeEncoder};
 use crate::{EncodingProb, SentenceDecoder, SentenceEncoder};
@@ -112,8 +112,8 @@ impl SentenceEncoder for TdzLemmaEncoder {
 mod tests {
     use std::iter::FromIterator;
 
-    use conllu::graph::{DepTriple, Sentence};
-    use conllu::token::TokenBuilder;
+    use udgraph::graph::{DepTriple, Sentence};
+    use udgraph::token::TokenBuilder;
 
     use super::TdzLemmaEncoder;
     use crate::lemma::edit_tree::EditTree as EditTreeInner;

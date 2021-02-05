@@ -182,13 +182,13 @@ dependencies = [
 
 [[package]]
 name = "conllu"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01d7664c35fb4599e61f8f423a170331501fb2a2a36b691beb5d261707443dd1"
+checksum = "6028c5904fccbda78f6ed6c50630ff5c8b58f58dc9df8ecab380e3634b8e6f37"
 dependencies = [
  "itertools 0.9.0",
- "petgraph",
  "thiserror",
+ "udgraph",
 ]
 
 [[package]]
@@ -702,17 +702,17 @@ dependencies = [
 
 [[package]]
 name = "ohnomore"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ff292ecc7c1b14349a9c26e32ab672a9722553e2550a3376f191da546b4bd57"
+checksum = "77a85f1351b834be91a4e4d5d027cb3617dc7c9bf54b7731d376b51c53e470dd"
 dependencies = [
  "caseless",
- "conllu",
  "fst",
  "lazy_static",
  "maplit",
  "seqalign",
  "thiserror",
+ "udgraph",
  "unicode-normalization",
 ]
 
@@ -1179,6 +1179,7 @@ dependencies = [
  "tch",
  "thiserror",
  "toml",
+ "udgraph",
 ]
 
 [[package]]
@@ -1204,6 +1205,7 @@ dependencies = [
  "syntaxdot-transformers",
  "tch",
  "threadpool",
+ "udgraph",
 ]
 
 [[package]]
@@ -1226,6 +1228,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "thiserror",
+ "udgraph",
 ]
 
 [[package]]
@@ -1248,10 +1251,10 @@ dependencies = [
 name = "syntaxdot-tokenizers"
 version = "0.3.0-beta.0"
 dependencies = [
- "conllu",
  "ndarray",
  "sentencepiece",
  "thiserror",
+ "udgraph",
  "wordpieces",
 ]
 
@@ -1405,6 +1408,15 @@ dependencies = [
  "curl",
  "libc",
  "zip",
+]
+
+[[package]]
+name = "udgraph"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a8abeedb97ece847696e6d956f8899fddcdd96e5552c5401ba10ac69faecd42"
+dependencies = [
+ "petgraph",
 ]
 
 [[package]]

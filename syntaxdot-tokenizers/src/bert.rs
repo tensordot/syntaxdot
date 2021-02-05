@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-use conllu::graph::{Node, Sentence};
+use udgraph::graph::{Node, Sentence};
 use wordpieces::WordPieces;
 
 use super::{SentenceWithPieces, Tokenize};
