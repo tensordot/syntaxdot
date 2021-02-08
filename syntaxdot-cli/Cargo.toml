@@ -22,7 +22,7 @@ indicatif = "0.15"
 itertools = "0.10"
 log = "0.4"
 ndarray = "0.14"
-ordered-float = { version = "1", features = ["serde"] }
+ordered-float = { version = "2", features = ["serde"] }
 serde_yaml = "0.8"
 stdinout = "0.4"
 syntaxdot = { path = "../syntaxdot", version = "0.3.0-beta", default-features = false }
