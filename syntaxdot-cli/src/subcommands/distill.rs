@@ -170,18 +170,21 @@ impl DistillApp {
         let teacher_head_probs = teacher_logits
             .head_score_logits
             .f_softmax(-1, Kind::Float)?;
-        let teacher_score_mask = teacher_token_mask
+
+        let teacher_token_mask_with_root = Self::create_token_mask_with_root(teacher_token_mask)?;
+        let teacher_score_mask = teacher_token_mask_with_root
             .unsqueeze(1)
-            .logical_and(&teacher_token_mask.unsqueeze(-1));
+            .logical_and(&teacher_token_mask_with_root.unsqueeze(-1));
         let teacher_head_probs = teacher_head_probs.masked_select(&teacher_score_mask);
 
         // Compute student log scores.
         let student_head_logprobs = student_logits
             .head_score_logits
             .f_log_softmax(-1, Kind::Float)?;
-        let student_score_mask = student_token_mask
+        let student_token_mask_with_root = Self::create_token_mask_with_root(student_token_mask)?;
+        let student_score_mask = student_token_mask_with_root
             .unsqueeze(1)
-            .logical_and(&student_token_mask.unsqueeze(-1));
+            .logical_and(&student_token_mask_with_root.unsqueeze(-1));
         let student_head_logprobs = student_head_logprobs.masked_select(&student_score_mask);
 
         let head_soft_loss =
@@ -212,6 +215,14 @@ impl DistillApp {
             .f_mean(Kind::Float)?;
 
         Ok(head_soft_loss.f_add(&relation_soft_loss)?)
+    }
+
+    fn create_token_mask_with_root(token_mask: &Tensor) -> Result<Tensor, SyntaxDotError> {
+        let teacher_token_mask_with_root = token_mask.copy();
+        let _ = teacher_token_mask_with_root
+            .f_slice(1, 0, 1, 1)?
+            .f_fill_(1)?;
+        Ok(teacher_token_mask_with_root)
     }
 
     /// Convert heads identifiers.
