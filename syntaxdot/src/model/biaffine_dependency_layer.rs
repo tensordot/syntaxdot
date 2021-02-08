@@ -19,11 +19,14 @@ use syntaxdot_transformers::module::FallibleModuleT;
 /// Accuracy of a biaffine parsing layer.
 #[derive(Debug)]
 pub struct BiaffineAccuracy {
-    /// Unlabeled attachment score.
-    pub uas: Tensor,
-
     /// Labeled attachment score.
     pub las: Tensor,
+
+    /// Label score.
+    pub ls: Tensor,
+
+    /// Unlabeled attachment score.
+    pub uas: Tensor,
 }
 
 /// Loss of a biaffine parsing layer.
@@ -327,11 +330,11 @@ impl BiaffineDependencyLayer {
             .forward(&label_score_logits, &relation_targets)?;
 
         // Compute greedy decoding accuracy.
-        let (uas, las) =
+        let acc =
             tch::no_grad(|| Self::greedy_decode_accuracy(&biaffine_logits, targets, &token_mask))?;
 
         Ok(BiaffineLoss {
-            acc: BiaffineAccuracy { uas, las },
+            acc,
             head_loss,
             relation_loss,
         })
@@ -342,7 +345,7 @@ impl BiaffineDependencyLayer {
         biaffine_score_logits: &BiaffineScoreLogits,
         targets: &BiaffineTensors<Tensor>,
         token_mask: &Tensor,
-    ) -> Result<(Tensor, Tensor), SyntaxDotError> {
+    ) -> Result<BiaffineAccuracy, SyntaxDotError> {
         let (batch_size, seq_len) = token_mask.size2()?;
 
         let head_predicted = biaffine_score_logits
@@ -361,13 +364,16 @@ impl BiaffineDependencyLayer {
 
         let head_and_relations_correct = head_correct.f_logical_and(&relations_correct)?;
 
-        let uas = head_correct
-            .f_masked_select(&token_mask)?
-            .f_mean(Kind::Float)?;
         let las = head_and_relations_correct
             .f_masked_select(&token_mask)?
             .f_mean(Kind::Float)?;
+        let ls = relations_correct
+            .f_masked_select(&token_mask)?
+            .f_mean(Kind::Float)?;
+        let uas = head_correct
+            .f_masked_select(&token_mask)?
+            .f_mean(Kind::Float)?;
 
-        Ok((uas, las))
+        Ok(BiaffineAccuracy { las, ls, uas })
     }
 }
