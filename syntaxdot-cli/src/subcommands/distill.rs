@@ -728,19 +728,25 @@ impl DistillApp {
             self.summary_writer.write_scalar(
                 "loss:validation,biaffine:head",
                 global_step as i64,
-                biaffine_stats.head_loss,
+                biaffine_stats.head_loss / epoch_stats.n_tokens as f32,
             )?;
 
             self.summary_writer.write_scalar(
                 "loss:validation,biaffine:relation",
                 global_step as i64,
-                biaffine_stats.relation_loss,
+                biaffine_stats.relation_loss / epoch_stats.n_tokens as f32,
             )?;
 
             self.summary_writer.write_scalar(
                 "las:validation,biaffine",
                 global_step as i64,
                 biaffine_stats.las / epoch_stats.n_tokens as f32,
+            )?;
+
+            self.summary_writer.write_scalar(
+                "ls:validation,biaffine",
+                global_step as i64,
+                biaffine_stats.ls / epoch_stats.n_tokens as f32,
             )?;
 
             self.summary_writer.write_scalar(
