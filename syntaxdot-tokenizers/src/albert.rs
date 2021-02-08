@@ -26,7 +26,7 @@ impl AlbertTokenizer {
     where
         P: AsRef<Path>,
     {
-        let spp = SentencePieceProcessor::load(&model.as_ref().to_string_lossy())?;
+        let spp = SentencePieceProcessor::open(model)?;
         Ok(Self::new(spp))
     }
 }
