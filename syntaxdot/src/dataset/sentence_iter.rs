@@ -3,6 +3,7 @@ use rand_xorshift::XorShiftRng;
 use syntaxdot_tokenizers::SentenceWithPieces;
 
 use crate::dataset::SequenceLength;
+use crate::error::SyntaxDotError;
 use crate::util::RandomRemoveVec;
 
 /// Trait providing adapters for `SentenceWithPieces` iterators.
@@ -18,7 +19,7 @@ pub trait SentenceIter: Sized {
 
 impl<I> SentenceIter for I
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
 {
     fn filter_by_len(self, max_len: SequenceLength) -> LengthFilter<Self> {
         LengthFilter {
@@ -44,9 +45,9 @@ pub struct LengthFilter<I> {
 
 impl<I> Iterator for LengthFilter<I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
 {
-    type Item = Result<SentenceWithPieces, conllu::IOError>;
+    type Item = Result<SentenceWithPieces, SyntaxDotError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(sent) = self.inner.next() {
@@ -84,9 +85,9 @@ pub struct Shuffled<I> {
 
 impl<I> Iterator for Shuffled<I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
 {
-    type Item = Result<SentenceWithPieces, conllu::IOError>;
+    type Item = Result<SentenceWithPieces, SyntaxDotError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.buffer.is_empty() {

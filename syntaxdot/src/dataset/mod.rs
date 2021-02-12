@@ -10,6 +10,9 @@ use crate::tensor::Tensors;
 mod conll;
 pub use conll::ConlluDataSet;
 
+mod plaintext;
+pub use plaintext::PlainTextDataSet;
+
 pub(crate) mod tensor_iter;
 
 pub(crate) mod sentence_iter;

@@ -3,14 +3,21 @@ use std::os::raw::c_int;
 
 use anyhow::Result;
 
-pub fn count_conllu_sentences(buf_read: impl BufRead) -> Result<usize> {
+pub fn count_sentences(mut buf_read: impl BufRead) -> Result<usize> {
     let mut n_sents = 0;
 
-    for line in buf_read.lines() {
-        let line = line?;
-        if line.starts_with("1\t") {
-            n_sents += 1;
+    loop {
+        let buf = buf_read.fill_buf()?;
+
+        if buf.is_empty() {
+            break;
         }
+
+        n_sents += bytecount::count(buf, b'\n');
+
+        // Satisfy borrows checker.
+        let buf_len = buf.len();
+        buf_read.consume(buf_len);
     }
 
     Ok(n_sents)

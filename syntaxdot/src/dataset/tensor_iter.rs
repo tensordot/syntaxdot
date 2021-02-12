@@ -12,7 +12,7 @@ use crate::tensor::{TensorBuilder, Tensors};
 /// An iterator returning input and (optionally) output tensors.
 pub struct TensorIter<'a, I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
 {
     pub batch_size: usize,
     pub biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
@@ -22,7 +22,7 @@ where
 
 impl<'a, I> TensorIter<'a, I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
 {
     fn next_with_labels(
         &mut self,
@@ -143,7 +143,7 @@ where
 
 impl<'a, I> Iterator for TensorIter<'a, I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, conllu::IOError>>,
+    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
 {
     type Item = Result<Tensors, SyntaxDotError>;
 
@@ -152,7 +152,7 @@ where
         while let Some(sentence) = self.sentences.next() {
             let sentence = match sentence {
                 Ok(sentence) => sentence,
-                Err(err) => return Some(Err(err.into())),
+                Err(err) => return Some(Err(err)),
             };
             batch_sentences.push(sentence);
             if batch_sentences.len() == self.batch_size {
