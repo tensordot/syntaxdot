@@ -45,7 +45,7 @@ impl Tagger {
         &self,
         sentences: &mut [impl BorrowMut<SentenceWithPieces>],
     ) -> Result<(), SyntaxDotError> {
-        let tensors = self.prepare_batch(sentences)?;
+        let tensors = self.prepare_batch(sentences);
 
         // Get model predictions.
         let attention_mask = seq_len_to_mask(&tensors.seq_lens, tensors.inputs.size()[1])?;
@@ -76,10 +76,7 @@ impl Tagger {
     }
 
     /// Construct the tensor representations of a batch of sentences.
-    fn prepare_batch(
-        &self,
-        sentences: &[impl Borrow<SentenceWithPieces>],
-    ) -> Result<Tensors, SyntaxDotError> {
+    fn prepare_batch(&self, sentences: &[impl Borrow<SentenceWithPieces>]) -> Tensors {
         let max_seq_len = sentences
             .iter()
             .map(|sentence| sentence.borrow().pieces.len())
@@ -100,7 +97,7 @@ impl Tagger {
             builder.add_without_labels(input.view(), token_mask.view());
         }
 
-        Ok(builder.into())
+        builder.into()
     }
 
     /// Decode biaffine score matrices.

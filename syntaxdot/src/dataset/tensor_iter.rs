@@ -30,7 +30,7 @@ where
         max_seq_len: usize,
         biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
         encoders: &'a [NamedEncoder],
-    ) -> Option<Result<Tensors, SyntaxDotError>> {
+    ) -> Result<Tensors, SyntaxDotError> {
         let mut builder = TensorBuilder::new_with_labels(
             tokenized_sentences.len(),
             max_seq_len,
@@ -46,12 +46,12 @@ where
 
             let biaffine_encoding = match Self::encode_biaffine(biaffine_encoder, &sentence) {
                 Ok(biaffine_encoding) => biaffine_encoding,
-                Err(err) => return Some(Err(err)),
+                Err(err) => return Err(err),
             };
 
             let sequence_encoding = match Self::encode_sequence(encoders, &sentence) {
                 Ok(sequence_encoding) => sequence_encoding,
-                Err(err) => return Some(Err(err)),
+                Err(err) => return Err(err),
             };
 
             builder.add_with_labels(
@@ -62,7 +62,7 @@ where
             );
         }
 
-        Some(Ok(builder.into()))
+        Ok(builder.into())
     }
 
     fn encode_sequence<'e>(
@@ -123,7 +123,7 @@ where
         &mut self,
         tokenized_sentences: Vec<SentenceWithPieces>,
         max_seq_len: usize,
-    ) -> Option<Result<Tensors, SyntaxDotError>> {
+    ) -> Tensors {
         let mut builder: TensorBuilder =
             TensorBuilder::new_without_labels(tokenized_sentences.len(), max_seq_len);
 
@@ -137,7 +137,7 @@ where
             builder.add_without_labels(input.view(), token_mask.view());
         }
 
-        Some(Ok(builder.into()))
+        builder.into()
     }
 }
 
@@ -171,14 +171,14 @@ where
             .max()
             .unwrap_or(0);
 
-        match self.encoders {
+        Some(match self.encoders {
             Some(encoders) => self.next_with_labels(
                 batch_sentences,
                 max_seq_len,
                 self.biaffine_encoder,
                 encoders,
             ),
-            None => self.next_without_labels(batch_sentences, max_seq_len),
-        }
+            None => Ok(self.next_without_labels(batch_sentences, max_seq_len)),
+        })
     }
 }
