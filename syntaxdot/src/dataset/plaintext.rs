@@ -1,8 +1,8 @@
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 
-use conllu::io::{ReadSentence, Reader};
 use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tokenizers::{SentenceWithPieces, Tokenize};
+use udgraph::token::Token;
 
 use crate::dataset::sentence_iter::SentenceIter;
 use crate::dataset::tensor_iter::TensorIter;
@@ -11,12 +11,12 @@ use crate::encoders::NamedEncoder;
 use crate::error::SyntaxDotError;
 
 /// A CoNLL-X data set.
-pub struct ConlluDataSet<R>(R);
+pub struct PlainTextDataSet<R>(R);
 
-impl<R> ConlluDataSet<R> {
+impl<R> PlainTextDataSet<R> {
     /// Construct a CoNLL-X dataset.
     pub fn new(read: R) -> Self {
-        ConlluDataSet(read)
+        Self(read)
     }
 
     /// Returns an `Iterator` over `Result<Sentence, Error>`.
@@ -31,16 +31,30 @@ impl<R> ConlluDataSet<R> {
         tokenizer: &'a dyn Tokenize,
     ) -> impl 'a + Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>
     where
-        R: ReadSentence + 'a,
+        R: BufRead + 'a,
     {
         reader
-            .sentences()
+            .lines()
+            // Filter empty lines.
+            .filter(|line| line.as_ref().map(|l| !l.is_empty()).unwrap_or(true))
+            // Split lines into tokens.
+            .map(|line| {
+                line.map(|l| {
+                    l.trim()
+                        .split_terminator(' ')
+                        .map(ToString::to_string)
+                        .map(Token::new)
+                        .collect()
+                })
+            })
+            // Apply piece tokenization.
             .map(move |s| s.map(|s| tokenizer.tokenize(s)))
-            .map(|s| s.map_err(SyntaxDotError::ConlluIOError))
+            // Convert errors.
+            .map(|s| s.map_err(SyntaxDotError::IOError))
     }
 }
 
-impl<'a, R> DataSet<'a> for &'a mut ConlluDataSet<R>
+impl<'a, R> DataSet<'a> for &'a mut PlainTextDataSet<R>
 where
     R: Read + Seek,
 {
@@ -59,9 +73,8 @@ where
         // Rewind to the beginning of the dataset (if necessary).
         self.0.seek(SeekFrom::Start(0))?;
 
-        let reader = Reader::new(BufReader::new(&mut self.0));
-
-        let sentence_iter = ConlluDataSet::get_sentence_iter(reader, tokenizer);
+        let sentence_iter =
+            PlainTextDataSet::get_sentence_iter(BufReader::new(&mut self.0), tokenizer);
 
         let sentences: Box<dyn Iterator<Item = _>> = match (max_len, shuffle_buffer_size) {
             (Some(max_len), None) => Box::new(sentence_iter.filter_by_len(max_len)),

@@ -12,7 +12,7 @@ use itertools::{izip, Itertools};
 use ndarray::{Array2, ArrayD};
 use ordered_float::NotNan;
 use syntaxdot::config::Config;
-use syntaxdot::dataset::{ConlluDataSet, DataSet, SequenceLength};
+use syntaxdot::dataset::{ConlluDataSet, DataSet, PlainTextDataSet, SequenceLength};
 use syntaxdot::encoders::Encoders;
 use syntaxdot::error::SyntaxDotError;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule};
@@ -34,7 +34,7 @@ use crate::summary::{ScalarWriter, SummaryOption};
 use crate::traits::{
     ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
 };
-use crate::util::{autocast_or_preserve, count_conllu_sentences};
+use crate::util::{autocast_or_preserve, count_sentences};
 
 const ATTENTION_LOSS: &str = "ATTENTION_LOSS";
 const BATCH_SIZE: &str = "BATCH_SIZE";
@@ -635,12 +635,12 @@ impl DistillApp {
         Ok(())
     }
 
-    fn open_dataset(file: &File) -> Result<ConlluDataSet<impl Read + Seek>> {
+    fn open_dataset(file: &File) -> Result<PlainTextDataSet<impl Read + Seek>> {
         let read = BufReader::new(
             file.try_clone()
                 .context("Cannot open data set for reading")?,
         );
-        Ok(ConlluDataSet::new(read))
+        Ok(PlainTextDataSet::new(read))
     }
 
     fn fresh_student(
@@ -1247,7 +1247,7 @@ impl TrainDuration {
                         "[Time: {elapsed_precise}, ETA: {eta_precise}] {bar} {percent}%",
                     ));
 
-                let n_sentences = count_conllu_sentences(BufReader::new(read_progress))?;
+                let n_sentences = count_sentences(BufReader::new(read_progress))?;
 
                 progress_bar.finish_and_clear();
 
