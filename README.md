@@ -39,6 +39,7 @@ task, but so far the focus has been on:
 ## Documentation
 
 * [Installation](doc/install.md)
+* [Finetuning](doc/finetune.md) (training)
 
 ## References
 
