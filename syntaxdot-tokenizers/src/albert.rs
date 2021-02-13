@@ -106,7 +106,7 @@ mod tests {
     }
 
     fn albert_tokenizer() -> AlbertTokenizer {
-        let spp = SentencePieceProcessor::load(env!("ALBERT_BASE_V2_SENTENCEPIECE")).unwrap();
+        let spp = SentencePieceProcessor::open(env!("ALBERT_BASE_V2_SENTENCEPIECE")).unwrap();
         AlbertTokenizer::new(spp)
     }
 
