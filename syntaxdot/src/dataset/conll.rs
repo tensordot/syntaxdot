@@ -1,13 +1,9 @@
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::io::{BufRead, Seek, SeekFrom};
 
-use conllu::io::{ReadSentence, Reader};
-use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
+use conllu::io::{ReadSentence, Reader, Sentences};
 use syntaxdot_tokenizers::{SentenceWithPieces, Tokenize};
 
-use crate::dataset::sentence_iter::SentenceIter;
-use crate::dataset::tensor_iter::TensorIter;
-use crate::dataset::{DataSet, SequenceLength};
-use crate::encoders::NamedEncoder;
+use crate::dataset::DataSet;
 use crate::error::SyntaxDotError;
 
 /// A CoNLL-X data set.
@@ -18,69 +14,45 @@ impl<R> ConlluDataSet<R> {
     pub fn new(read: R) -> Self {
         ConlluDataSet(read)
     }
-
-    /// Returns an `Iterator` over `Result<Sentence, Error>`.
-    ///
-    /// Depending on the parameters the returned iterator filters
-    /// sentences by their lengths or returns the sentences in
-    /// sequence without filtering them.
-    ///
-    /// If `max_len` == `None`, no filtering is performed.
-    fn get_sentence_iter<'a>(
-        reader: R,
-        tokenizer: &'a dyn Tokenize,
-    ) -> impl 'a + Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>
-    where
-        R: ReadSentence + 'a,
-    {
-        reader
-            .sentences()
-            .map(move |s| s.map(|s| tokenizer.tokenize(s)))
-            .map(|s| s.map_err(SyntaxDotError::ConlluIOError))
-    }
 }
 
 impl<'a, R> DataSet<'a> for &'a mut ConlluDataSet<R>
 where
-    R: Read + Seek,
+    R: BufRead + Seek,
 {
-    type Iter =
-        TensorIter<'a, Box<dyn Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>> + 'a>>;
+    type Iter = ConllIter<'a, Reader<&'a mut R>>;
 
-    fn batches(
-        self,
-        tokenizer: &'a dyn Tokenize,
-        biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
-        encoders: Option<&'a [NamedEncoder]>,
-        batch_size: usize,
-        max_len: Option<SequenceLength>,
-        shuffle_buffer_size: Option<usize>,
-    ) -> Result<Self::Iter, SyntaxDotError> {
+    fn sentences(self, tokenizer: &'a dyn Tokenize) -> Result<Self::Iter, SyntaxDotError> {
         // Rewind to the beginning of the dataset (if necessary).
         self.0.seek(SeekFrom::Start(0))?;
 
-        let reader = Reader::new(BufReader::new(&mut self.0));
+        let reader = Reader::new(&mut self.0);
 
-        let sentence_iter = ConlluDataSet::get_sentence_iter(reader, tokenizer);
+        Ok(ConllIter {
+            sentences: reader.sentences(),
+            tokenizer,
+        })
+    }
+}
 
-        let sentences: Box<dyn Iterator<Item = _>> = match (max_len, shuffle_buffer_size) {
-            (Some(max_len), None) => Box::new(sentence_iter.filter_by_len(max_len)),
-            (None, Some(shuffle_buffer_size)) => {
-                Box::new(sentence_iter.shuffle(shuffle_buffer_size))
-            }
-            (Some(max_len), Some(shuffle_buffer_size)) => Box::new(
-                sentence_iter
-                    .filter_by_len(max_len)
-                    .shuffle(shuffle_buffer_size),
-            ),
-            (None, None) => Box::new(sentence_iter),
-        };
+pub struct ConllIter<'a, R>
+where
+    R: ReadSentence,
+{
+    sentences: Sentences<R>,
+    tokenizer: &'a dyn Tokenize,
+}
 
-        Ok(TensorIter {
-            batch_size,
-            biaffine_encoder,
-            encoders,
-            sentences,
+impl<'a, R> Iterator for ConllIter<'a, R>
+where
+    R: ReadSentence,
+{
+    type Item = Result<SentenceWithPieces, SyntaxDotError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.sentences.next().map(|s| {
+            s.map(|s| self.tokenizer.tokenize(s))
+                .map_err(SyntaxDotError::ConlluIOError)
         })
     }
 }

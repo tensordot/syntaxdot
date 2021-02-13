@@ -2,24 +2,39 @@ use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
 use syntaxdot_tokenizers::SentenceWithPieces;
 
-use crate::dataset::SequenceLength;
 use crate::error::SyntaxDotError;
 use crate::util::RandomRemoveVec;
 
+/// The length of a sequence.
+///
+/// This enum can be used to express the (maximum) length of a
+/// sentence in tokens or in pieces.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum SequenceLength {
+    Tokens(usize),
+    Pieces(usize),
+    Unbounded,
+}
+
 /// Trait providing adapters for `SentenceWithPieces` iterators.
-pub trait SentenceIter: Sized {
+pub trait SentenceIterTools<'a>: Sized {
     /// Filter sentences by their length.
+    ///
+    /// If `max_len` is `None`, then the sentences will not be
+    /// filtered by length.
     fn filter_by_len(self, max_len: SequenceLength) -> LengthFilter<Self>;
 
     /// Shuffle sentences.
     ///
-    /// `buffer_size` is the size of the shuffle buffer that should be used.
+    /// `buffer_size` is the size of the shuffle buffer that should be
+    /// used. If `buffer_size` is `None`, then the sentences will not
+    /// be shuffled.
     fn shuffle(self, buffer_size: usize) -> Shuffled<Self>;
 }
 
-impl<I> SentenceIter for I
+impl<'a, I> SentenceIterTools<'a> for I
 where
-    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
+    I: 'a + Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
 {
     fn filter_by_len(self, max_len: SequenceLength) -> LengthFilter<Self> {
         LengthFilter {
@@ -60,6 +75,7 @@ where
                 SequenceLength::Tokens(max_len) => {
                     sent.as_ref().map(|s| s.token_offsets.len()).unwrap_or(0) > max_len
                 }
+                SequenceLength::Unbounded => false,
             };
 
             if too_long {

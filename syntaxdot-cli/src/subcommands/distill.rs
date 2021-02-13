@@ -3,7 +3,7 @@ use std::collections::btree_map::{BTreeMap, Entry};
 use std::collections::{HashMap, VecDeque};
 use std::convert::TryInto;
 use std::fs::{self, File};
-use std::io::{BufReader, Read, Seek};
+use std::io::{BufRead, BufReader, Seek};
 
 use anyhow::{bail, Context, Result};
 use clap::{App, Arg, ArgMatches};
@@ -12,7 +12,9 @@ use itertools::{izip, Itertools};
 use ndarray::{Array2, ArrayD};
 use ordered_float::NotNan;
 use syntaxdot::config::Config;
-use syntaxdot::dataset::{ConlluDataSet, DataSet, PlainTextDataSet, SequenceLength};
+use syntaxdot::dataset::{
+    BatchedTensors, ConlluDataSet, DataSet, PlainTextDataSet, SentenceIterTools, SequenceLength,
+};
 use syntaxdot::encoders::Encoders;
 use syntaxdot::error::SyntaxDotError;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule};
@@ -83,7 +85,7 @@ pub struct DistillApp {
     device: Device,
     eval_steps: usize,
     keep_best_steps: Option<usize>,
-    max_len: Option<SequenceLength>,
+    max_len: SequenceLength,
     mixed_precision: bool,
     lr_schedules: RefCell<LearningRateSchedules>,
     student_config: String,
@@ -324,23 +326,15 @@ impl DistillApp {
             let mut teacher_train_dataset = Self::open_dataset(&teacher_train_file)?;
             let mut student_train_dataset = Self::open_dataset(&student_train_file)?;
 
-            let teacher_train_batches = teacher_train_dataset.batches(
-                &*teacher.tokenizer,
-                None,
-                None,
-                self.batch_size,
-                self.max_len,
-                None,
-            )?;
+            let teacher_train_batches = teacher_train_dataset
+                .sentences(&*teacher.tokenizer)?
+                .filter_by_len(self.max_len)
+                .batched_tensors(None, None, self.batch_size);
 
-            let student_train_batches = student_train_dataset.batches(
-                &*student.tokenizer,
-                None,
-                None,
-                self.batch_size,
-                self.max_len,
-                None,
-            )?;
+            let student_train_batches = student_train_dataset
+                .sentences(&*student.tokenizer)?
+                .filter_by_len(self.max_len)
+                .batched_tensors(None, None, self.batch_size);
 
             for (teacher_steps, student_steps) in teacher_train_batches
                 .chunks(self.eval_steps)
@@ -635,7 +629,7 @@ impl DistillApp {
         Ok(())
     }
 
-    fn open_dataset(file: &File) -> Result<PlainTextDataSet<impl Read + Seek>> {
+    fn open_dataset(file: &File) -> Result<PlainTextDataSet<impl BufRead + Seek>> {
         let read = BufReader::new(
             file.try_clone()
                 .context("Cannot open data set for reading")?,
@@ -806,7 +800,7 @@ impl DistillApp {
             "[Time: {elapsed_precise}, ETA: {eta_precise}] {bar} {percent}% validation {msg}",
         ));
 
-        let mut dataset = ConlluDataSet::new(read_progress);
+        let mut dataset = ConlluDataSet::new(BufReader::new(read_progress));
 
         let mut biaffine_las = 0f32;
         let mut biaffine_ls = 0f32;
@@ -818,14 +812,11 @@ impl DistillApp {
 
         let mut n_tokens = 0;
 
-        for batch in dataset.batches(
-            tokenizer,
-            biaffine_encoder,
-            Some(encoders),
-            self.batch_size,
-            self.max_len,
-            None,
-        )? {
+        for batch in dataset
+            .sentences(tokenizer)?
+            .filter_by_len(self.max_len)
+            .batched_tensors(biaffine_encoder, Some(encoders), self.batch_size)
+        {
             let batch = batch?;
 
             let n_batch_tokens = i64::from(batch.token_mask.f_sum(Kind::Int64)?);
@@ -1132,7 +1123,8 @@ impl SyntaxDotApp for DistillApp {
             .value_of(MAX_LEN)
             .map(|v| v.parse().context("Cannot parse maximum sentence length"))
             .transpose()?
-            .map(SequenceLength::Tokens);
+            .map(SequenceLength::Tokens)
+            .unwrap_or(SequenceLength::Unbounded);
         let mixed_precision = matches.is_present(MIXED_PRECISION);
         let warmup_steps = matches
             .value_of(WARMUP)
