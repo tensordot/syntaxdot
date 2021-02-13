@@ -104,7 +104,7 @@ mod tests {
     }
 
     fn xlm_roberta_tokenizer() -> XlmRobertaTokenizer {
-        let spp = SentencePieceProcessor::load(env!("XLM_ROBERTA_BASE_SENTENCEPIECE")).unwrap();
+        let spp = SentencePieceProcessor::open(env!("XLM_ROBERTA_BASE_SENTENCEPIECE")).unwrap();
         XlmRobertaTokenizer::from(spp)
     }
 
