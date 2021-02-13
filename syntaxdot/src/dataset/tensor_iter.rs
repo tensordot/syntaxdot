@@ -9,6 +9,47 @@ use crate::encoders::NamedEncoder;
 use crate::error::SyntaxDotError;
 use crate::tensor::{TensorBuilder, Tensors};
 
+pub trait BatchedTensors<'a> {
+    /// Get an iterator over batch tensors.
+    ///
+    /// The sequence labels using the `encoders`, syntactic
+    /// dependencies using `biaffine_encoder`.
+    ///
+    /// If `encoders` is not `None`, output tensors will be created
+    /// for the sequence labels in the data set.
+    ///
+    /// If `biaffine_encoder` is not `None`, output tensors will be
+    /// created dependency heads and relations.
+    #[allow(clippy::type_complexity)]
+    fn batched_tensors(
+        self,
+        biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
+        encoders: Option<&'a [NamedEncoder]>,
+        batch_size: usize,
+    ) -> TensorIter<'a, Box<dyn Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>> + 'a>>;
+}
+
+impl<'a, I> BatchedTensors<'a> for I
+where
+    I: 'a + Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
+{
+    #[allow(clippy::type_complexity)]
+    fn batched_tensors(
+        self,
+        biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
+        encoders: Option<&'a [NamedEncoder]>,
+        batch_size: usize,
+    ) -> TensorIter<'a, Box<dyn Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>> + 'a>>
+    {
+        TensorIter {
+            batch_size,
+            biaffine_encoder,
+            encoders,
+            sentences: Box::new(self),
+        }
+    }
+}
+
 /// An iterator returning input and (optionally) output tensors.
 pub struct TensorIter<'a, I>
 where

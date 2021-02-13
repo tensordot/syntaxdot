@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
 use std::fs::File;
+use std::io::BufReader;
 
 use anyhow::{Context, Result};
 use clap::{App, Arg, ArgMatches};
 use indicatif::ProgressStyle;
 use ordered_float::NotNan;
-use syntaxdot::dataset::{ConlluDataSet, DataSet, SequenceLength};
+use syntaxdot::dataset::{
+    BatchedTensors, ConlluDataSet, DataSet, SentenceIterTools, SequenceLength,
+};
 use syntaxdot::encoders::Encoders;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule, PlateauLearningRate};
 use syntaxdot::model::bert::{BertModel, FreezeLayers};
@@ -61,7 +64,7 @@ pub struct FinetuneApp {
     continue_finetune: bool,
     device: Device,
     finetune_embeds: bool,
-    max_len: Option<SequenceLength>,
+    max_len: SequenceLength,
     label_smoothing: Option<f64>,
     mixed_precision: bool,
     summary_writer: Box<dyn ScalarWriter>,
@@ -243,7 +246,7 @@ impl FinetuneApp {
             epoch_type
         )));
 
-        let mut dataset = ConlluDataSet::new(read_progress);
+        let mut dataset = ConlluDataSet::new(BufReader::new(read_progress));
 
         let mut n_tokens = 0;
 
@@ -257,14 +260,11 @@ impl FinetuneApp {
         let mut encoder_accuracy = BTreeMap::new();
         let mut encoder_loss = BTreeMap::new();
 
-        for batch in dataset.batches(
-            tokenizer,
-            biaffine_encoder,
-            Some(encoders),
-            self.batch_size,
-            self.max_len,
-            None,
-        )? {
+        for batch in dataset
+            .sentences(tokenizer)?
+            .filter_by_len(self.max_len)
+            .batched_tensors(biaffine_encoder, Some(encoders), self.batch_size)
+        {
             let batch = batch?;
 
             let (lr_classifier, lr_encoder) = if epoch == 0 {
@@ -591,7 +591,8 @@ impl SyntaxDotApp for FinetuneApp {
                     .context(format!("Cannot parse maximum sentence length: {}", v))
             })
             .transpose()?
-            .map(SequenceLength::Pieces);
+            .map(SequenceLength::Pieces)
+            .unwrap_or(SequenceLength::Unbounded);
         let include_continuations = matches.is_present(INCLUDE_CONTINUATIONS);
         let lr_decay_rate = matches
             .value_of(LR_DECAY_RATE)
