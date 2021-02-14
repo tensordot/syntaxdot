@@ -56,3 +56,46 @@ where
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::{BufReader, Cursor};
+
+    use crate::dataset::tests::{dataset_to_pieces, wordpiece_tokenizer, CORRECT_PIECE_IDS};
+    use crate::dataset::ConlluDataSet;
+
+    const SENTENCES: &str = r#"
+1	Dit
+2	is
+3	de
+4	eerste
+5	zin
+6	.
+
+1	Dit
+2	de
+3	tweede
+4	zin
+5	.
+
+1	En
+2	nu
+3	de
+4	laatste
+5	zin
+6	."#;
+
+    #[test]
+    fn plain_text_dataset_works() {
+        let tokenizer = wordpiece_tokenizer();
+        let mut cursor = Cursor::new(SENTENCES);
+        let mut dataset = ConlluDataSet::new(BufReader::new(&mut cursor));
+
+        let pieces = dataset_to_pieces(&mut dataset, &tokenizer).unwrap();
+        assert_eq!(pieces, *CORRECT_PIECE_IDS);
+
+        // Verify that the data set is correctly read again.
+        let more_pieces = dataset_to_pieces(&mut dataset, &tokenizer).unwrap();
+        assert_eq!(more_pieces, *CORRECT_PIECE_IDS);
+    }
+}

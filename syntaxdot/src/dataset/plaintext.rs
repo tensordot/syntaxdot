@@ -72,3 +72,31 @@ where
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::{BufReader, Cursor};
+
+    use crate::dataset::tests::{dataset_to_pieces, wordpiece_tokenizer, CORRECT_PIECE_IDS};
+    use crate::dataset::PlainTextDataSet;
+
+    const SENTENCES: &str = r#"
+Dit is de eerste zin .
+Dit de tweede zin .
+
+En nu de laatste zin ."#;
+
+    #[test]
+    fn plain_text_dataset_works() {
+        let tokenizer = wordpiece_tokenizer();
+        let mut cursor = Cursor::new(SENTENCES);
+        let mut dataset = PlainTextDataSet::new(BufReader::new(&mut cursor));
+
+        let pieces = dataset_to_pieces(&mut dataset, &tokenizer).unwrap();
+        assert_eq!(pieces, *CORRECT_PIECE_IDS);
+
+        // Verify that the data set is correctly read again.
+        let more_pieces = dataset_to_pieces(&mut dataset, &tokenizer).unwrap();
+        assert_eq!(more_pieces, *CORRECT_PIECE_IDS);
+    }
+}

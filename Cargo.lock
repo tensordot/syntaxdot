@@ -1251,6 +1251,7 @@ version = "0.3.0-beta.0"
 dependencies = [
  "approx 0.3.2",
  "conllu",
+ "lazy_static",
  "log",
  "maplit",
  "ndarray",
@@ -1268,6 +1269,7 @@ dependencies = [
  "thiserror",
  "toml",
  "udgraph",
+ "wordpieces",
 ]
 
 [[package]]
