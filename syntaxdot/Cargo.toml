@@ -30,5 +30,6 @@ udgraph = "0.6"
 
 [dev-dependencies]
 approx = "0.3"
+lazy_static = "1"
 maplit = "1"
-
+wordpieces = "0.4"
