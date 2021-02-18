@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::BufReader;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::{App, Arg, ArgMatches};
 use indicatif::ProgressStyle;
 use ordered_float::NotNan;
@@ -38,6 +38,7 @@ const INITIAL_LR_ENCODER: &str = "INITIAL_LR_ENCODER";
 const LABEL_SMOOTHING: &str = "LABEL_SMOOTHING";
 const MIXED_PRECISION: &str = "MIXED_PRECISION";
 const INCLUDE_CONTINUATIONS: &str = "INCLUDE_CONTINUATIONS";
+const KEEP_BEST_EPOCHS: &str = "KEEP_BEST_EPOCHS";
 const LR_DECAY_RATE: &str = "LR_DECAY_RATE";
 const LR_PATIENCE: &str = "LR_PATIENCE";
 const LR_SCALE: &str = "LR_SCALE";
@@ -469,6 +470,12 @@ impl SyntaxDotApp for FinetuneApp {
                     .default_value("5e-5"),
             )
             .arg(
+                Arg::with_name(KEEP_BEST_EPOCHS)
+                    .long("keep-best")
+                    .value_name("N")
+                    .help("Only keep the N best epochs"),
+            )
+            .arg(
                 Arg::with_name(LABEL_SMOOTHING)
                     .long("label-smoothing")
                     .value_name("PROB")
@@ -594,6 +601,18 @@ impl SyntaxDotApp for FinetuneApp {
             .map(SequenceLength::Pieces)
             .unwrap_or(SequenceLength::Unbounded);
         let include_continuations = matches.is_present(INCLUDE_CONTINUATIONS);
+
+        let keep_best_epochs = matches
+            .value_of(KEEP_BEST_EPOCHS)
+            .map(|n| {
+                n.parse()
+                    .context("Cannot parse number of best steps to keep")
+            })
+            .transpose()?;
+        if keep_best_epochs == Some(0) {
+            bail!("Refusing to keep zero epochs")
+        }
+
         let lr_decay_rate = matches
             .value_of(LR_DECAY_RATE)
             .unwrap()
@@ -614,7 +633,7 @@ impl SyntaxDotApp for FinetuneApp {
             .unwrap()
             .parse()
             .context("Cannot parse patience")?;
-        let saver = BestEpochSaver::new("");
+        let saver = BestEpochSaver::new("", keep_best_epochs);
         let warmup_steps = matches
             .value_of(WARMUP)
             .unwrap()
