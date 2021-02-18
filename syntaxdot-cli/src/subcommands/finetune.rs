@@ -86,6 +86,7 @@ pub struct LearningRateSchedules {
 
 struct BiaffineEpochStats {
     las: f32,
+    ls: f32,
     uas: f32,
     head_loss: f32,
     relation_loss: f32,
@@ -165,11 +166,12 @@ impl FinetuneApp {
             accs.push(biaffine_stats.las / epoch_stats.n_tokens as f32);
 
             log::info!(
-                "biaffine head loss: {:.4}, rel loss: {:.4}, las: {:.4}, uas: {:.4}",
+                "biaffine head loss: {:.4}, rel loss: {:.4}, las: {:.4}, uas: {:.4}, ls: {:.4}",
                 biaffine_stats.head_loss / epoch_stats.n_tokens as f32,
                 biaffine_stats.relation_loss / epoch_stats.n_tokens as f32,
                 biaffine_stats.las / epoch_stats.n_tokens as f32,
-                biaffine_stats.uas / epoch_stats.n_tokens as f32
+                biaffine_stats.uas / epoch_stats.n_tokens as f32,
+                biaffine_stats.ls / epoch_stats.n_tokens as f32
             );
 
             self.summary_writer.write_scalar(
@@ -188,6 +190,12 @@ impl FinetuneApp {
                 &format!("las:{},biaffine", epoch_type),
                 *global_step as i64,
                 biaffine_stats.las / epoch_stats.n_tokens as f32,
+            )?;
+
+            self.summary_writer.write_scalar(
+                &format!("ls:{},biaffine", epoch_type),
+                *global_step as i64,
+                biaffine_stats.ls / epoch_stats.n_tokens as f32,
             )?;
 
             self.summary_writer.write_scalar(
@@ -255,6 +263,7 @@ impl FinetuneApp {
         let freeze_encoder = epoch == 0;
 
         let mut biaffine_las = 0f32;
+        let mut biaffine_ls = 0f32;
         let mut biaffine_uas = 0f32;
         let mut biaffine_head_loss = 0f32;
         let mut biaffine_relation_loss = 0f32;
@@ -369,6 +378,7 @@ impl FinetuneApp {
                 let relation_loss = f32::from(&biaffine_loss.relation_loss);
 
                 biaffine_las += f32::from(&biaffine_loss.acc.las) * n_batch_tokens as f32;
+                biaffine_ls += f32::from(&biaffine_loss.acc.ls) * n_batch_tokens as f32;
                 biaffine_uas += f32::from(&biaffine_loss.acc.uas) * n_batch_tokens as f32;
                 biaffine_head_loss += head_loss * n_batch_tokens as f32;
                 biaffine_relation_loss += relation_loss * n_batch_tokens as f32;
@@ -389,6 +399,7 @@ impl FinetuneApp {
 
         let biaffine_stats = biaffine_encoder.map(|_| BiaffineEpochStats {
             las: biaffine_las,
+            ls: biaffine_ls,
             uas: biaffine_uas,
             head_loss: biaffine_head_loss,
             relation_loss: biaffine_relation_loss,
