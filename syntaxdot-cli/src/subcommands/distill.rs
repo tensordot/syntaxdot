@@ -685,7 +685,7 @@ impl SyntaxDotApp for DistillApp {
             )
             .arg(
                 Arg::with_name(KEEP_BEST_STEPS)
-                    .long("keep-best-steps")
+                    .long("keep-best")
                     .value_name("N")
                     .help("Only keep the N best steps"),
             )

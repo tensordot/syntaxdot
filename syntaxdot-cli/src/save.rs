@@ -1,3 +1,6 @@
+use std::collections::VecDeque;
+use std::fs;
+
 use anyhow::{Context, Result};
 use tch::nn::VarStore;
 
@@ -34,16 +37,38 @@ pub trait Save<P> {
 #[derive(Clone)]
 pub struct BestEpochSaver<P> {
     best_epoch_performance: Option<P>,
+    best_epoch_paths: Option<VecDeque<String>>,
     epoch: usize,
+    keep_best_epochs: Option<usize>,
     prefix: String,
 }
 
 impl<P> BestEpochSaver<P> {
-    pub fn new(prefix: impl Into<String>) -> Self {
+    pub fn new(prefix: impl Into<String>, keep_best_epochs: Option<usize>) -> Self {
         BestEpochSaver {
             best_epoch_performance: None,
+            best_epoch_paths: keep_best_epochs.map(VecDeque::with_capacity),
             epoch: 0,
+            keep_best_epochs,
             prefix: prefix.into(),
+        }
+    }
+
+    fn cleanup_old_best_steps(&mut self, step_path: String) {
+        if let Some(best_epoch_paths) = &mut self.best_epoch_paths {
+            eprintln!(
+                "best len: {}, best cap: {}",
+                best_epoch_paths.len(),
+                best_epoch_paths.capacity()
+            );
+            if best_epoch_paths.len() == self.keep_best_epochs.unwrap() {
+                let cleanup_step = best_epoch_paths.pop_front().expect("No steps?");
+                if let Err(err) = fs::remove_file(&cleanup_step) {
+                    eprintln!("Cannot remove step parameters {}: {}", cleanup_step, err);
+                }
+            }
+
+            best_epoch_paths.push_back(step_path);
         }
     }
 }
@@ -70,11 +95,13 @@ where
             };
 
             if improvement {
-                vs.save(format!("{}epoch-{}", self.prefix, self.epoch))
-                    .context(format!(
-                        "Cannot save variable store for epoch {}",
-                        self.epoch
-                    ))?;
+                let path = format!("{}epoch-{}", self.prefix, self.epoch);
+                vs.save(&path).context(format!(
+                    "Cannot save variable store for epoch {}",
+                    self.epoch
+                ))?;
+
+                self.cleanup_old_best_steps(path)
             }
 
             self.epoch += 1;
