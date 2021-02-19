@@ -171,7 +171,7 @@ impl TensorBuilder {
         );
 
         assert!(
-            (self.biaffine_encodings.is_some() && biaffine_labels.is_some()),
+            (self.biaffine_encodings.is_some() == biaffine_labels.is_some()),
             "Expected biaffine encodings, none were provided"
         );
 
