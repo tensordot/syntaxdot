@@ -15,6 +15,11 @@ if __name__ == "__main__":
     parser.add_argument('model', metavar='MODEL', help='model')
     parser.add_argument('output', metavar='OUTPUT', help='output image')
     parser.add_argument(
+        '-c',
+        '--cumulative',
+        action='store_true',
+        help='plot cumulative weights')
+    parser.add_argument(
         '-o',
         '--csv',
         default='none',
@@ -61,6 +66,7 @@ if __name__ == "__main__":
 
         tensor = getattr(model, parameter_name)
         tensor = tensor.softmax(-1) if args.normalized else tensor
+        tensor = tensor.cumsum(-1) if args.cumulative else tensor
         weights.append(tensor.detach().numpy())
 
     plt.plot(np.array(weights).transpose())
