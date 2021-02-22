@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 
 import torch
 import matplotlib
@@ -13,6 +14,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Plot layer weights.')
     parser.add_argument('model', metavar='MODEL', help='model')
     parser.add_argument('output', metavar='OUTPUT', help='output image')
+    parser.add_argument(
+        '-o',
+        '--csv',
+        default='none',
+        help='write layer weights as CSV')
     parser.add_argument(
         '-n',
         '--normalized',
@@ -64,3 +70,9 @@ if __name__ == "__main__":
     plt.xlabel('Layer')
     plt.ylabel('Layer weight')
     plt.savefig(args.output, format=args.format)
+
+    if args.csv:
+        with open(args.csv, 'w', newline='') as csvfile:
+            layer_writer = csv.writer(csvfile)
+            for (name, weights) in zip(names, weights):
+                layer_writer.writerow([name] + list(weights))
