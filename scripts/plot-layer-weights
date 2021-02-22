@@ -8,37 +8,31 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-matplotlib.use('svg')
+matplotlib.use("svg")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Plot layer weights.')
-    parser.add_argument('model', metavar='MODEL', help='model')
-    parser.add_argument('output', metavar='OUTPUT', help='output image')
+    parser = argparse.ArgumentParser(description="Plot layer weights.")
+    parser.add_argument("model", metavar="MODEL", help="model")
+    parser.add_argument("output", metavar="OUTPUT", help="output image")
     parser.add_argument(
-        '-c',
-        '--cumulative',
-        action='store_true',
-        help='plot cumulative weights')
+        "-c",
+        "--cumulative",
+        action="store_true",
+        help="plot cumulative weights",
+    )
     parser.add_argument(
-        '-o',
-        '--csv',
-        default='none',
-        help='write layer weights as CSV')
+        "-o", "--csv", default="none", help="write layer weights as CSV"
+    )
     parser.add_argument(
-        '-n',
-        '--normalized',
-        action='store_true',
-        help='plot normalized layer weights')
+        "-n",
+        "--normalized",
+        action="store_true",
+        help="plot normalized layer weights",
+    )
     parser.add_argument(
-        '-f',
-        '--format',
-        default='svg',
-        help='format as matplotlib backend')
-    parser.add_argument(
-        '-t',
-        '--title',
-        default=None,
-        help='plot title')
+        "-f", "--format", default="svg", help="format as matplotlib backend"
+    )
+    parser.add_argument("-t", "--title", default=None, help="plot title")
 
     args = parser.parse_args()
 
@@ -56,11 +50,13 @@ if __name__ == "__main__":
     for parameter_name in parameter_names:
         if "_classifier" in parameter_name:
             # Sequence classifier
-            layer = parameter_name.split("|")[1][:-len("_classifier")]
+            layer = parameter_name.split("|")[1][: -len("_classifier")]
         elif parameter_name.startswith("biaffine|"):
             layer = "biaffine"
         else:
-            raise NotImplementedError(f"Unknown parameter type: {parameter_name}")
+            raise NotImplementedError(
+                f"Unknown parameter type: {parameter_name}"
+            )
 
         names.append(layer)
 
@@ -73,12 +69,12 @@ if __name__ == "__main__":
     plt.legend(names)
     if args.title:
         plt.title(args.title)
-    plt.xlabel('Layer')
-    plt.ylabel('Layer weight')
+    plt.xlabel("Layer")
+    plt.ylabel("Layer weight")
     plt.savefig(args.output, format=args.format)
 
     if args.csv:
-        with open(args.csv, 'w', newline='') as csvfile:
+        with open(args.csv, "w", newline="") as csvfile:
             layer_writer = csv.writer(csvfile)
             for (name, weights) in zip(names, weights):
                 layer_writer.writerow([name] + list(weights))
