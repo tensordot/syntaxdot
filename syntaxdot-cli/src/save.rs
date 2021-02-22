@@ -56,11 +56,6 @@ impl<P> BestEpochSaver<P> {
 
     fn cleanup_old_best_steps(&mut self, step_path: String) {
         if let Some(best_epoch_paths) = &mut self.best_epoch_paths {
-            eprintln!(
-                "best len: {}, best cap: {}",
-                best_epoch_paths.len(),
-                best_epoch_paths.capacity()
-            );
             if best_epoch_paths.len() == self.keep_best_epochs.unwrap() {
                 let cleanup_step = best_epoch_paths.pop_front().expect("No steps?");
                 if let Err(err) = fs::remove_file(&cleanup_step) {
