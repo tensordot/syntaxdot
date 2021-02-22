@@ -1,3 +1,4 @@
+use crate::TransformerError;
 use tch::Tensor;
 
 /// Hidden layer output and attention.
@@ -41,6 +42,24 @@ impl LayerOutput {
             LayerOutput::Embedding(embedding) => Some(embedding),
             LayerOutput::EncoderWithAttention(_) => None,
         }
+    }
+
+    /// Map the output representation of this layer.
+    pub fn map_output<F>(&self, f: F) -> Result<Self, TransformerError>
+    where
+        F: Fn(&Tensor) -> Result<Tensor, TransformerError>,
+    {
+        let layer = match self {
+            LayerOutput::Embedding(embedding) => LayerOutput::Embedding(f(embedding)?),
+            LayerOutput::EncoderWithAttention(HiddenLayer { output, attention }) => {
+                LayerOutput::EncoderWithAttention(HiddenLayer {
+                    output: f(output)?,
+                    attention: attention.shallow_clone(),
+                })
+            }
+        };
+
+        Ok(layer)
     }
 
     /// Get the layer output.

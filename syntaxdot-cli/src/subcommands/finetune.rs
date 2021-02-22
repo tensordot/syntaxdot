@@ -37,7 +37,6 @@ const INITIAL_LR_CLASSIFIER: &str = "INITIAL_LR_CLASSIFIER";
 const INITIAL_LR_ENCODER: &str = "INITIAL_LR_ENCODER";
 const LABEL_SMOOTHING: &str = "LABEL_SMOOTHING";
 const MIXED_PRECISION: &str = "MIXED_PRECISION";
-const INCLUDE_CONTINUATIONS: &str = "INCLUDE_CONTINUATIONS";
 const KEEP_BEST_EPOCHS: &str = "KEEP_BEST_EPOCHS";
 const LR_DECAY_RATE: &str = "LR_DECAY_RATE";
 const LR_PATIENCE: &str = "LR_PATIENCE";
@@ -69,7 +68,6 @@ pub struct FinetuneApp {
     label_smoothing: Option<f64>,
     mixed_precision: bool,
     summary_writer: Box<dyn ScalarWriter>,
-    include_continuations: bool,
     lr_schedule: LrSchedule,
     patience: usize,
     pretrained_model: String,
@@ -292,13 +290,13 @@ impl FinetuneApp {
 
             let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1])?;
 
-            let n_batch_tokens = i64::from(batch.token_mask.f_sum(Kind::Int64)?);
+            let n_batch_tokens = i64::from(batch.token_offsets.f_ne(-1)?.f_sum(Kind::Int64)?);
 
             let model_loss = autocast_or_preserve(self.mixed_precision, || {
                 model.loss(
                     &batch.inputs.to_device(self.device),
                     &attention_mask.to_device(self.device),
-                    &batch.token_mask.to_device(self.device),
+                    &batch.token_offsets.to_device(self.device),
                     batch
                         .biaffine_encodings
                         .map(|tensors| tensors.to_device(self.device)),
@@ -315,7 +313,6 @@ impl FinetuneApp {
                         encoder: freeze_encoder,
                         classifiers: grad_scaler.is_none(),
                     },
-                    self.include_continuations,
                 )
             })?;
 
@@ -499,11 +496,6 @@ impl SyntaxDotApp for FinetuneApp {
                     .help("Enable automatic mixed-precision"),
             )
             .arg(
-                Arg::with_name(INCLUDE_CONTINUATIONS)
-                    .long("include-continuations")
-                    .help("Learn to predict continuation label for continuation word pieces"),
-            )
-            .arg(
                 Arg::with_name(MAX_LEN)
                     .long("maxlen")
                     .value_name("N")
@@ -611,7 +603,6 @@ impl SyntaxDotApp for FinetuneApp {
             .transpose()?
             .map(SequenceLength::Pieces)
             .unwrap_or(SequenceLength::Unbounded);
-        let include_continuations = matches.is_present(INCLUDE_CONTINUATIONS);
 
         let keep_best_epochs = matches
             .value_of(KEEP_BEST_EPOCHS)
@@ -665,7 +656,6 @@ impl SyntaxDotApp for FinetuneApp {
             max_len,
             label_smoothing,
             mixed_precision,
-            include_continuations,
             summary_writer,
             lr_schedule: LrSchedule {
                 initial_lr_classifier,

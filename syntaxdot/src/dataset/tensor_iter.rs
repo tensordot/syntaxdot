@@ -69,12 +69,14 @@ where
         &mut self,
         tokenized_sentences: Vec<SentenceWithPieces>,
         max_seq_len: usize,
+        max_tokens_len: usize,
         biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
         encoders: &'a [NamedEncoder],
     ) -> Result<Tensors, SyntaxDotError> {
         let mut builder = TensorBuilder::new_with_labels(
             tokenized_sentences.len(),
             max_seq_len,
+            max_tokens_len,
             biaffine_encoder.is_some(),
             encoders.iter().map(NamedEncoder::name),
         );
@@ -84,6 +86,12 @@ where
             for token_idx in &sentence.token_offsets {
                 token_mask[*token_idx] = 1;
             }
+
+            let token_indices = sentence
+                .token_offsets
+                .iter()
+                .map(|&offset| offset as i32)
+                .collect::<Array1<i32>>();
 
             let biaffine_encoding = match Self::encode_biaffine(biaffine_encoder, &sentence) {
                 Ok(biaffine_encoding) => biaffine_encoding,
@@ -99,6 +107,7 @@ where
                 sentence.pieces.view(),
                 biaffine_encoding,
                 sequence_encoding,
+                token_indices.view(),
                 token_mask.view(),
             );
         }
@@ -110,8 +119,6 @@ where
         encoders: &'e [NamedEncoder],
         sentence: &SentenceWithPieces,
     ) -> Result<HashMap<&'e str, Array1<i64>>, SyntaxDotError> {
-        let input = &sentence.pieces;
-
         let mut encoder_labels = HashMap::with_capacity(encoders.len());
         for encoder in encoders {
             let encoding = match encoder.encoder().encode(&sentence.sentence) {
@@ -119,10 +126,7 @@ where
                 Err(err) => return Err(err.into()),
             };
 
-            let mut labels = Array1::from_elem((input.len(),), 1i64);
-            for (encoding, offset) in encoding.into_iter().zip(&sentence.token_offsets) {
-                labels[*offset] = encoding as i64;
-            }
+            let labels = encoding.into_iter().map(|label| label as i64).collect();
 
             encoder_labels.insert(encoder.name(), labels);
         }
@@ -134,23 +138,16 @@ where
         biaffine_encoder: Option<&ImmutableDependencyEncoder>,
         sentence: &SentenceWithPieces,
     ) -> Result<Option<(Array1<i64>, Array1<i64>)>, SyntaxDotError> {
-        let input = &sentence.pieces;
-
         let encoding = match biaffine_encoder {
             Some(biaffine_encoder) => {
                 let encoding = biaffine_encoder.encode(&sentence.sentence)?;
 
-                let mut dependency_heads = Array1::from_elem((input.len(),), -1i64);
-                let mut dependency_labels = Array1::from_elem((input.len(),), -1i64);
-
-                for (idx, offset) in sentence.token_offsets.iter().enumerate() {
-                    dependency_heads[*offset] = if encoding.heads[idx] == 0 {
-                        0
-                    } else {
-                        sentence.token_offsets[encoding.heads[idx] - 1] as i64
-                    };
-                    dependency_labels[*offset] = encoding.relations[idx] as i64;
-                }
+                let dependency_heads = encoding.heads.into_iter().map(|head| head as i64).collect();
+                let dependency_labels = encoding
+                    .relations
+                    .into_iter()
+                    .map(|relation| relation as i64)
+                    .collect();
 
                 Some((dependency_heads, dependency_labels))
             }
@@ -164,9 +161,13 @@ where
         &mut self,
         tokenized_sentences: Vec<SentenceWithPieces>,
         max_seq_len: usize,
+        max_tokens_len: usize,
     ) -> Tensors {
-        let mut builder: TensorBuilder =
-            TensorBuilder::new_without_labels(tokenized_sentences.len(), max_seq_len);
+        let mut builder: TensorBuilder = TensorBuilder::new_without_labels(
+            tokenized_sentences.len(),
+            max_seq_len,
+            max_tokens_len,
+        );
 
         for sentence in tokenized_sentences {
             let input = sentence.pieces;
@@ -175,7 +176,13 @@ where
                 token_mask[*token_idx] = 1;
             }
 
-            builder.add_without_labels(input.view(), token_mask.view());
+            let token_offsets = sentence
+                .token_offsets
+                .iter()
+                .map(|&offset| offset as i32)
+                .collect::<Array1<i32>>();
+
+            builder.add_without_labels(input.view(), token_offsets.view(), token_mask.view());
         }
 
         builder.into()
@@ -212,14 +219,21 @@ where
             .max()
             .unwrap_or(0);
 
+        let max_tokens_len = batch_sentences
+            .iter()
+            .map(|s| s.token_offsets.len())
+            .max()
+            .unwrap_or(0);
+
         Some(match self.encoders {
             Some(encoders) => self.next_with_labels(
                 batch_sentences,
                 max_seq_len,
+                max_tokens_len,
                 self.biaffine_encoder,
                 encoders,
             ),
-            None => Ok(self.next_without_labels(batch_sentences, max_seq_len)),
+            None => Ok(self.next_without_labels(batch_sentences, max_seq_len, max_tokens_len)),
         })
     }
 }
