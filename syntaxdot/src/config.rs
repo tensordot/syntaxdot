@@ -3,6 +3,7 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use syntaxdot_encoders::dependency::MutableDependencyEncoder;
 use syntaxdot_tokenizers::{AlbertTokenizer, BertTokenizer, Tokenize, XlmRobertaTokenizer};
 use syntaxdot_transformers::models::albert::AlbertConfig;
 use syntaxdot_transformers::models::bert::BertConfig;
@@ -11,7 +12,7 @@ use syntaxdot_transformers::models::squeeze_bert::SqueezeBertConfig;
 
 use crate::encoders::EncodersConfig;
 use crate::error::SyntaxDotError;
-use syntaxdot_encoders::dependency::MutableDependencyEncoder;
+use crate::model::pooling::PiecePooler;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename = "biaffine")]
@@ -66,6 +67,9 @@ pub struct Labeler {
 pub struct Model {
     /// Model parameters.
     pub parameters: String,
+
+    /// Pooler for token representations.
+    pub pooler: PiecePooler,
 
     /// Configuration of position embeddings.
     pub position_embeddings: PositionEmbeddings,
@@ -324,6 +328,7 @@ mod tests {
         PretrainModelType, Tokenizer, TomlRead,
     };
     use crate::encoders::{EncoderType, EncodersConfig, NamedEncoderConfig};
+    use crate::model::pooling::PiecePooler;
 
     #[test]
     fn config() {
@@ -366,6 +371,7 @@ mod tests {
                 },
                 model: Model {
                     parameters: "epoch-99".to_string(),
+                    pooler: PiecePooler::Discard,
                     position_embeddings: PositionEmbeddings::Model,
                     pretrain_config: "bert_config.json".to_string(),
                     pretrain_type: PretrainModelType::Bert,

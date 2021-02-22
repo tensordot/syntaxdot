@@ -194,6 +194,16 @@ impl BiaffineDependencyLayer {
         })
     }
 
+    fn create_token_mask_with_root(token_mask: &Tensor) -> Result<Tensor, SyntaxDotError> {
+        let (batch_size, _seq_len) = token_mask.size2()?;
+
+        // Padding is marked using the value -1.
+        let root_mask = Tensor::from(true)
+            .f_expand(&[batch_size, 1], true)?
+            .to_device(token_mask.device());
+        Ok(Tensor::f_cat(&[&root_mask, token_mask], -1)?)
+    }
+
     /// Apply the biaffine dependency layer.
     ///
     /// The required arguments are:
@@ -207,12 +217,14 @@ impl BiaffineDependencyLayer {
         &self,
         layers: &[LayerOutput],
         token_mask: &Tensor,
+        remove_root: bool,
         train: bool,
     ) -> Result<BiaffineScoreLogits, SyntaxDotError> {
-        // Mask for non-tokens (continuations pieces and padding). But do not mask BOS/ROOT
-        // as a possible head for each token.
+        let token_mask_with_root = Self::create_token_mask_with_root(&token_mask)?;
+
+        // Mask padding. But do not mask BOS/ROOT as a possible head for each token.
         let logits_mask: Tensor = Tensor::from(1.0)
-            .f_sub(&token_mask.to_kind(Kind::Float))?
+            .f_sub(&token_mask_with_root.to_kind(Kind::Float))?
             .f_mul1(-10_000.)?;
         let _ = logits_mask.f_slice(1, 0, 1, 1)?.f_fill_(0)?;
 
@@ -228,8 +240,11 @@ impl BiaffineDependencyLayer {
             .forward_t(&self.arc_head.forward(&hidden).gelu(), train)?;
 
         // From these representations, compute the arc score matrix.
-        let mut head_score_logits = self.bilinear_arc.forward(&arc_head, &arc_dependent)?;
-        let _ = head_score_logits.f_add_(&logits_mask.f_unsqueeze(1)?)?;
+        let head_score_logits = self
+            .bilinear_arc
+            .forward(&arc_head, &arc_dependent)?
+            // Mask padding logits.
+            .f_add_(&logits_mask.f_unsqueeze(1)?)?;
 
         // Compute dependent/head label representations of each token.
         let label_dependent = self
@@ -240,14 +255,23 @@ impl BiaffineDependencyLayer {
             .forward_t(&self.label_head.forward(&hidden).f_gelu()?, train)?;
 
         // From from these representations, compute the label score matrix.
-        let mut relation_score_logits =
-            self.bilinear_label.forward(&label_head, &label_dependent)?;
-        let _ = relation_score_logits.f_add_(&logits_mask.f_unsqueeze(1)?.f_unsqueeze(-1)?)?;
+        let relation_score_logits = self
+            .bilinear_label
+            .forward(&label_head, &label_dependent)?
+            // Mask padding logits.
+            .f_add_(&logits_mask.f_unsqueeze(1)?.f_unsqueeze(-1)?)?;
 
-        Ok(BiaffineScoreLogits {
-            head_score_logits,
-            relation_score_logits,
-        })
+        if remove_root {
+            Ok(BiaffineScoreLogits {
+                head_score_logits: head_score_logits.f_slice(1, 1, i64::MAX, 1)?,
+                relation_score_logits: relation_score_logits.f_slice(1, 1, i64::MAX, 1)?,
+            })
+        } else {
+            Ok(BiaffineScoreLogits {
+                head_score_logits,
+                relation_score_logits,
+            })
+        }
     }
 
     /// Compute the biaffine layer loss
@@ -289,12 +313,15 @@ impl BiaffineDependencyLayer {
             token_mask.dim()
         );
 
-        let biaffine_logits = self.forward(layers, token_mask, train)?;
+        let biaffine_logits = self.forward(layers, &token_mask, true, train)?;
 
         let (batch_size, seq_len) = targets.heads.size2()?;
 
         // Compute head loss
-        let head_logits = biaffine_logits.head_score_logits.f_view_(&[-1, seq_len])?;
+        let head_logits = biaffine_logits
+            .head_score_logits
+            // Last dimension is ROOT + all tokens as head candidates.
+            .f_reshape(&[-1, seq_len + 1])?;
         let head_targets = &targets.heads.f_view_(&[-1])?;
         let head_loss = CrossEntropyLoss::new(
             -1,
@@ -325,6 +352,7 @@ impl BiaffineDependencyLayer {
             )?
             .f_squeeze1(2)?
             .f_view_(&[-1, self.n_relations])?;
+
         let relation_targets = targets.relations.f_view_(&[-1])?;
         let relation_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean)
             .forward(&label_score_logits, &relation_targets)?;

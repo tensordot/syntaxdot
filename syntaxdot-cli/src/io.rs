@@ -95,6 +95,7 @@ impl Model {
                 .map(ImmutableDependencyEncoder::n_relations)
                 .unwrap_or(0),
             &encoders,
+            config.model.pooler,
             0.0,
             config.model.position_embeddings,
         )

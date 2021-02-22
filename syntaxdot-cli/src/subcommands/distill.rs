@@ -1,15 +1,13 @@
 use std::cell::RefCell;
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::collections::{HashMap, VecDeque};
-use std::convert::TryInto;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Seek};
 
 use anyhow::{bail, Context, Result};
 use clap::{App, Arg, ArgMatches};
 use indicatif::{ProgressBar, ProgressStyle};
-use itertools::{izip, Itertools};
-use ndarray::{Array2, ArrayD};
+use itertools::Itertools;
 use ordered_float::NotNan;
 use syntaxdot::config::Config;
 use syntaxdot::dataset::{
@@ -28,7 +26,7 @@ use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
 use syntaxdot_transformers::models::LayerOutput;
 use tch::nn::VarStore;
-use tch::{self, Device, IndexOp, Kind, Reduction, TchError, Tensor};
+use tch::{self, Device, Kind, Reduction, Tensor};
 
 use crate::io::{load_config, load_pretrain_config, load_tokenizer, Model};
 use crate::progress::ReadProgress;
@@ -164,136 +162,81 @@ impl DistillApp {
 
     fn biaffine_loss(
         teacher_logits: &BiaffineScoreLogits,
-        teacher_token_mask: &Tensor,
         student_logits: &BiaffineScoreLogits,
-        student_token_mask: &Tensor,
+        token_mask: &Tensor,
     ) -> Result<Tensor> {
-        // Compute teacher scores.
+        // Compute teacher probabilities.
         let teacher_head_probs = teacher_logits
             .head_score_logits
             .f_softmax(-1, Kind::Float)?;
 
-        let teacher_token_mask_with_root = Self::create_token_mask_with_root(teacher_token_mask)?;
-        let teacher_score_mask = teacher_token_mask_with_root
+        let token_mask_with_root = Self::create_token_mask_with_root(&token_mask)?;
+
+        let probs_mask = token_mask_with_root
             .unsqueeze(1)
-            .logical_and(&teacher_token_mask_with_root.unsqueeze(-1));
-        let teacher_head_probs = teacher_head_probs.masked_select(&teacher_score_mask);
+            .logical_and(&token_mask.unsqueeze(-1));
+        let teacher_head_probs = teacher_head_probs.masked_select(&probs_mask);
 
         // Compute student log scores.
         let student_head_logprobs = student_logits
             .head_score_logits
             .f_log_softmax(-1, Kind::Float)?;
-        let student_token_mask_with_root = Self::create_token_mask_with_root(student_token_mask)?;
-        let student_score_mask = student_token_mask_with_root
-            .unsqueeze(1)
-            .logical_and(&student_token_mask_with_root.unsqueeze(-1));
-        let student_head_logprobs = student_head_logprobs.masked_select(&student_score_mask);
+        let student_head_logprobs = student_head_logprobs.masked_select(&probs_mask);
 
         let head_soft_loss =
             (&teacher_head_probs.f_mul(&student_head_logprobs)?.f_neg()?).f_mean(Kind::Float)?;
 
         let teacher_head_predictions = teacher_logits.head_score_logits.argmax(-1, false);
-        let teacher_relation_logits = Self::select_head_relation_logits(
-            &teacher_head_predictions,
-            &teacher_token_mask,
+
+        // Get teacher relation probabilities for the heads predicted by the teacher.
+        let teacher_relation_probs = Self::select_relations_for_predicted_heads(
             &teacher_logits.relation_score_logits,
-        )?;
-
-        let converted_head_predictions = Self::convert_heads(
-            &teacher_token_mask,
-            &student_token_mask,
             &teacher_head_predictions,
-        )?;
-        let student_relation_logits = Self::select_head_relation_logits(
-            &converted_head_predictions,
-            &student_token_mask,
-            &student_logits.relation_score_logits,
-        )?;
+        )?
+        .f_softmax(-1, Kind::Float)?;
 
-        let relation_soft_loss = teacher_relation_logits
-            .f_softmax(-1, Kind::Float)?
+        // Get student relation log probabilities for the heads predicted by the teacher.
+        let student_relation_log_probs = Self::select_relations_for_predicted_heads(
+            &student_logits.relation_score_logits,
+            &teacher_head_predictions,
+        )?
+        .f_log_softmax(-1, Kind::Float)?;
+
+        let relation_soft_loss = teacher_relation_probs
             .f_neg()?
-            .f_mul(&student_relation_logits.log_softmax(-1, Kind::Float))?
+            .f_mul(&student_relation_log_probs)?
             .f_mean(Kind::Float)?;
 
         Ok(head_soft_loss.f_add(&relation_soft_loss)?)
     }
 
     fn create_token_mask_with_root(token_mask: &Tensor) -> Result<Tensor, SyntaxDotError> {
-        let teacher_token_mask_with_root = token_mask.copy();
-        let _ = teacher_token_mask_with_root
-            .f_slice(1, 0, 1, 1)?
-            .f_fill_(1)?;
-        Ok(teacher_token_mask_with_root)
+        let (batch_size, _) = token_mask.size2()?;
+        let root_mask = Tensor::from(true)
+            .f_expand(&[batch_size, 1], true)?
+            .to_device(token_mask.device());
+        Ok(Tensor::cat(&[&root_mask, token_mask], -1))
     }
 
-    /// Convert heads identifiers.
-    ///
-    /// Convert `heads` following `from_token_mask` to heads following `to_token_mask`.
-    fn convert_heads(
-        from_token_mask: &Tensor,
-        to_token_mask: &Tensor,
-        heads: &Tensor,
-    ) -> Result<Tensor> {
-        let (from_batch_size, from_seq_len) = from_token_mask.size2()?;
-        let (to_batch_size, _to_seq_len) = to_token_mask.size2()?;
-        let (heads_batch_size, heads_seq_len) = heads.size2()?;
+    fn select_relations_for_predicted_heads(
+        logits: &Tensor,
+        head_predictions: &Tensor,
+    ) -> Result<Tensor, SyntaxDotError> {
+        let (batch_size, seq_len, _heads_len, n_relations) = logits.size4()?;
 
-        assert_eq!(
-            from_batch_size, to_batch_size,
-            "From/to token masks have different batch sizes"
-        );
-        assert_eq!(
-            from_batch_size, heads_batch_size,
-            "Token mask and heads have different batch sizes"
-        );
-        assert_eq!(
-            from_seq_len, heads_seq_len,
-            "Token mask and heads have different sequence lengths"
-        );
-
-        let converted_heads = Tensor::full(
-            &to_token_mask.size(),
-            0,
-            (Kind::Int64, to_token_mask.device()),
-        );
-
-        let from_mask: ArrayD<bool> = from_token_mask.try_into()?;
-        let from_mask: Array2<bool> = from_mask.into_dimensionality()?;
-        let to_mask: ArrayD<bool> = to_token_mask.try_into()?;
-        let to_mask: Array2<bool> = to_mask.into_dimensionality()?;
-
-        // Maybe check per sequence?
-        assert_eq!(
-            from_mask.iter().filter(|&&v| v).count(),
-            to_mask.iter().filter(|&&v| v).count(),
-            "From/to masks have different numbers of tokens."
-        );
-
-        for (seq_n, from_mask_seq, to_mask_seq) in
-            izip!(0.., from_mask.outer_iter(), to_mask.outer_iter())
-        {
-            // Get mask indices.
-            let from_positions = from_mask_seq.iter().positions(|&m| m);
-            let to_positions = to_mask_seq.iter().positions(|&m| m);
-
-            // Create a mapping source token index -> target token index.
-            let mut mapping = izip!(from_positions, to_positions)
-                .map(|(from_idx, to_idx)| (from_idx as i64, to_idx as i64))
-                .collect::<HashMap<_, _>>();
-
-            // Insert root index.
-            mapping.insert(0, 0);
-
-            // Map heads and fill then in the converted heads tensor.
-            for (&from_idx, &to_idx) in &mapping {
-                let _ = converted_heads
-                    .i((seq_n, to_idx))
-                    .fill_(mapping[&i64::from(heads.i((seq_n, from_idx)))]);
-            }
-        }
-
-        Ok(converted_heads)
+        Ok(logits
+            .f_gather(
+                2,
+                &head_predictions
+                    // -1 is used for non-token elements, we do not really care
+                    // what is selected in these cases, since they won't be used
+                    // in the loss.
+                    .f_view([batch_size, seq_len, 1, 1])?
+                    .f_expand(&[-1, -1, 1, n_relations], true)?,
+                false,
+            )?
+            .f_squeeze1(2)?
+            .f_view_(&[-1, n_relations])?)
     }
 
     fn distill_model(
@@ -414,43 +357,23 @@ impl DistillApp {
         }
     }
 
-    fn select_head_relation_logits(
-        heads: &Tensor,
-        token_mask: &Tensor,
-        relation_score_logits: &Tensor,
-    ) -> Result<Tensor, TchError> {
-        let (batch_size, seq_len, _, n_relations) = relation_score_logits.size4()?;
-
-        Ok(relation_score_logits
-            .gather(
-                2,
-                &heads
-                    .view([batch_size, seq_len, 1, 1])
-                    .expand(&[-1, -1, 1, n_relations], false),
-                false,
-            )
-            .squeeze1(2)
-            .masked_select(&token_mask.unsqueeze(-1)))
-    }
-
     /// Compute loss for sequence encoders.
     fn seq_encoders_loss(
         teacher_encoder_logits: HashMap<String, Tensor>,
-        teacher_token_mask: &Tensor,
         student_encoder_logits: HashMap<String, Tensor>,
-        student_token_mask: &Tensor,
+        token_mask: &Tensor,
     ) -> Result<Tensor, SyntaxDotError> {
-        let mut loss = Tensor::zeros(&[], (Kind::Float, student_token_mask.device()));
+        let mut loss = Tensor::zeros(&[], (Kind::Float, token_mask.device()));
 
         for (encoder_name, teacher_logits) in teacher_encoder_logits {
             let n_labels = teacher_logits.size()[2];
 
             // Select the outputs for the relevant time steps.
             let student_logits = student_encoder_logits[&encoder_name]
-                .masked_select(&student_token_mask.unsqueeze(-1))
+                .masked_select(&token_mask.unsqueeze(-1))
                 .reshape(&[-1, n_labels]);
             let teacher_logits = teacher_logits
-                .masked_select(&teacher_token_mask.unsqueeze(-1))
+                .masked_select(&token_mask.unsqueeze(-1))
                 .reshape(&[-1, n_labels]);
 
             // Compute the soft loss.
@@ -478,14 +401,14 @@ impl DistillApp {
         let teacher_attention_mask =
             seq_len_to_mask(&teacher_batch.seq_lens, teacher_batch.inputs.size()[1])?
                 .to_device(self.device);
-        let teacher_token_mask = teacher_batch
-            .token_mask
-            .to_kind(Kind::Bool)
-            .to_device(self.device);
+
+        let teacher_token_offsets = teacher_batch.token_offsets.to_device(self.device);
+        let token_mask = teacher_token_offsets.f_ne(-1)?;
 
         let teacher_layer_outputs = teacher.encode(
             &teacher_batch.inputs.to_device(self.device),
             &teacher_attention_mask,
+            &teacher_token_offsets,
             false,
             FreezeLayers {
                 embeddings: true,
@@ -495,24 +418,19 @@ impl DistillApp {
         )?;
         let teacher_encoder_logits =
             teacher.encoder_logits_from_encoding(&teacher_layer_outputs, false)?;
-        let teacher_biaffine_logits = teacher.biaffine_logits_from_encoding(
-            &teacher_layer_outputs,
-            &teacher_token_mask,
-            false,
-        )?;
+        let teacher_biaffine_logits =
+            teacher.biaffine_logits_from_encoding(&teacher_layer_outputs, &token_mask, false)?;
 
         let student_attention_mask =
             seq_len_to_mask(&student_batch.seq_lens, student_batch.inputs.size()[1])?
                 .to_device(self.device);
-        let student_token_mask = student_batch
-            .token_mask
-            .to_kind(Kind::Bool)
-            .to_device(self.device);
+        let student_token_offsets = student_batch.token_offsets.to_device(self.device);
 
         autocast_or_preserve(self.mixed_precision, || {
             let student_layer_outputs = student.encode(
                 &student_batch.inputs.to_device(self.device),
                 &student_attention_mask,
+                &student_token_offsets,
                 true,
                 FreezeLayers {
                     embeddings: false,
@@ -528,13 +446,13 @@ impl DistillApp {
                 teacher_biaffine_logits,
                 student.biaffine_logits_from_encoding(
                     &student_layer_outputs,
-                    &student_token_mask,
+                    &token_mask,
                     true,
                 )?,
             ) {
                 (Some(teacher_logits), Some(student_logits)) => {
-                    let _ = soft_loss.f_add_(&Self::biaffine_loss(&teacher_logits, &teacher_token_mask,
-                                                     &student_logits, &student_token_mask)?)?;
+                    let _ = soft_loss.f_add_(&Self::biaffine_loss(&teacher_logits,
+                                                     &student_logits, &token_mask )?)?;
                 }
                 (None, Some(_)) => bail!("Cannot distill biaffine parsing model from a teacher without biaffine parsing."),
                 _ => {}
@@ -545,9 +463,8 @@ impl DistillApp {
                 student.encoder_logits_from_encoding(&student_layer_outputs, true)?;
             let _ = soft_loss.f_add_(&Self::seq_encoders_loss(
                 teacher_encoder_logits,
-                &teacher_token_mask,
                 student_logits,
-                &student_token_mask,
+                &token_mask,
             )?)?;
 
             let attention_loss = if self.attention_loss {
@@ -657,6 +574,7 @@ impl DistillApp {
                 .map(ImmutableDependencyEncoder::n_relations)
                 .unwrap_or(0),
             &teacher.encoders,
+            student_config.model.pooler,
             0.1,
             student_config.model.position_embeddings.clone(),
         )
@@ -819,7 +737,7 @@ impl DistillApp {
         {
             let batch = batch?;
 
-            let n_batch_tokens = i64::from(batch.token_mask.f_sum(Kind::Int64)?);
+            let n_batch_tokens = i64::from(batch.token_offsets.f_ne(-1)?.f_sum(Kind::Int64)?);
 
             let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1])?;
 
@@ -827,7 +745,7 @@ impl DistillApp {
                 model.loss(
                     &batch.inputs.to_device(self.device),
                     &attention_mask.to_device(self.device),
-                    &batch.token_mask.to_device(self.device),
+                    &batch.token_offsets.to_device(self.device),
                     batch
                         .biaffine_encodings
                         .map(|tensors| tensors.to_device(self.device)),
@@ -844,7 +762,6 @@ impl DistillApp {
                         encoder: true,
                         classifiers: true,
                     },
-                    false,
                 )
             })?;
 

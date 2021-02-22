@@ -22,6 +22,7 @@ use crate::error::SyntaxDotError;
 use crate::model::biaffine_dependency_layer::{
     BiaffineDependencyLayer, BiaffineLoss, BiaffineScoreLogits,
 };
+use crate::model::pooling::PiecePooler;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
 use crate::tensor::BiaffineTensors;
 
@@ -205,6 +206,7 @@ pub struct BertModel {
     biaffine: Option<BiaffineDependencyLayer>,
     embeddings: BertEmbeddingLayer,
     encoder: Encoder,
+    pooler: PiecePooler,
     seq_classifiers: SequenceClassifiers,
     layers_dropout: Dropout,
 }
@@ -214,12 +216,14 @@ impl BertModel {
     ///
     /// `layer_dropout` is the probability with which layers should
     /// be dropped out in scalar weighting during training.
+    #[allow(clippy::too_many_arguments)]
     pub fn new<'a>(
         vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         biaffine_config: Option<&BiaffineParserConfig>,
         n_relations: usize,
         encoders: &Encoders,
+        pooler: PiecePooler,
         layers_dropout: f64,
         position_embeddings: PositionEmbeddings,
     ) -> Result<Self, SyntaxDotError> {
@@ -242,6 +246,7 @@ impl BertModel {
             embeddings,
             encoder,
             layers_dropout: Dropout::new(layers_dropout),
+            pooler,
             biaffine,
             seq_classifiers,
         })
@@ -256,7 +261,7 @@ impl BertModel {
     ) -> Result<Option<BiaffineScoreLogits>, SyntaxDotError> {
         self.biaffine
             .as_ref()
-            .map(|biaffine| biaffine.forward(layer_outputs, token_mask, train))
+            .map(|biaffine| biaffine.forward(layer_outputs, token_mask, true, train))
             .transpose()
     }
 
@@ -265,6 +270,7 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
+        token_offsets: &Tensor,
         train: bool,
         freeze_layers: FreezeLayers,
     ) -> Result<Vec<LayerOutput>, SyntaxDotError> {
@@ -276,13 +282,15 @@ impl BertModel {
             self.embeddings.forward_t(inputs, train)?
         };
 
-        let mut encoded = if freeze_layers.encoder {
+        let encoded = if freeze_layers.encoder {
             tch::no_grad(|| self.encoder.encode(&embeds, Some(&attention_mask), train))?
         } else {
             self.encoder.encode(&embeds, Some(&attention_mask), train)?
         };
 
-        for layer in &mut encoded {
+        let mut pooled = self.pooler.pool(token_offsets, &encoded)?;
+
+        for layer in &mut pooled {
             *layer.output_mut() = if freeze_layers.classifiers {
                 tch::no_grad(|| self.layers_dropout.forward_t(&layer.output(), train))?
             } else {
@@ -298,7 +306,7 @@ impl BertModel {
             start.elapsed().as_millis()
         );
 
-        Ok(encoded)
+        Ok(pooled)
     }
 
     /// Compute the logits for a batch of inputs.
@@ -313,10 +321,11 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
+        token_offsets: &Tensor,
         train: bool,
         freeze_layers: FreezeLayers,
     ) -> Result<HashMap<String, Tensor>, SyntaxDotError> {
-        let encoding = self.encode(inputs, attention_mask, train, freeze_layers)?;
+        let encoding = self.encode(inputs, attention_mask, token_offsets, train, freeze_layers)?;
         self.seq_classifiers.forward_t(&encoding, train)
     }
 
@@ -355,15 +364,16 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_mask: &Tensor,
+        token_offsets: &Tensor,
         biaffine_tensors: Option<BiaffineTensors<Tensor>>,
         targets: &HashMap<String, Tensor>,
         label_smoothing: Option<f64>,
         train: bool,
         freeze_layers: FreezeLayers,
-        include_continuations: bool,
     ) -> Result<BertLoss, SyntaxDotError> {
-        let encoding = self.encode(inputs, attention_mask, train, freeze_layers)?;
+        let encoding = self.encode(inputs, attention_mask, token_offsets, train, freeze_layers)?;
+
+        let token_mask = token_offsets.f_ne(-1)?;
 
         if freeze_layers.classifiers {
             tch::no_grad(|| {
@@ -373,7 +383,7 @@ impl BertModel {
                     .map(|biaffine| {
                         biaffine.loss(
                             &encoding,
-                            token_mask,
+                            &token_mask,
                             biaffine_tensors.as_ref().unwrap(),
                             label_smoothing,
                             train,
@@ -383,12 +393,10 @@ impl BertModel {
 
                 let seq_classifiers_loss = self.seq_classifiers.loss(
                     &encoding,
-                    attention_mask,
-                    token_mask,
                     targets,
                     label_smoothing,
+                    &token_mask,
                     train,
-                    include_continuations,
                 )?;
 
                 Ok(BertLoss {
@@ -403,7 +411,7 @@ impl BertModel {
                 .map(|biaffine| {
                     biaffine.loss(
                         &encoding,
-                        token_mask,
+                        &token_mask,
                         biaffine_tensors.as_ref().unwrap(),
                         label_smoothing,
                         train,
@@ -413,12 +421,10 @@ impl BertModel {
 
             let seq_classifiers_loss = self.seq_classifiers.loss(
                 &encoding,
-                attention_mask,
-                token_mask,
                 targets,
                 label_smoothing,
+                &token_mask,
                 train,
-                include_continuations,
             )?;
 
             Ok(BertLoss {
@@ -438,11 +444,12 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_mask: &Tensor,
+        token_offsets: &Tensor,
     ) -> Result<Predictions, SyntaxDotError> {
         let encoding = self.encode(
             inputs,
             attention_mask,
+            token_offsets,
             false,
             FreezeLayers {
                 embeddings: true,
@@ -454,7 +461,7 @@ impl BertModel {
         let biaffine_score_logits = self
             .biaffine
             .as_ref()
-            .map(|biaffine| biaffine.forward(&encoding, token_mask, false))
+            .map(|biaffine| biaffine.forward(&encoding, token_offsets, false, false))
             .transpose()?;
         let sequences_top_k = self.seq_classifiers.top_k(&encoding, 3)?;
 

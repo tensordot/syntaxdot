@@ -2,7 +2,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-use ndarray::{Array1, ArrayD, Axis};
+use ndarray::{s, Array1, ArrayD, Axis};
 use syntaxdot_encoders::{EncodingProb, SentenceDecoder};
 use syntaxdot_tokenizers::SentenceWithPieces;
 use tch::Device;
@@ -52,7 +52,7 @@ impl Tagger {
         let predictions = self.model.predict(
             &tensors.inputs.to_device(self.device),
             &attention_mask.to_device(self.device),
-            &tensors.token_mask.to_device(self.device),
+            &tensors.token_offsets.to_device(self.device),
         )?;
 
         assert_eq!(
@@ -83,8 +83,14 @@ impl Tagger {
             .max()
             .unwrap_or(0);
 
+        let max_tokens_len = sentences
+            .iter()
+            .map(|sentence| sentence.borrow().token_offsets.len())
+            .max()
+            .unwrap_or(0);
+
         let mut builder: TensorBuilder =
-            TensorBuilder::new_without_labels(sentences.len(), max_seq_len);
+            TensorBuilder::new_without_labels(sentences.len(), max_seq_len, max_tokens_len);
 
         for sentence in sentences {
             let sentence = sentence.borrow();
@@ -94,7 +100,13 @@ impl Tagger {
                 token_mask[*token_idx] = 1;
             }
 
-            builder.add_without_labels(input.view(), token_mask.view());
+            let token_offsets = sentence
+                .token_offsets
+                .iter()
+                .map(|&offset| offset as i32)
+                .collect::<Array1<i32>>();
+
+            builder.add_without_labels(input.view(), token_offsets.view(), token_mask.view());
         }
 
         builder.into()
@@ -124,21 +136,22 @@ impl Tagger {
         for (idx, sentence) in sentences.iter_mut().enumerate() {
             let sentence = sentence.borrow_mut();
 
-            let mut root_token_offsets = Vec::with_capacity(sentence.token_offsets.len() + 1);
-            root_token_offsets.push(0);
-            root_token_offsets.extend_from_slice(&sentence.token_offsets);
-
             let sent_head_scores = head_score_logits
                 .index_axis(Axis(0), idx)
-                .select(Axis(0), &root_token_offsets)
-                .select(Axis(1), &root_token_offsets);
+                .slice(s![
+                    ..sentence.token_offsets.len() + 1,
+                    ..sentence.token_offsets.len() + 1
+                ])
+                .to_owned();
 
             let sent_best_relations = best_relations
                 .index_axis(Axis(0), idx)
-                .select(Axis(0), &root_token_offsets)
-                .select(Axis(1), &root_token_offsets);
+                .slice(s![
+                    ..sentence.token_offsets.len() + 1,
+                    ..sentence.token_offsets.len() + 1
+                ])
+                .to_owned();
 
-            //decoder.decode_greedy(
             decoder.decode(
                 sent_head_scores.view().into_dimensionality()?,
                 sent_best_relations.view().into_dimensionality()?,
@@ -180,10 +193,12 @@ impl Tagger {
                 // that represent tokens.
                 let sent_top_k_labels = top_k_labels
                     .index_axis(Axis(0), idx)
-                    .select(Axis(0), &sentence.token_offsets);
+                    .slice(s![..sentence.token_offsets.len(), ..])
+                    .to_owned();
                 let sent_top_k_probs = &top_k_probs
                     .index_axis(Axis(0), idx)
-                    .select(Axis(0), &sentence.token_offsets);
+                    .slice(s![..sentence.token_offsets.len(), ..])
+                    .to_owned();
 
                 // Collect sentence top-k
                 let label_probs: Vec<Vec<EncodingProb<usize>>> = sent_top_k_labels
