@@ -43,7 +43,14 @@ if __name__ == "__main__":
     names = []
     weights = []
     for parameter_name in parameter_names:
-        layer = parameter_name.split("|")[1][:-len("_classifier")]
+        if "_classifier" in parameter_name:
+            # Sequence classifier
+            layer = parameter_name.split("|")[1][:-len("_classifier")]
+        elif parameter_name.startswith("biaffine|"):
+            layer = "biaffine"
+        else:
+            raise NotImplementedError(f"Unknown parameter type: {parameter_name}")
+
         names.append(layer)
 
         tensor = getattr(model, parameter_name)
