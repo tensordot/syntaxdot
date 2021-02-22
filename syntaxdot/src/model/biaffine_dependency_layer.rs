@@ -317,23 +317,27 @@ impl BiaffineDependencyLayer {
 
         let (batch_size, seq_len) = targets.heads.size2()?;
 
+        let token_mask_with_root = Self::create_token_mask_with_root(&token_mask)?;
+
         // Compute head loss
         let head_logits = biaffine_logits
             .head_score_logits
             // Last dimension is ROOT + all tokens as head candidates.
             .f_reshape(&[-1, seq_len + 1])?;
         let head_targets = &targets.heads.f_view_(&[-1])?;
-        let head_loss = CrossEntropyLoss::new(
-            -1,
-            // We do not apply label smoothing (yet). It would be strange,
-            // since the probabilities of incorrect heads would change with
-            // sequence lengths. Also, this would require additional work,
-            // since we have to ensure that inactive tokens do not get a
-            // probability.
-            None,
-            Reduction::Mean,
-        )
-        .forward(&head_logits, &head_targets)?;
+        let head_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean).forward(
+            &head_logits,
+            &head_targets,
+            Some(
+                &token_mask_with_root
+                    // [batch_size, seq_len + 1] -> [batch_size, 1, seq_len + 1]
+                    .f_unsqueeze(1)?
+                    // [batch_size, 1, seq_len + 1] -> [batch_size, seq_len, seq_len + 1].
+                    .f_expand(&[-1, seq_len, -1], true)?
+                    // [batch_size, seq_len, seq_len + 1] -> [batch_size * seq_len, seq_len + 1]
+                    .f_reshape(&[-1, seq_len + 1])?,
+            ),
+        )?;
 
         // Get the logits for the correct heads.
         let label_score_logits = biaffine_logits
@@ -354,8 +358,11 @@ impl BiaffineDependencyLayer {
             .f_view_(&[-1, self.n_relations])?;
 
         let relation_targets = targets.relations.f_view_(&[-1])?;
-        let relation_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean)
-            .forward(&label_score_logits, &relation_targets)?;
+        let relation_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean).forward(
+            &label_score_logits,
+            &relation_targets,
+            None,
+        )?;
 
         // Compute greedy decoding accuracy.
         let acc =

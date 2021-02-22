@@ -247,7 +247,7 @@ impl ScalarWeightClassifier {
         let predicted = logits.f_argmax(-1, false)?;
 
         let losses = CrossEntropyLoss::new(-1, label_smoothing, Reduction::None)
-            .forward(&logits, &targets)?
+            .forward(&logits, &targets, None)?
             .f_view([batch_size, seq_len])?;
 
         Ok((
