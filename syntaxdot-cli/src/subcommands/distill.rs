@@ -393,13 +393,13 @@ impl DistillApp {
             .attention_mask()?
             .to_device(self.device);
 
-        let teacher_token_offsets = teacher_batch.token_offsets.to_device(self.device);
-        let token_mask = teacher_token_offsets.token_mask()?;
+        let teacher_token_spans = teacher_batch.token_spans.to_device(self.device);
+        let token_mask = teacher_token_spans.token_mask()?;
 
         let teacher_layer_outputs = teacher.encode(
             &teacher_batch.inputs.to_device(self.device),
             &teacher_attention_mask,
-            &teacher_token_offsets,
+            &teacher_token_spans,
             false,
             FreezeLayers {
                 embeddings: true,
@@ -416,13 +416,13 @@ impl DistillApp {
             .seq_lens
             .attention_mask()?
             .to_device(self.device);
-        let student_token_offsets = student_batch.token_offsets.to_device(self.device);
+        let student_token_spans = student_batch.token_spans.to_device(self.device);
 
         autocast_or_preserve(self.mixed_precision, || {
             let student_layer_outputs = student.encode(
                 &student_batch.inputs.to_device(self.device),
                 &student_attention_mask,
-                &student_token_offsets,
+                &student_token_spans,
                 true,
                 FreezeLayers {
                     embeddings: false,
@@ -729,7 +729,7 @@ impl DistillApp {
         {
             let batch = batch?;
 
-            let n_batch_tokens = i64::from(batch.token_offsets.token_mask()?.f_sum(Kind::Int64)?);
+            let n_batch_tokens = i64::from(batch.token_spans.token_mask()?.f_sum(Kind::Int64)?);
 
             let attention_mask = batch.seq_lens.attention_mask()?;
 
@@ -737,7 +737,7 @@ impl DistillApp {
                 model.loss(
                     &batch.inputs.to_device(self.device),
                     &attention_mask.to_device(self.device),
-                    &batch.token_offsets.to_device(self.device),
+                    &batch.token_spans.to_device(self.device),
                     batch
                         .biaffine_encodings
                         .map(|tensors| tensors.to_device(self.device)),

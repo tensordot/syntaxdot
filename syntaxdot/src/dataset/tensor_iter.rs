@@ -87,11 +87,20 @@ where
                 token_mask[*token_idx] = 1;
             }
 
-            let token_indices = sentence
+            let token_offsets = sentence
                 .token_offsets
                 .iter()
                 .map(|&offset| offset as i32)
                 .collect::<Array1<i32>>();
+
+            let token_lens: Array1<i32> =
+                Array1::from_shape_fn((sentence.token_offsets.len(),), |idx| {
+                    if idx + 1 < sentence.token_offsets.len() {
+                        sentence.token_offsets[idx + 1] as i32 - sentence.token_offsets[idx] as i32
+                    } else {
+                        sentence.pieces.len() as i32 - sentence.token_offsets[idx] as i32
+                    }
+                });
 
             let biaffine_encoding = match Self::encode_biaffine(biaffine_encoder, &sentence) {
                 Ok(biaffine_encoding) => biaffine_encoding,
@@ -107,7 +116,8 @@ where
                 sentence.pieces.view(),
                 biaffine_encoding,
                 sequence_encoding,
-                token_indices.view(),
+                token_offsets.view(),
+                token_lens.view(),
                 token_mask.view(),
             );
         }
@@ -182,7 +192,20 @@ where
                 .map(|&offset| offset as i32)
                 .collect::<Array1<i32>>();
 
-            builder.add_without_labels(input.view(), token_offsets.view(), token_mask.view());
+            let token_lens: Array1<i32> = Array1::from_shape_fn((token_offsets.len(),), |idx| {
+                if idx + 1 < token_offsets.len() {
+                    token_offsets[idx + 1] as i32 - token_offsets[idx] as i32
+                } else {
+                    input.len() as i32 - token_offsets[idx] as i32
+                }
+            });
+
+            builder.add_without_labels(
+                input.view(),
+                token_offsets.view(),
+                token_lens.view(),
+                token_mask.view(),
+            );
         }
 
         builder.into()

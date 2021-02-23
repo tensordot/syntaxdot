@@ -24,7 +24,7 @@ use crate::model::biaffine_dependency_layer::{
 };
 use crate::model::pooling::PiecePooler;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
-use crate::tensor::{BiaffineTensors, TokenMask, TokenOffsets};
+use crate::tensor::{BiaffineTensors, TokenMask, TokenSpans};
 
 pub trait PretrainBertConfig {
     fn bert_config(&self) -> Cow<BertConfig>;
@@ -270,7 +270,7 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_offsets: &TokenOffsets,
+        token_spans: &TokenSpans,
         train: bool,
         freeze_layers: FreezeLayers,
     ) -> Result<Vec<LayerOutput>, SyntaxDotError> {
@@ -288,7 +288,7 @@ impl BertModel {
             self.encoder.encode(&embeds, Some(&attention_mask), train)?
         };
 
-        let mut pooled = self.pooler.pool(token_offsets, &encoded)?;
+        let mut pooled = self.pooler.pool(token_spans, &encoded)?;
 
         for layer in &mut pooled {
             *layer.output_mut() = if freeze_layers.classifiers {
@@ -321,11 +321,11 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_offsets: &TokenOffsets,
+        token_spans: &TokenSpans,
         train: bool,
         freeze_layers: FreezeLayers,
     ) -> Result<HashMap<String, Tensor>, SyntaxDotError> {
-        let encoding = self.encode(inputs, attention_mask, token_offsets, train, freeze_layers)?;
+        let encoding = self.encode(inputs, attention_mask, token_spans, train, freeze_layers)?;
         self.seq_classifiers.forward_t(&encoding, train)
     }
 
@@ -364,16 +364,16 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_offsets: &TokenOffsets,
+        token_spans: &TokenSpans,
         biaffine_tensors: Option<BiaffineTensors<Tensor>>,
         targets: &HashMap<String, Tensor>,
         label_smoothing: Option<f64>,
         train: bool,
         freeze_layers: FreezeLayers,
     ) -> Result<BertLoss, SyntaxDotError> {
-        let encoding = self.encode(inputs, attention_mask, token_offsets, train, freeze_layers)?;
+        let encoding = self.encode(inputs, attention_mask, token_spans, train, freeze_layers)?;
 
-        let token_mask = token_offsets.token_mask()?;
+        let token_mask = token_spans.token_mask()?;
 
         if freeze_layers.classifiers {
             tch::no_grad(|| {
@@ -444,12 +444,12 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_offsets: &TokenOffsets,
+        token_spans: &TokenSpans,
     ) -> Result<Predictions, SyntaxDotError> {
         let encoding = self.encode(
             inputs,
             attention_mask,
-            token_offsets,
+            token_spans,
             false,
             FreezeLayers {
                 embeddings: true,
