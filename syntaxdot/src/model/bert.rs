@@ -458,10 +458,11 @@ impl BertModel {
             },
         )?;
 
+        let token_mask = token_offsets.f_ne(-1)?;
         let biaffine_score_logits = self
             .biaffine
             .as_ref()
-            .map(|biaffine| biaffine.forward(&encoding, token_offsets, false, false))
+            .map(|biaffine| biaffine.forward(&encoding, &token_mask, false, false))
             .transpose()?;
         let sequences_top_k = self.seq_classifiers.top_k(&encoding, 3)?;
 
