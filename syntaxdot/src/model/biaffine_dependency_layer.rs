@@ -6,6 +6,7 @@ use syntaxdot_transformers::layers::{
 };
 use syntaxdot_transformers::loss::CrossEntropyLoss;
 use syntaxdot_transformers::models::LayerOutput;
+use syntaxdot_transformers::module::FallibleModuleT;
 use syntaxdot_transformers::scalar_weighting::ScalarWeight;
 use tch::nn::{Init, Linear, Module};
 use tch::{Kind, Reduction, Tensor};
@@ -13,8 +14,7 @@ use tch::{Kind, Reduction, Tensor};
 use crate::config::{BiaffineParserConfig, PretrainConfig};
 use crate::error::SyntaxDotError;
 use crate::model::bert::PretrainBertConfig;
-use crate::tensor::BiaffineTensors;
-use syntaxdot_transformers::module::FallibleModuleT;
+use crate::tensor::{BiaffineTensors, TokenMask};
 
 /// Accuracy of a biaffine parsing layer.
 #[derive(Debug)]
@@ -194,16 +194,6 @@ impl BiaffineDependencyLayer {
         })
     }
 
-    fn create_token_mask_with_root(token_mask: &Tensor) -> Result<Tensor, SyntaxDotError> {
-        let (batch_size, _seq_len) = token_mask.size2()?;
-
-        // Padding is marked using the value -1.
-        let root_mask = Tensor::from(true)
-            .f_expand(&[batch_size, 1], true)?
-            .to_device(token_mask.device());
-        Ok(Tensor::f_cat(&[&root_mask, token_mask], -1)?)
-    }
-
     /// Apply the biaffine dependency layer.
     ///
     /// The required arguments are:
@@ -216,11 +206,11 @@ impl BiaffineDependencyLayer {
     pub fn forward(
         &self,
         layers: &[LayerOutput],
-        token_mask: &Tensor,
+        token_mask: &TokenMask,
         remove_root: bool,
         train: bool,
     ) -> Result<BiaffineScoreLogits, SyntaxDotError> {
-        let token_mask_with_root = Self::create_token_mask_with_root(&token_mask)?;
+        let token_mask_with_root = token_mask.with_root()?;
 
         // Mask padding. But do not mask BOS/ROOT as a possible head for each token.
         let logits_mask: Tensor = Tensor::from(1.0)
@@ -289,7 +279,7 @@ impl BiaffineDependencyLayer {
     pub fn loss(
         &self,
         layers: &[LayerOutput],
-        token_mask: &Tensor,
+        token_mask: &TokenMask,
         targets: &BiaffineTensors<Tensor>,
         label_smoothing: Option<f64>,
         train: bool,
@@ -317,7 +307,7 @@ impl BiaffineDependencyLayer {
 
         let (batch_size, seq_len) = targets.heads.size2()?;
 
-        let token_mask_with_root = Self::create_token_mask_with_root(&token_mask)?;
+        let token_mask_with_root = token_mask.with_root()?;
 
         // Compute head loss
         let head_logits = biaffine_logits
@@ -379,7 +369,7 @@ impl BiaffineDependencyLayer {
     fn greedy_decode_accuracy(
         biaffine_score_logits: &BiaffineScoreLogits,
         targets: &BiaffineTensors<Tensor>,
-        token_mask: &Tensor,
+        token_mask: &TokenMask,
     ) -> Result<BiaffineAccuracy, SyntaxDotError> {
         let (batch_size, seq_len) = token_mask.size2()?;
 

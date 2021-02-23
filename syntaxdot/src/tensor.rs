@@ -5,6 +5,8 @@ use std::ops::{Deref, DerefMut};
 use ndarray::{s, Array1, Array2, ArrayView1};
 use tch::{Device, Kind, Tensor};
 
+use crate::error::SyntaxDotError;
+
 /// Tensors for biaffine encodings.
 #[derive(Debug, PartialEq)]
 pub struct BiaffineTensors<T> {
@@ -262,11 +264,11 @@ pub struct Tensors {
     /// Labels.
     pub labels: Option<HashMap<String, Tensor>>,
 
-    /// Token mask.
-    pub token_offsets: Tensor,
-
     /// Sequence lengths.
-    pub seq_lens: Tensor,
+    pub seq_lens: SequenceLengths,
+
+    /// Token offsets.
+    pub token_offsets: TokenOffsets,
 }
 
 impl From<TensorBuilder> for Tensors {
@@ -288,11 +290,139 @@ impl From<TensorBuilder> for Tensors {
             inputs: builder.inputs.try_into().unwrap(),
             biaffine_encodings,
             labels,
-            token_offsets: Tensor::try_from(builder.token_offsets)
-                .unwrap()
-                .to_kind(Kind::Int64),
-            seq_lens: builder.seq_lens.try_into().unwrap(),
+            seq_lens: SequenceLengths::new(builder.seq_lens.try_into().unwrap()),
+            token_offsets: TokenOffsets::new(
+                Tensor::try_from(builder.token_offsets)
+                    .unwrap()
+                    .to_kind(Kind::Int64),
+            ),
         }
+    }
+}
+
+/// Sequence word/sentence piece lengths.
+#[derive(Debug)]
+pub struct SequenceLengths {
+    inner: Tensor,
+}
+
+impl SequenceLengths {
+    fn new(seq_lens: Tensor) -> Self {
+        Self { inner: seq_lens }
+    }
+
+    /// Convert sequence lengths to masks.
+    pub fn attention_mask(&self) -> Result<Tensor, SyntaxDotError> {
+        let max_len = i64::from(self.inner.max());
+        let batch_size = self.inner.size()[0];
+        Ok(Tensor::f_arange(max_len, (Kind::Int, self.inner.device()))?
+            // Construct a matrix [batch_size, max_len] where each row
+            // is 0..(max_len - 1).
+            .f_repeat(&[batch_size])?
+            .f_view_(&[batch_size, max_len])?
+            // Time steps less than the length in the sequence lengths are active.
+            .f_lt_1(&self.inner.unsqueeze(1))?
+            // For some reason the kind is Int?
+            .to_kind(Kind::Bool))
+    }
+}
+
+impl Deref for SequenceLengths {
+    type Target = Tensor;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+/// Token offsets
+#[derive(Debug)]
+pub struct TokenOffsets {
+    inner: Tensor,
+}
+
+impl TokenOffsets {
+    fn new(token_offsets: Tensor) -> Self {
+        Self {
+            inner: token_offsets,
+        }
+    }
+
+    /// Copy the token offsets to the given device.
+    pub fn to_device(&self, device: Device) -> Self {
+        Self {
+            inner: self.inner.to_device(device),
+        }
+    }
+
+    /// Create a token mask from token offsets.
+    pub fn token_mask(&self) -> Result<TokenMask, SyntaxDotError> {
+        Ok(TokenMask {
+            inner: self.inner.f_ne(-1)?,
+        })
+    }
+
+    /// Get the sequence lengths of the sequences in the batch.
+    pub fn seq_lens(&self) -> Result<Tensor, SyntaxDotError> {
+        Ok(self.token_mask()?.f_sum1(&[-1], false, self.kind())?)
+    }
+}
+
+impl Deref for TokenOffsets {
+    type Target = Tensor;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+/// Token mask.
+#[derive(Debug)]
+pub struct TokenMask {
+    inner: Tensor,
+}
+
+impl TokenMask {
+    pub fn with_root(&self) -> Result<TokenMaskWithRoot, SyntaxDotError> {
+        let (batch_size, _seq_len) = self.inner.size2()?;
+
+        let root_mask = Tensor::from(true)
+            .f_expand(&[batch_size, 1], true)?
+            .to_device(self.inner.device());
+
+        let token_mask_with_root = Tensor::f_cat(&[&root_mask, &self.inner], -1)?;
+
+        Ok(TokenMaskWithRoot::new(token_mask_with_root))
+    }
+}
+
+impl Deref for TokenMask {
+    type Target = Tensor;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+/// Token mask with prepended mask for a dependency root.
+#[derive(Debug)]
+pub struct TokenMaskWithRoot {
+    inner: Tensor,
+}
+
+impl TokenMaskWithRoot {
+    fn new(token_mask_with_root: Tensor) -> Self {
+        Self {
+            inner: token_mask_with_root,
+        }
+    }
+}
+
+impl Deref for TokenMaskWithRoot {
+    type Target = Tensor;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
@@ -302,7 +432,21 @@ mod tests {
     use tch::Tensor;
 
     use super::{TensorBuilder, Tensors};
-    use crate::tensor::BiaffineTensors;
+    use crate::tensor::{BiaffineTensors, SequenceLengths, TokenOffsets};
+
+    #[test]
+    fn attention_masking_is_correct() {
+        let seq_lens = SequenceLengths::new(Tensor::of_slice(&[3, 5, 1]));
+        assert_eq!(
+            seq_lens.attention_mask().unwrap(),
+            Tensor::of_slice(&[
+                true, true, true, false, false, // Sequence 0
+                true, true, true, true, true, // Sequence 1
+                true, false, false, false, false, // Sequence 2
+            ])
+            .view([3, 5])
+        );
+    }
 
     #[test]
     fn instances_are_added() {
@@ -323,7 +467,7 @@ mod tests {
         // No labels.
         assert_eq!(tensors.labels, None);
 
-        assert_eq!(tensors.seq_lens, Tensor::of_slice(&[2, 3]));
+        assert_eq!(*tensors.seq_lens, Tensor::of_slice(&[2, 3]));
         assert_eq!(
             tensors.inputs,
             Tensor::of_slice(&[1, 2, 0, 3, 4, 5]).reshape(&[2, 3])
@@ -383,7 +527,7 @@ mod tests {
             )
         );
 
-        assert_eq!(tensors.seq_lens, Tensor::of_slice(&[2, 3]));
+        assert_eq!(*tensors.seq_lens, Tensor::of_slice(&[2, 3]));
         assert_eq!(
             tensors.inputs,
             Tensor::of_slice(&[1, 2, 0, 3, 4, 5]).reshape(&[2, 3])
@@ -434,5 +578,56 @@ mod tests {
             arr1(&[0]).view(),
             arr1(&[1, 0]).view(),
         );
+    }
+
+    #[test]
+    fn token_masking_is_correct() {
+        let token_offsets = TokenOffsets::new(
+            Tensor::of_slice(&[
+                1, 3, 5, -1, -1, // Sequence 0
+                1, 2, 8, 11, 13, // Sequence 1
+            ])
+            .view([2, 5]),
+        );
+        assert_eq!(
+            *token_offsets.token_mask().unwrap(),
+            Tensor::of_slice(&[
+                true, true, true, false, false, // Sequence 0
+                true, true, true, true, true // Sequence 1
+            ])
+            .view([2, 5])
+        );
+    }
+
+    #[test]
+    fn token_masking_with_root_is_correct() {
+        let token_offsets = TokenOffsets::new(
+            Tensor::of_slice(&[
+                1, 3, 5, -1, -1, // Sequence 0
+                1, 2, 8, 11, 13, // Sequence 1
+            ])
+            .view([2, 5]),
+        );
+
+        assert_eq!(
+            *token_offsets.token_mask().unwrap().with_root().unwrap(),
+            Tensor::of_slice(&[
+                true, true, true, true, false, false, // Sequence 0
+                true, true, true, true, true, true // Sequence 1
+            ])
+            .view([2, 6])
+        );
+    }
+
+    #[test]
+    fn token_sequence_lengths_are_correct() {
+        let token_offsets = TokenOffsets::new(
+            Tensor::of_slice(&[
+                1, 3, 5, -1, -1, // Sequence 0
+                1, 2, 8, 11, 13, // Sequence 1
+            ])
+            .view([2, 5]),
+        );
+        assert_eq!(token_offsets.seq_lens().unwrap(), Tensor::of_slice(&[3, 5]));
     }
 }

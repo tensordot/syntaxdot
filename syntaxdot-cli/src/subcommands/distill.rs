@@ -19,8 +19,7 @@ use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule};
 use syntaxdot::model::bert::{BertModel, FreezeLayers};
 use syntaxdot::model::biaffine_dependency_layer::BiaffineScoreLogits;
 use syntaxdot::optimizers::{GradScaler, Optimizer};
-use syntaxdot::tensor::Tensors;
-use syntaxdot::util::seq_len_to_mask;
+use syntaxdot::tensor::{Tensors, TokenMask};
 use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
@@ -163,16 +162,15 @@ impl DistillApp {
     fn biaffine_loss(
         teacher_logits: &BiaffineScoreLogits,
         student_logits: &BiaffineScoreLogits,
-        token_mask: &Tensor,
+        token_mask: &TokenMask,
     ) -> Result<Tensor> {
         // Compute teacher probabilities.
         let teacher_head_probs = teacher_logits
             .head_score_logits
             .f_softmax(-1, Kind::Float)?;
 
-        let token_mask_with_root = Self::create_token_mask_with_root(&token_mask)?;
-
-        let probs_mask = token_mask_with_root
+        let probs_mask = token_mask
+            .with_root()?
             .unsqueeze(1)
             .logical_and(&token_mask.unsqueeze(-1));
         let teacher_head_probs = teacher_head_probs.masked_select(&probs_mask);
@@ -208,14 +206,6 @@ impl DistillApp {
             .f_mean(Kind::Float)?;
 
         Ok(head_soft_loss.f_add(&relation_soft_loss)?)
-    }
-
-    fn create_token_mask_with_root(token_mask: &Tensor) -> Result<Tensor, SyntaxDotError> {
-        let (batch_size, _) = token_mask.size2()?;
-        let root_mask = Tensor::from(true)
-            .f_expand(&[batch_size, 1], true)?
-            .to_device(token_mask.device());
-        Ok(Tensor::cat(&[&root_mask, token_mask], -1))
     }
 
     fn select_relations_for_predicted_heads(
@@ -361,7 +351,7 @@ impl DistillApp {
     fn seq_encoders_loss(
         teacher_encoder_logits: HashMap<String, Tensor>,
         student_encoder_logits: HashMap<String, Tensor>,
-        token_mask: &Tensor,
+        token_mask: &TokenMask,
     ) -> Result<Tensor, SyntaxDotError> {
         let mut loss = Tensor::zeros(&[], (Kind::Float, token_mask.device()));
 
@@ -398,12 +388,13 @@ impl DistillApp {
         student_batch: Tensors,
     ) -> Result<DistillLoss> {
         // Compute masks.
-        let teacher_attention_mask =
-            seq_len_to_mask(&teacher_batch.seq_lens, teacher_batch.inputs.size()[1])?
-                .to_device(self.device);
+        let teacher_attention_mask = teacher_batch
+            .seq_lens
+            .attention_mask()?
+            .to_device(self.device);
 
         let teacher_token_offsets = teacher_batch.token_offsets.to_device(self.device);
-        let token_mask = teacher_token_offsets.f_ne(-1)?;
+        let token_mask = teacher_token_offsets.token_mask()?;
 
         let teacher_layer_outputs = teacher.encode(
             &teacher_batch.inputs.to_device(self.device),
@@ -421,9 +412,10 @@ impl DistillApp {
         let teacher_biaffine_logits =
             teacher.biaffine_logits_from_encoding(&teacher_layer_outputs, &token_mask, false)?;
 
-        let student_attention_mask =
-            seq_len_to_mask(&student_batch.seq_lens, student_batch.inputs.size()[1])?
-                .to_device(self.device);
+        let student_attention_mask = student_batch
+            .seq_lens
+            .attention_mask()?
+            .to_device(self.device);
         let student_token_offsets = student_batch.token_offsets.to_device(self.device);
 
         autocast_or_preserve(self.mixed_precision, || {
@@ -737,9 +729,9 @@ impl DistillApp {
         {
             let batch = batch?;
 
-            let n_batch_tokens = i64::from(batch.token_offsets.f_ne(-1)?.f_sum(Kind::Int64)?);
+            let n_batch_tokens = i64::from(batch.token_offsets.token_mask()?.f_sum(Kind::Int64)?);
 
-            let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1])?;
+            let attention_mask = batch.seq_lens.attention_mask()?;
 
             let model_loss = autocast_or_preserve(self.mixed_precision, || {
                 model.loss(

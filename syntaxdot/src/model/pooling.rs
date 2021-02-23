@@ -4,6 +4,7 @@ use syntaxdot_transformers::TransformerError;
 use tch::Tensor;
 
 use crate::error::SyntaxDotError;
+use crate::tensor::TokenOffsets;
 
 /// Word/sentence piece pooler.
 ///
@@ -26,7 +27,7 @@ impl PiecePooler {
     /// Pool pieces in all layers.
     pub fn pool(
         &self,
-        token_offsets: &Tensor,
+        token_offsets: &TokenOffsets,
         layer_outputs: &[LayerOutput],
     ) -> Result<Vec<LayerOutput>, SyntaxDotError> {
         let mut new_layer_outputs = Vec::with_capacity(layer_outputs.len());
@@ -43,7 +44,7 @@ impl PiecePooler {
 
     fn pool_layer(
         &self,
-        token_offsets: &Tensor,
+        token_offsets: &TokenOffsets,
         layer: &Tensor,
     ) -> Result<Tensor, TransformerError> {
         let (batch_size, _, hidden_size) = layer.size3()?;

@@ -24,7 +24,7 @@ use crate::model::biaffine_dependency_layer::{
 };
 use crate::model::pooling::PiecePooler;
 use crate::model::seq_classifiers::{SequenceClassifiers, SequenceClassifiersLoss, TopK};
-use crate::tensor::BiaffineTensors;
+use crate::tensor::{BiaffineTensors, TokenMask, TokenOffsets};
 
 pub trait PretrainBertConfig {
     fn bert_config(&self) -> Cow<BertConfig>;
@@ -256,7 +256,7 @@ impl BertModel {
     pub fn biaffine_logits_from_encoding(
         &self,
         layer_outputs: &[LayerOutput],
-        token_mask: &Tensor,
+        token_mask: &TokenMask,
         train: bool,
     ) -> Result<Option<BiaffineScoreLogits>, SyntaxDotError> {
         self.biaffine
@@ -270,7 +270,7 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_offsets: &Tensor,
+        token_offsets: &TokenOffsets,
         train: bool,
         freeze_layers: FreezeLayers,
     ) -> Result<Vec<LayerOutput>, SyntaxDotError> {
@@ -321,7 +321,7 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_offsets: &Tensor,
+        token_offsets: &TokenOffsets,
         train: bool,
         freeze_layers: FreezeLayers,
     ) -> Result<HashMap<String, Tensor>, SyntaxDotError> {
@@ -364,7 +364,7 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_offsets: &Tensor,
+        token_offsets: &TokenOffsets,
         biaffine_tensors: Option<BiaffineTensors<Tensor>>,
         targets: &HashMap<String, Tensor>,
         label_smoothing: Option<f64>,
@@ -373,7 +373,7 @@ impl BertModel {
     ) -> Result<BertLoss, SyntaxDotError> {
         let encoding = self.encode(inputs, attention_mask, token_offsets, train, freeze_layers)?;
 
-        let token_mask = token_offsets.f_ne(-1)?;
+        let token_mask = token_offsets.token_mask()?;
 
         if freeze_layers.classifiers {
             tch::no_grad(|| {
@@ -444,7 +444,7 @@ impl BertModel {
         &self,
         inputs: &Tensor,
         attention_mask: &Tensor,
-        token_offsets: &Tensor,
+        token_offsets: &TokenOffsets,
     ) -> Result<Predictions, SyntaxDotError> {
         let encoding = self.encode(
             inputs,
@@ -458,11 +458,10 @@ impl BertModel {
             },
         )?;
 
-        let token_mask = token_offsets.f_ne(-1)?;
         let biaffine_score_logits = self
             .biaffine
             .as_ref()
-            .map(|biaffine| biaffine.forward(&encoding, &token_mask, false, false))
+            .map(|biaffine| biaffine.forward(&encoding, &token_offsets.token_mask()?, false, false))
             .transpose()?;
         let sequences_top_k = self.seq_classifiers.top_k(&encoding, 3)?;
 
