@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 
 use ndarray::{s, Array1, ArrayD, Axis};
+use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_encoders::{EncodingProb, SentenceDecoder};
 use syntaxdot_tokenizers::SentenceWithPieces;
 use tch::Device;
@@ -13,8 +14,6 @@ use crate::model::bert::BertModel;
 use crate::model::biaffine_dependency_layer::BiaffineScoreLogits;
 use crate::model::seq_classifiers::TopK;
 use crate::tensor::{TensorBuilder, Tensors};
-use crate::util::seq_len_to_mask;
-use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 
 /// A sequence tagger.
 pub struct Tagger {
@@ -48,7 +47,7 @@ impl Tagger {
         let tensors = self.prepare_batch(sentences);
 
         // Get model predictions.
-        let attention_mask = seq_len_to_mask(&tensors.seq_lens, tensors.inputs.size()[1])?;
+        let attention_mask = tensors.seq_lens.attention_mask()?;
         let predictions = self.model.predict(
             &tensors.inputs.to_device(self.device),
             &attention_mask.to_device(self.device),

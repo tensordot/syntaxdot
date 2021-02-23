@@ -12,6 +12,7 @@ use crate::config::PretrainConfig;
 use crate::encoders::Encoders;
 use crate::error::SyntaxDotError;
 use crate::model::bert::PretrainBertConfig;
+use crate::tensor::TokenMask;
 use std::time::Instant;
 
 /// A set of sequence classifiers.
@@ -102,7 +103,7 @@ impl SequenceClassifiers {
         layers: &[LayerOutput],
         targets: &HashMap<String, Tensor>,
         label_smoothing: Option<f64>,
-        token_mask: &Tensor,
+        token_mask: &TokenMask,
         train: bool,
     ) -> Result<SequenceClassifiersLoss, SyntaxDotError> {
         // Remove root token representation.

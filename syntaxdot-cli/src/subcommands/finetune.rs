@@ -13,7 +13,6 @@ use syntaxdot::encoders::Encoders;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule, PlateauLearningRate};
 use syntaxdot::model::bert::{BertModel, FreezeLayers};
 use syntaxdot::optimizers::{GradScaler, Optimizer};
-use syntaxdot::util::seq_len_to_mask;
 use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tokenizers::Tokenize;
 use tch::nn::{self, AdamW};
@@ -288,9 +287,9 @@ impl FinetuneApp {
                 )
             };
 
-            let attention_mask = seq_len_to_mask(&batch.seq_lens, batch.inputs.size()[1])?;
+            let attention_mask = batch.seq_lens.attention_mask()?;
 
-            let n_batch_tokens = i64::from(batch.token_offsets.f_ne(-1)?.f_sum(Kind::Int64)?);
+            let n_batch_tokens = i64::from(batch.token_offsets.token_mask()?.f_sum(Kind::Int64)?);
 
             let model_loss = autocast_or_preserve(self.mixed_precision, || {
                 model.loss(

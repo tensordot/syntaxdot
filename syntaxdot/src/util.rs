@@ -1,7 +1,4 @@
 use rand::Rng;
-use tch::{Kind, Tensor};
-
-use crate::error::SyntaxDotError;
 
 pub struct RandomRemoveVec<T, R> {
     inner: Vec<T>,
@@ -60,20 +57,6 @@ where
         self.inner
             .swap_remove(self.rng.gen_range(0, self.inner.len()))
     }
-}
-
-/// Convert sequence lengths to masks.
-pub fn seq_len_to_mask(seq_lens: &Tensor, max_len: i64) -> Result<Tensor, SyntaxDotError> {
-    let batch_size = seq_lens.size()[0];
-    Ok(Tensor::f_arange(max_len, (Kind::Int, seq_lens.device()))?
-        // Construct a matrix [batch_size, max_len] where each row
-        // is 0..(max_len - 1).
-        .f_repeat(&[batch_size])?
-        .f_view_(&[batch_size, max_len])?
-        // Time steps less than the length in seq_lens are active.
-        .f_lt_1(&seq_lens.unsqueeze(1))?
-        // For some reason the kind is Int?
-        .to_kind(Kind::Bool))
 }
 
 #[cfg(test)]
