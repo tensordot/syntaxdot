@@ -47,7 +47,7 @@ impl LayerOutput {
     /// Map the output representation of this layer.
     pub fn map_output<F>(&self, f: F) -> Result<Self, TransformerError>
     where
-        F: Fn(&Tensor) -> Result<Tensor, TransformerError>,
+        F: FnOnce(&Tensor) -> Result<Tensor, TransformerError>,
     {
         let layer = match self {
             LayerOutput::Embedding(embedding) => LayerOutput::Embedding(f(embedding)?),
