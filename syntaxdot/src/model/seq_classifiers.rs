@@ -65,13 +65,10 @@ impl SequenceClassifiers {
     /// Perform a forward pass of sequence classifiers.
     pub fn forward_t(
         &self,
-        layers: &[LayerOutput],
+        layers: &Tensor,
         train: bool,
     ) -> Result<HashMap<String, Tensor>, SyntaxDotError> {
-        let layers_without_root = layers
-            .iter()
-            .map(|layer| layer.map_output(|output| Ok(output.f_slice(1, 1, i64::MAX, 1)?)))
-            .collect::<Result<Vec<_>, _>>()?;
+        let layers_without_root = layers.f_slice(2, 1, i64::MAX, 1)?;
 
         self.classifiers
             .iter()
@@ -100,17 +97,14 @@ impl SequenceClassifiers {
     #[allow(clippy::too_many_arguments)]
     pub fn loss(
         &self,
-        layers: &[LayerOutput],
+        layers: &Tensor,
         targets: &HashMap<String, Tensor>,
         label_smoothing: Option<f64>,
         token_mask: &TokenMask,
         train: bool,
     ) -> Result<SequenceClassifiersLoss, SyntaxDotError> {
         // Remove root token representation.
-        let layers_without_root = layers
-            .iter()
-            .map(|layer| layer.map_output(|output| Ok(output.f_slice(1, 1, i64::MAX, 1)?)))
-            .collect::<Result<Vec<_>, _>>()?;
+        let layers_without_root = layers.f_slice(2, 1, i64::MAX, 1)?;
 
         let mut encoder_losses = HashMap::with_capacity(self.classifiers.len());
         let mut encoder_accuracies = HashMap::with_capacity(self.classifiers.len());
@@ -130,7 +124,7 @@ impl SequenceClassifiers {
         }
 
         let summed_loss = encoder_losses.values().try_fold(
-            Tensor::f_zeros(&[], (Kind::Float, layers_without_root[0].output().device()))?,
+            Tensor::f_zeros(&[], (Kind::Float, layers_without_root.device()))?,
             |summed_loss, loss| summed_loss.f_add(loss),
         )?;
 
@@ -148,15 +142,12 @@ impl SequenceClassifiers {
     /// returns a mapping for the classifier name to `(probabilities, labels)`.
     pub fn top_k(
         &self,
-        layers: &[LayerOutput],
+        layers: &Tensor,
         k: usize,
     ) -> Result<HashMap<String, TopK>, SyntaxDotError> {
         let start = Instant::now();
 
-        let layers_without_root = layers
-            .iter()
-            .map(|layer| layer.map_output(|output| Ok(output.f_slice(1, 1, i64::MAX, 1)?)))
-            .collect::<Result<Vec<_>, _>>()?;
+        let layers_without_root = layers.f_slice(2, 1, i64::MAX, 1)?;
 
         let top_k = self
             .classifiers
@@ -165,7 +156,7 @@ impl SequenceClassifiers {
                 let (probs, mut labels) = classifier
                     .forward(&layers_without_root, false)?
                     // Exclude first two classes (padding and continuation).
-                    .f_slice(-1, 2, -1, 1)?
+                    .f_slice(-1, 2, i64::MAX, 1)?
                     .f_topk(k as i64, -1, true, true)?;
 
                 // Fix label offsets.
@@ -175,7 +166,7 @@ impl SequenceClassifiers {
             })
             .collect();
 
-        let (batch_size, seq_len, _) = layers_without_root[0].output().size3()?;
+        let (batch_size, seq_len, _, _) = layers_without_root.size4()?;
         log::debug!(
             "Predicted top-{} labels for {} inputs with length {} in {}ms",
             k,
@@ -188,6 +179,7 @@ impl SequenceClassifiers {
     }
 }
 
+#[derive(Debug)]
 pub struct SequenceClassifiersLoss {
     pub summed_loss: Tensor,
     pub encoder_losses: HashMap<String, Tensor>,

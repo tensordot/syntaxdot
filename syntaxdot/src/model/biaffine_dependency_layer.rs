@@ -205,7 +205,7 @@ impl BiaffineDependencyLayer {
     /// Returns the unnormalized head and label probabilities (logits).
     pub fn forward(
         &self,
-        layers: &[LayerOutput],
+        layers: &Tensor,
         token_mask: &TokenMask,
         remove_root: bool,
         train: bool,
@@ -278,7 +278,7 @@ impl BiaffineDependencyLayer {
     /// Returns the loss and greedy decoding LAS/UAS.
     pub fn loss(
         &self,
-        layers: &[LayerOutput],
+        layers: &Tensor,
         token_mask: &TokenMask,
         targets: &BiaffineTensors<Tensor>,
         label_smoothing: Option<f64>,

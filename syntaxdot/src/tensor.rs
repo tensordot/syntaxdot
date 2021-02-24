@@ -400,16 +400,12 @@ impl TokenSpans {
     pub fn with_root(&self) -> Result<TokenSpansWithRoot, TransformerError> {
         let (batch_size, _) = self.offsets.size2()?;
 
-        let root_offset = Tensor::from(0)
-            .f_view([1, 1])?
-            .f_expand(&[batch_size, 1], true)?
-            .to_device(self.offsets.device());
+        let root_offset = Tensor::f_zeros(&[1, 1], (Kind::Int64, self.offsets.device()))?
+            .f_expand(&[batch_size, 1], true)?;
         let offsets = Tensor::f_cat(&[&root_offset, &self.offsets], 1)?;
 
-        let root_len = Tensor::from(1)
-            .f_view([1, 1])?
-            .f_expand(&[batch_size, 1], true)?
-            .to_device(self.lens.device());
+        let root_len = Tensor::f_ones(&[1, 1], (Kind::Int64, self.offsets.device()))?
+            .f_expand(&[batch_size, 1], true)?;
         let lens = Tensor::f_cat(&[&root_len, &self.lens], 1)?;
 
         Ok(TokenSpansWithRoot::new(offsets, lens))
@@ -458,9 +454,8 @@ impl TokenMask {
     pub fn with_root(&self) -> Result<TokenMaskWithRoot, SyntaxDotError> {
         let (batch_size, _seq_len) = self.inner.size2()?;
 
-        let root_mask = Tensor::from(true)
-            .f_expand(&[batch_size, 1], true)?
-            .to_device(self.inner.device());
+        let root_mask = Tensor::f_ones(&[1, 1], (Kind::Bool, self.inner.device()))?
+            .f_expand(&[batch_size, 1], true)?;
 
         let token_mask_with_root = Tensor::f_cat(&[&root_mask, &self.inner], -1)?;
 
@@ -504,7 +499,7 @@ mod tests {
     use tch::Tensor;
 
     use super::{TensorBuilder, Tensors};
-    use crate::tensor::{BiaffineTensors, SequenceLengths, TokenOffsets};
+    use crate::tensor::{BiaffineTensors, SequenceLengths, TokenSpans};
 
     #[test]
     fn attention_masking_is_correct() {
@@ -662,12 +657,9 @@ mod tests {
 
     #[test]
     fn token_masking_is_correct() {
-        let token_offsets = TokenOffsets::new(
-            Tensor::of_slice(&[
-                1, 3, 5, -1, -1, // Sequence 0
-                1, 2, 8, 11, 13, // Sequence 1
-            ])
-            .view([2, 5]),
+        let token_offsets = TokenSpans::new(
+            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
         assert_eq!(
             *token_offsets.token_mask().unwrap(),
@@ -681,12 +673,9 @@ mod tests {
 
     #[test]
     fn token_masking_with_root_is_correct() {
-        let token_offsets = TokenOffsets::new(
-            Tensor::of_slice(&[
-                1, 3, 5, -1, -1, // Sequence 0
-                1, 2, 8, 11, 13, // Sequence 1
-            ])
-            .view([2, 5]),
+        let token_offsets = TokenSpans::new(
+            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
 
         assert_eq!(
@@ -701,12 +690,9 @@ mod tests {
 
     #[test]
     fn token_sequence_lengths_are_correct() {
-        let token_offsets = TokenOffsets::new(
-            Tensor::of_slice(&[
-                1, 3, 5, -1, -1, // Sequence 0
-                1, 2, 8, 11, 13, // Sequence 1
-            ])
-            .view([2, 5]),
+        let token_offsets = TokenSpans::new(
+            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
         assert_eq!(token_offsets.seq_lens().unwrap(), Tensor::of_slice(&[3, 5]));
     }

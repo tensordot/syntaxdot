@@ -37,28 +37,18 @@ impl PiecePooler {
         &self,
         token_spans: &TokenSpans,
         layer_outputs: &[LayerOutput],
-    ) -> Result<Vec<LayerOutput>, TransformerError> {
+    ) -> Result<Tensor, TransformerError> {
         // Each output has the shape: [batch_size, 1, seq_len, hidden_size]
         let outputs = layer_outputs
             .iter()
-            .map(|l| l.output().f_unsqueeze(1))
+            .map(|l| l.output().f_unsqueeze(0))
             .collect::<Result<Vec<_>, _>>()?;
 
-        // Concatenate the layers: [batch_size, layers, seq_len, hidden_size]
-        let layers = Tensor::f_cat(&outputs, 1)?;
+        // Concatenate the layers: [layers, batch_size, seq_len, hidden_size]
+        let layers = Tensor::f_cat(&outputs, 0)?;
 
-        // Apply piece pooling: [batch_size, layers, tokens_len, hidden_size]
-        let pooled_layers = self.pool_layers(&token_spans, &layers)?;
-
-        let split_pooled_layers = pooled_layers.f_split(1, 1)?;
-
-        layer_outputs
-            .iter()
-            .zip(split_pooled_layers)
-            .map(|(layer_output, split_pooled_layer)| {
-                layer_output.map_output(|output| Ok(split_pooled_layer.f_squeeze1(1)?))
-            })
-            .collect::<Result<Vec<_>, _>>()
+        // Apply piece pooling: [layers, batch_size, tokens_len, hidden_size]
+        self.pool_layers(&token_spans, &layers)
     }
 
     fn pool_layer(
@@ -66,7 +56,7 @@ impl PiecePooler {
         token_spans: &TokenSpansWithRoot,
         layer: &Tensor,
     ) -> Result<Tensor, TransformerError> {
-        let (_, layers, _, hidden_size) = layer.size4()?;
+        let (_, _layers, _, hidden_size) = layer.size4()?;
 
         let pooled_layer = match self {
             PiecePooler::Discard => layer.f_gather(
@@ -133,12 +123,7 @@ impl PiecePooler {
         _token_embeddings_mask: &Tensor,
     ) -> Result<Tensor, TransformerError> {
         // Slice to get the representation of the first token piece.
-        tch::no_grad(|| {
-            Ok(token_embeddings
-                .f_slice(3, 0, 1, 1)?
-                .f_squeeze1(3)?
-                .contiguous())
-        })
+        Ok(token_embeddings.f_slice(3, 0, 1, 1)?.f_squeeze1(3)?)
     }
 
     fn pool_mean(
@@ -150,7 +135,7 @@ impl PiecePooler {
             .f_clamp_min(1)?;
         Ok(token_embeddings
             .f_sum1(&[3], false, Kind::Float)?
-            .f_div(&pieces_per_token.f_unsqueeze(1)?.f_unsqueeze(-1)?)?)
+            .f_div(&pieces_per_token.f_unsqueeze(0)?.f_unsqueeze(-1)?)?)
     }
 }
 
@@ -166,7 +151,7 @@ impl EmbeddingsPerToken for TokenSpansWithRoot {
         &self,
         embeddings: &Tensor,
     ) -> Result<(Tensor, Tensor), TransformerError> {
-        let (batch_size, layers, _pieces_len, embed_size) = embeddings.size4()?;
+        let (layers, batch_size, _pieces_len, embed_size) = embeddings.size4()?;
         let (_batch_size, tokens_len) = self.offsets().size2()?;
 
         let max_token_len = i64::from(self.lens().max());
@@ -182,12 +167,12 @@ impl EmbeddingsPerToken for TokenSpansWithRoot {
             .f_gather(
                 2,
                 &piece_indices
-                    .f_view([batch_size, 1, -1, 1])?
-                    .f_expand(&[-1, layers, -1, embed_size], true)?,
+                    .f_view([1, batch_size, -1, 1])?
+                    .f_expand(&[layers, -1, -1, embed_size], true)?,
                 false,
             )?
-            .f_view([batch_size, layers, tokens_len, max_token_len, embed_size])?
-            .f_mul(&mask.f_view([batch_size, 1, tokens_len, max_token_len, 1])?)?;
+            .f_view([layers, batch_size, tokens_len, max_token_len, embed_size])?
+            .f_mul(&mask.f_view([1, batch_size, tokens_len, max_token_len, 1])?)?;
 
         Ok((piece_embeddings, mask))
     }
@@ -208,7 +193,7 @@ mod tests {
         );
 
         let hidden = Tensor::arange2(36, 0, -1, (Kind::Int64, Device::Cpu))
-            .view([2, 1, 9, 2])
+            .view([1, 2, 9, 2])
             .to_kind(Kind::Float);
 
         let pooler = PiecePooler::Discard;
@@ -223,7 +208,7 @@ mod tests {
                 &[36, 35, 34, 33, 30, 29, 28, 27, 0, 0, 0, 0],
                 &[18, 17, 16, 15, 12, 11, 10, 9, 6, 5, 4, 3]
             ])
-            .view([2, 1, 6, 2])
+            .view([1, 2, 6, 2])
         );
     }
 
@@ -234,7 +219,7 @@ mod tests {
             Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
-        let hidden = Tensor::arange2(32, 0, -1, (Kind::Int64, Device::Cpu)).view([2, 1, 8, 2]);
+        let hidden = Tensor::arange2(32, 0, -1, (Kind::Int64, Device::Cpu)).view([1, 2, 8, 2]);
 
         let (token_embeddings, _) = spans.embeddings_per_token(&hidden).unwrap();
 
@@ -244,7 +229,7 @@ mod tests {
                 30, 29, 28, 27, 26, 25, 0, 0, 24, 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 13, 12, 11,
                 10, 9, 0, 0, 8, 7, 6, 5, 4, 3, 0, 0, 2, 1, 0, 0
             ])
-            .view([2, 1, 5, 2, 2])
+            .view([1, 2, 5, 2, 2])
         );
     }
 
@@ -256,7 +241,7 @@ mod tests {
         );
 
         let hidden = Tensor::arange2(36, 0, -1, (Kind::Int64, Device::Cpu))
-            .view([2, 1, 9, 2])
+            .view([1, 2, 9, 2])
             .to_kind(Kind::Float);
 
         let pooler = PiecePooler::Mean;
@@ -269,7 +254,7 @@ mod tests {
                 &[36, 35, 33, 32, 30, 29, 28, 27, 0, 0, 0, 0,],
                 &[18, 17, 15, 14, 12, 11, 9, 8, 6, 5, 4, 3]
             ])
-            .view([2, 1, 6, 2])
+            .view([1, 2, 6, 2])
         );
     }
 }

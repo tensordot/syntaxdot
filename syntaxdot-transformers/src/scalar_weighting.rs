@@ -97,23 +97,17 @@ impl ScalarWeight {
         })
     }
 
-    pub fn forward(&self, layers: &[LayerOutput], train: bool) -> Result<Tensor, TransformerError> {
+    pub fn forward(&self, layers: &Tensor, train: bool) -> Result<Tensor, TransformerError> {
         assert_eq!(
             self.layer_weights.size()[0],
-            layers.len() as i64,
+            layers.size()[0] as i64,
             "Expected {} layers, got {}",
             self.layer_weights.size()[0],
-            layers.len()
+            layers.size()[0]
         );
 
-        let layers = layers.iter().map(LayerOutput::output).collect::<Vec<_>>();
-
-        // Each layer has shape:
-        // [batch_size, sequence_len, layer_size],
-        //
-        // stack the layers to get a single tensor of shape:
-        // [batch_size, sequence_len, n_layers, layer_size]
-        let layers = Tensor::f_stack(&layers, 2)?;
+        // Layers have the shape:
+        // [n_layers, batch_size, n_tokens, layer_size]
 
         let layer_weights = if train {
             let dropout_mask = Tensor::f_empty_like(&self.layer_weights)?
@@ -127,19 +121,19 @@ impl ScalarWeight {
         };
 
         // Convert the layer weights into a probability distribution and
-        // expand dimensions to get shape [1, 1, n_layers, 1].
+        // expand dimensions to get shape [n_layers, 1, 1, 1].
         let layer_weights = layer_weights
             .f_softmax(-1, Kind::Float)?
-            .f_unsqueeze(0)?
-            .f_unsqueeze(0)?
-            .f_unsqueeze(-1)?;
+            .f_view([-1, 1, 1, 1])?;
 
         let weighted_layers = layers.f_mul(&layer_weights)?;
 
         // Sum across all layers and scale.
-        Ok(weighted_layers
-            .f_sum1(&[-2], false, Kind::Float)?
-            .f_mul(&self.scale)?)
+        let r = weighted_layers
+            .f_sum1(&[0], false, Kind::Float)?
+            .f_mul(&self.scale)?;
+
+        Ok(r)
     }
 }
 
@@ -203,12 +197,12 @@ impl ScalarWeightClassifier {
         })
     }
 
-    pub fn forward(&self, layers: &[LayerOutput], train: bool) -> Result<Tensor, TransformerError> {
+    pub fn forward(&self, layers: &Tensor, train: bool) -> Result<Tensor, TransformerError> {
         let logits = self.logits(layers, train)?;
         Ok(logits.f_softmax(-1, Kind::Float)?)
     }
 
-    pub fn logits(&self, layers: &[LayerOutput], train: bool) -> Result<Tensor, TransformerError> {
+    pub fn logits(&self, layers: &Tensor, train: bool) -> Result<Tensor, TransformerError> {
         let mut features = self.scalar_weight.forward(layers, train)?;
 
         features = self.dropout.forward_t(&features, train)?;
@@ -223,7 +217,7 @@ impl ScalarWeightClassifier {
     /// `targets` should be of the shape `[batch_size, seq_len]`.
     pub fn losses(
         &self,
-        layers: &[LayerOutput],
+        layers: &Tensor,
         targets: &Tensor,
         label_smoothing: Option<f64>,
         train: bool,
@@ -318,17 +312,10 @@ mod tests {
         )
         .unwrap();
 
-        let layer1 = LayerOutput::EncoderWithAttention(HiddenLayer {
-            attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu)),
-            output: Tensor::zeros(&[1, 3, 8], (Kind::Float, Device::Cpu)),
-        });
-        let layer2 = LayerOutput::EncoderWithAttention(HiddenLayer {
-            attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu)),
-            output: Tensor::zeros(&[1, 3, 8], (Kind::Float, Device::Cpu)),
-        });
+        let layers = Tensor::zeros(&[2, 1, 3, 8], (Kind::Float, Device::Cpu));
 
         // Perform a forward pass to check that all shapes align.
-        let results = classifier.forward(&[layer1, layer2], false).unwrap();
+        let results = classifier.forward(&layers, false).unwrap();
 
         assert_eq!(results.size(), &[1, 3, 5]);
     }

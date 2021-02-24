@@ -255,7 +255,7 @@ impl BertModel {
     /// Compute the biaffine logits for a batch of inputs from the transformer's encoding.
     pub fn biaffine_logits_from_encoding(
         &self,
-        layer_outputs: &[LayerOutput],
+        layer_outputs: &Tensor,
         token_mask: &TokenMask,
         train: bool,
     ) -> Result<Option<BiaffineScoreLogits>, SyntaxDotError> {
@@ -273,7 +273,7 @@ impl BertModel {
         token_spans: &TokenSpans,
         train: bool,
         freeze_layers: FreezeLayers,
-    ) -> Result<Vec<LayerOutput>, SyntaxDotError> {
+    ) -> Result<Tensor, SyntaxDotError> {
         let start = Instant::now();
 
         let embeds = if freeze_layers.embeddings {
@@ -290,13 +290,11 @@ impl BertModel {
 
         let mut pooled = self.pooler.pool(token_spans, &encoded)?;
 
-        for layer in &mut pooled {
-            *layer.output_mut() = if freeze_layers.classifiers {
-                tch::no_grad(|| self.layers_dropout.forward_t(&layer.output(), train))?
-            } else {
-                self.layers_dropout.forward_t(&layer.output(), train)?
-            };
-        }
+        let pooled = if freeze_layers.classifiers {
+            tch::no_grad(|| self.layers_dropout.forward_t(&pooled, train))?
+        } else {
+            self.layers_dropout.forward_t(&pooled, train)?
+        };
 
         let shape = inputs.size();
         log::debug!(
@@ -339,7 +337,7 @@ impl BertModel {
     /// * `freeze_encoder`: exclude the encoder from backpropagation.
     pub fn encoder_logits_from_encoding(
         &self,
-        layer_outputs: &[LayerOutput],
+        layer_outputs: &Tensor,
         train: bool,
     ) -> Result<HashMap<String, Tensor>, SyntaxDotError> {
         self.seq_classifiers.forward_t(layer_outputs, train)
@@ -461,7 +459,7 @@ impl BertModel {
         let biaffine_score_logits = self
             .biaffine
             .as_ref()
-            .map(|biaffine| biaffine.forward(&encoding, &token_offsets.token_mask()?, false, false))
+            .map(|biaffine| biaffine.forward(&encoding, &token_spans.token_mask()?, false, false))
             .transpose()?;
         let sequences_top_k = self.seq_classifiers.top_k(&encoding, 3)?;
 

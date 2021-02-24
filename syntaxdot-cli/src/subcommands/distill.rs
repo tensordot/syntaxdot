@@ -71,13 +71,10 @@ struct BiaffineEpochStats {
 }
 
 struct DistillLoss {
-    pub loss: Tensor,
-    pub attention_loss: Tensor,
     pub soft_loss: Tensor,
 }
 
 pub struct DistillApp {
-    attention_loss: bool,
     batch_size: usize,
     device: Device,
     eval_steps: usize,
@@ -113,52 +110,6 @@ struct EpochStats {
 }
 
 impl DistillApp {
-    /// Compute the attention loss based on the output of two encoders.
-    ///
-    /// The attention loss is the mean squared error of the teacher and student
-    /// attentions.
-    fn attention_loss(
-        &self,
-        teacher_layer_outputs: &[LayerOutput],
-        student_layer_outputs: &[LayerOutput],
-    ) -> Result<Tensor, SyntaxDotError> {
-        // Only apply attention loss to layers with attention.
-        let teacher_attentions = teacher_layer_outputs
-            .iter()
-            .filter_map(|l| l.attention())
-            .collect::<Vec<_>>();
-        let student_attentions = student_layer_outputs
-            .iter()
-            .filter_map(|l| l.attention())
-            .collect::<Vec<_>>();
-
-        let teacher_attention = Tensor::stack(&teacher_attentions, 0);
-        let student_attention = Tensor::stack(&student_attentions, 0);
-
-        if student_attention.size() != teacher_attention.size() {
-            return Err(SyntaxDotError::IllegalConfigurationError(format!(
-                "Cannot compute attention loss: teacher ({:?}) and student ({:?}) have different sequence lengths.",
-                teacher_attention
-                    .size()
-                    .last()
-                    .expect("Teacher attention is not a tensor"),
-                student_attention
-                    .size()
-                    .last()
-                    .expect("Student attention is not a tensor")
-            )));
-        }
-
-        // The attention matrix uses logits. Tokens are masked by giving them very
-        // negative values. Remove such tokens by removing extreme negative values.
-        // The threshold is the same as that used by TinyBERT.
-        let zeros = Tensor::zeros_like(&teacher_attention);
-        let teacher_attention = teacher_attention.where1(&teacher_attention.lt(-1e2), &zeros);
-        let student_attention = student_attention.where1(&student_attention.lt(-1e2), &zeros);
-
-        Ok(student_attention.mse_loss(&teacher_attention, Reduction::Mean))
-    }
-
     fn biaffine_loss(
         teacher_logits: &BiaffineScoreLogits,
         student_logits: &BiaffineScoreLogits,
@@ -459,17 +410,7 @@ impl DistillApp {
                 &token_mask,
             )?)?;
 
-            let attention_loss = if self.attention_loss {
-                self.attention_loss(&teacher_layer_outputs, &student_layer_outputs)?
-            } else {
-                Tensor::zeros(&[], (Kind::Float, self.device))
-            };
-
-            Ok(DistillLoss {
-                loss: soft_loss.f_add(&attention_loss)?,
-                attention_loss,
-                soft_loss,
-            })
+            Ok(DistillLoss { soft_loss })
         })
     }
 
@@ -514,7 +455,7 @@ impl DistillApp {
                 lr_classifier.into(),
             );
 
-            grad_scaler.backward_step(&distill_loss.loss)?;
+            grad_scaler.backward_step(&distill_loss.soft_loss)?;
 
             self.summary_writer.write_scalar(
                 "gradient_scale",
@@ -523,12 +464,11 @@ impl DistillApp {
             )?;
 
             progress.set_message(&format!(
-                "step: {} | lr enc: {:+.1e}, class: {:+.1e} | loss soft: {:+.1e}, attention: {:+.1e}",
+                "step: {} | lr enc: {:+.1e}, class: {:+.1e} | loss soft: {:+.1e}",
                 global_step,
                 lr_encoder,
                 lr_classifier,
                 f32::from(distill_loss.soft_loss),
-                f32::from(distill_loss.attention_loss)
             ));
             progress.inc(1);
 
@@ -977,7 +917,6 @@ impl SyntaxDotApp for DistillApp {
             .value_of(VALIDATION_DATA)
             .map(ToOwned::to_owned)
             .unwrap();
-        let attention_loss = matches.is_present(ATTENTION_LOSS);
         let batch_size = matches
             .value_of(BATCH_SIZE)
             .unwrap()
@@ -1062,7 +1001,6 @@ impl SyntaxDotApp for DistillApp {
         };
 
         Ok(DistillApp {
-            attention_loss,
             batch_size,
             device,
             eval_steps,
