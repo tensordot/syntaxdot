@@ -289,13 +289,13 @@ impl FinetuneApp {
 
             let attention_mask = batch.seq_lens.attention_mask()?;
 
-            let n_batch_tokens = i64::from(batch.token_offsets.token_mask()?.f_sum(Kind::Int64)?);
+            let n_batch_tokens = i64::from(batch.token_spans.token_mask()?.f_sum(Kind::Int64)?);
 
             let model_loss = autocast_or_preserve(self.mixed_precision, || {
                 model.loss(
                     &batch.inputs.to_device(self.device),
                     &attention_mask.to_device(self.device),
-                    &batch.token_offsets.to_device(self.device),
+                    &batch.token_spans.to_device(self.device),
                     batch
                         .biaffine_encodings
                         .map(|tensors| tensors.to_device(self.device)),

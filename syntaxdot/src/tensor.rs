@@ -6,6 +6,7 @@ use ndarray::{s, Array1, Array2, ArrayView1};
 use tch::{Device, Kind, Tensor};
 
 use crate::error::SyntaxDotError;
+use syntaxdot_transformers::TransformerError;
 
 /// Tensors for biaffine encodings.
 #[derive(Debug, PartialEq)]
@@ -74,6 +75,7 @@ pub struct TensorBuilder {
     inputs: Array2<i64>,
     labels: Option<LabelTensor>,
     token_offsets: Array2<i32>,
+    token_len: Array2<i32>,
     token_mask: Array2<i32>,
     seq_lens: Array1<i32>,
 }
@@ -93,6 +95,7 @@ impl TensorBuilder {
             current_sequence: 0,
             inputs: Array2::zeros((batch_size, max_seq_len)),
             token_offsets: Array2::from_elem((batch_size, max_tokens_len), -1),
+            token_len: Array2::from_elem((batch_size, max_tokens_len), -1),
             token_mask: Array2::zeros((batch_size, max_seq_len)),
             labels: None,
             seq_lens: Array1::zeros((batch_size,)),
@@ -121,6 +124,7 @@ impl TensorBuilder {
             current_sequence: 0,
             inputs: Array2::zeros((batch_size, max_seq_len)),
             token_offsets: Array2::from_elem((batch_size, max_tokens_len), -1),
+            token_len: Array2::from_elem((batch_size, max_tokens_len), -1),
             token_mask: Array2::zeros((batch_size, max_seq_len)),
             labels: Some(LabelTensor::from_shape(
                 encoder_names,
@@ -141,6 +145,7 @@ impl TensorBuilder {
         &mut self,
         input: ArrayView1<i64>,
         token_indices: ArrayView1<i32>,
+        token_lens: ArrayView1<i32>,
         token_mask: ArrayView1<i32>,
     ) {
         assert!(
@@ -159,6 +164,11 @@ impl TensorBuilder {
             .slice_mut(s![0..token_indices.len()])
             .assign(&token_indices);
 
+        self.token_len
+            .row_mut(self.current_sequence)
+            .slice_mut(s![0..token_lens.len()])
+            .assign(&token_lens);
+
         self.token_mask
             .row_mut(self.current_sequence)
             .slice_mut(s![0..token_mask.len()])
@@ -176,6 +186,7 @@ impl TensorBuilder {
         biaffine_labels: Option<(Array1<i64>, Array1<i64>)>,
         sequence_labels: HashMap<&str, Array1<i64>>,
         token_offsets: ArrayView1<i32>,
+        token_lens: ArrayView1<i32>,
         token_mask: ArrayView1<i32>,
     ) {
         assert!(
@@ -248,7 +259,7 @@ impl TensorBuilder {
                 .assign(&labels)
         }
 
-        self.add_without_labels(input, token_offsets, token_mask);
+        self.add_without_labels(input, token_offsets, token_lens, token_mask);
     }
 }
 
@@ -268,7 +279,7 @@ pub struct Tensors {
     pub seq_lens: SequenceLengths,
 
     /// Token offsets.
-    pub token_offsets: TokenOffsets,
+    pub token_spans: TokenSpans,
 }
 
 impl From<TensorBuilder> for Tensors {
@@ -291,8 +302,11 @@ impl From<TensorBuilder> for Tensors {
             biaffine_encodings,
             labels,
             seq_lens: SequenceLengths::new(builder.seq_lens.try_into().unwrap()),
-            token_offsets: TokenOffsets::new(
+            token_spans: TokenSpans::new(
                 Tensor::try_from(builder.token_offsets)
+                    .unwrap()
+                    .to_kind(Kind::Int64),
+                Tensor::try_from(builder.token_len)
                     .unwrap()
                     .to_kind(Kind::Int64),
             ),
@@ -335,44 +349,102 @@ impl Deref for SequenceLengths {
     }
 }
 
-/// Token offsets
+/// Token spans
 #[derive(Debug)]
-pub struct TokenOffsets {
-    inner: Tensor,
+pub struct TokenSpans {
+    offsets: Tensor,
+    lens: Tensor,
 }
 
-impl TokenOffsets {
-    fn new(token_offsets: Tensor) -> Self {
+impl TokenSpans {
+    pub(crate) fn new(token_offsets: Tensor, token_lens: Tensor) -> Self {
         Self {
-            inner: token_offsets,
+            offsets: token_offsets,
+            lens: token_lens,
         }
     }
 
     /// Copy the token offsets to the given device.
     pub fn to_device(&self, device: Device) -> Self {
         Self {
-            inner: self.inner.to_device(device),
+            offsets: self.offsets.to_device(device),
+            lens: self.lens.to_device(device),
         }
+    }
+
+    /// Get the token lengths.
+    pub fn lens(&self) -> &Tensor {
+        &self.lens
+    }
+
+    /// Get the token offsets.
+    pub fn offsets(&self) -> &Tensor {
+        &self.offsets
     }
 
     /// Create a token mask from token offsets.
     pub fn token_mask(&self) -> Result<TokenMask, SyntaxDotError> {
         Ok(TokenMask {
-            inner: self.inner.f_ne(-1)?,
+            inner: self.offsets.f_ne(-1)?,
         })
     }
 
     /// Get the sequence lengths of the sequences in the batch.
     pub fn seq_lens(&self) -> Result<Tensor, SyntaxDotError> {
-        Ok(self.token_mask()?.f_sum1(&[-1], false, self.kind())?)
+        Ok(self
+            .token_mask()?
+            .f_sum1(&[-1], false, self.offsets().kind())?)
+    }
+
+    /// Get the token spans with the ROOT depedency token prepended.
+    pub fn with_root(&self) -> Result<TokenSpansWithRoot, TransformerError> {
+        let (batch_size, _) = self.offsets.size2()?;
+
+        let root_offset = Tensor::from(0)
+            .f_view([1, 1])?
+            .f_expand(&[batch_size, 1], true)?
+            .to_device(self.offsets.device());
+        let offsets = Tensor::f_cat(&[&root_offset, &self.offsets], 1)?;
+
+        let root_len = Tensor::from(1)
+            .f_view([1, 1])?
+            .f_expand(&[batch_size, 1], true)?
+            .to_device(self.lens.device());
+        let lens = Tensor::f_cat(&[&root_len, &self.lens], 1)?;
+
+        Ok(TokenSpansWithRoot::new(offsets, lens))
     }
 }
 
-impl Deref for TokenOffsets {
-    type Target = Tensor;
+/// Token spans
+#[derive(Debug)]
+pub struct TokenSpansWithRoot {
+    offsets: Tensor,
+    lens: Tensor,
+}
 
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+impl TokenSpansWithRoot {
+    pub(crate) fn new(offsets: Tensor, lens: Tensor) -> Self {
+        Self { offsets, lens }
+    }
+
+    /// Get the token lengths.
+    pub fn lens(&self) -> &Tensor {
+        &self.lens
+    }
+
+    /// Get the token offsets.
+    pub fn offsets(&self) -> &Tensor {
+        &self.offsets
+    }
+}
+
+impl TokenSpansWithRoot {
+    /// Create a token mask from token offsets.
+    pub fn token_mask(&self) -> Result<TokenMask, TransformerError> {
+        Ok(TokenMask {
+            inner: self.offsets.f_ne(-1)?,
+        })
     }
 }
 
@@ -432,7 +504,7 @@ mod tests {
     use tch::Tensor;
 
     use super::{TensorBuilder, Tensors};
-    use crate::tensor::{BiaffineTensors, SequenceLengths, TokenOffsets};
+    use crate::tensor::{BiaffineTensors, SequenceLengths, TokenSpans};
 
     #[test]
     fn attention_masking_is_correct() {
@@ -454,11 +526,13 @@ mod tests {
         builder.add_without_labels(
             arr1(&[1, 2]).view(),
             arr1(&[0]).view(),
+            arr1(&[1]).view(),
             arr1(&[1, 0]).view(),
         );
         builder.add_without_labels(
             arr1(&[3, 4, 5]).view(),
             arr1(&[0, 2]).view(),
+            arr1(&[2, 1]).view(),
             arr1(&[1, 0, 1]).view(),
         );
 
@@ -485,6 +559,7 @@ mod tests {
                 .into_iter()
                 .collect(),
             arr1(&[0]).view(),
+            arr1(&[1]).view(),
             arr1(&[1, 0]).view(),
         );
         builder.add_with_labels(
@@ -494,6 +569,7 @@ mod tests {
                 .into_iter()
                 .collect(),
             arr1(&[0, 2]).view(),
+            arr1(&[2, 1]).view(),
             arr1(&[1, 0, 1]).view(),
         );
 
@@ -546,6 +622,7 @@ mod tests {
                 .into_iter()
                 .collect(),
             arr1(&[0]).view(),
+            arr1(&[1]).view(),
             arr1(&[1, 0]).view(),
         );
     }
@@ -557,11 +634,13 @@ mod tests {
         builder.add_without_labels(
             arr1(&[1, 2]).view(),
             arr1(&[0]).view(),
+            arr1(&[1]).view(),
             arr1(&[1, 0]).view(),
         );
         builder.add_without_labels(
             arr1(&[3, 4, 5]).view(),
             arr1(&[0, 2]).view(),
+            arr1(&[2, 1]).view(),
             arr1(&[1, 0, 1]).view(),
         );
     }
@@ -576,18 +655,16 @@ mod tests {
             None,
             vec![("b", arr1(&[21, 22]))].into_iter().collect(),
             arr1(&[0]).view(),
+            arr1(&[1]).view(),
             arr1(&[1, 0]).view(),
         );
     }
 
     #[test]
     fn token_masking_is_correct() {
-        let token_offsets = TokenOffsets::new(
-            Tensor::of_slice(&[
-                1, 3, 5, -1, -1, // Sequence 0
-                1, 2, 8, 11, 13, // Sequence 1
-            ])
-            .view([2, 5]),
+        let token_offsets = TokenSpans::new(
+            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
         assert_eq!(
             *token_offsets.token_mask().unwrap(),
@@ -601,12 +678,9 @@ mod tests {
 
     #[test]
     fn token_masking_with_root_is_correct() {
-        let token_offsets = TokenOffsets::new(
-            Tensor::of_slice(&[
-                1, 3, 5, -1, -1, // Sequence 0
-                1, 2, 8, 11, 13, // Sequence 1
-            ])
-            .view([2, 5]),
+        let token_offsets = TokenSpans::new(
+            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
 
         assert_eq!(
@@ -621,12 +695,9 @@ mod tests {
 
     #[test]
     fn token_sequence_lengths_are_correct() {
-        let token_offsets = TokenOffsets::new(
-            Tensor::of_slice(&[
-                1, 3, 5, -1, -1, // Sequence 0
-                1, 2, 8, 11, 13, // Sequence 1
-            ])
-            .view([2, 5]),
+        let token_offsets = TokenSpans::new(
+            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
         assert_eq!(token_offsets.seq_lens().unwrap(), Tensor::of_slice(&[3, 5]));
     }
