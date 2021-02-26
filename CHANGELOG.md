@@ -39,3 +39,7 @@
   tailored part-of-speech tags.
 - Support for hard loss is removed from the distillation subcommand. Hard loss
   never worked well compared to soft loss.
+
+### Fixed
+
+- Fix an off-by-one slicing error in `SequenceClassifiers::top_k`.
