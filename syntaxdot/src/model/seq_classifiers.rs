@@ -165,7 +165,7 @@ impl SequenceClassifiers {
                 let (probs, mut labels) = classifier
                     .forward(&layers_without_root, false)?
                     // Exclude first two classes (padding and continuation).
-                    .f_slice(-1, 2, -1, 1)?
+                    .f_slice(-1, 2, i64::MAX, 1)?
                     .f_topk(k as i64, -1, true, true)?;
 
                 // Fix label offsets.
