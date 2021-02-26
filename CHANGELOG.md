@@ -6,6 +6,10 @@
 
 - Added support for biaffine dependency parsing (Dozat & Manning, 2016).
   Biaffine parsing is enabled through the `biaffine` configuration option.
+- Added support for pooling the pieces of a token by taking the mean
+  of the pieces. This type of pooling is enabled by setting the
+  `model.pooler` option to `mean`. The old behavior of discarding
+  continuation pieces is used when this option is set to `discard`.
 - Add the `keep-best` option to the `finetune` and `distill`
   subcommands. With this option only the parameter files for the N
   best epochs/steps are retained during distillation.

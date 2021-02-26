@@ -51,7 +51,7 @@ impl Tagger {
         let predictions = self.model.predict(
             &tensors.inputs.to_device(self.device),
             &attention_mask.to_device(self.device),
-            &tensors.token_offsets.to_device(self.device),
+            &tensors.token_spans.to_device(self.device),
         )?;
 
         assert_eq!(
@@ -105,7 +105,21 @@ impl Tagger {
                 .map(|&offset| offset as i32)
                 .collect::<Array1<i32>>();
 
-            builder.add_without_labels(input.view(), token_offsets.view(), token_mask.view());
+            let token_lens: Array1<i32> =
+                Array1::from_shape_fn((sentence.token_offsets.len(),), |idx| {
+                    if idx + 1 < sentence.token_offsets.len() {
+                        sentence.token_offsets[idx + 1] as i32 - sentence.token_offsets[idx] as i32
+                    } else {
+                        sentence.pieces.len() as i32 - sentence.token_offsets[idx] as i32
+                    }
+                });
+
+            builder.add_without_labels(
+                input.view(),
+                token_offsets.view(),
+                token_lens.view(),
+                token_mask.view(),
+            );
         }
 
         builder.into()
