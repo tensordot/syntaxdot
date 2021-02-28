@@ -4,19 +4,19 @@ use std::collections::{HashMap, VecDeque};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Seek};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{App, Arg, ArgMatches};
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use ordered_float::NotNan;
-use syntaxdot::config::Config;
+use syntaxdot::config::{Config, PretrainConfig};
 use syntaxdot::dataset::{
     BatchedTensors, ConlluDataSet, DataSet, PlainTextDataSet, SentenceIterTools, SequenceLength,
 };
 use syntaxdot::encoders::Encoders;
 use syntaxdot::error::SyntaxDotError;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule};
-use syntaxdot::model::bert::{BertModel, FreezeLayers};
+use syntaxdot::model::bert::{BertModel, FreezeLayers, PretrainBertConfig};
 use syntaxdot::model::biaffine_dependency_layer::BiaffineScoreLogits;
 use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::tensor::{Tensors, TokenMask};
@@ -24,7 +24,7 @@ use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
 use syntaxdot_transformers::models::LayerOutput;
-use tch::nn::VarStore;
+use tch::nn::{Init, VarStore};
 use tch::{self, Device, Kind, Reduction, Tensor};
 
 use crate::io::{load_config, load_pretrain_config, load_tokenizer, Model};
@@ -39,6 +39,7 @@ const ATTENTION_LOSS: &str = "ATTENTION_LOSS";
 const BATCH_SIZE: &str = "BATCH_SIZE";
 const EPOCHS: &str = "EPOCHS";
 const EVAL_STEPS: &str = "EVAL_STEPS";
+const HIDDEN_LOSS: &str = "HIDDEN_LOSS";
 const TEACHER_CONFIG: &str = "TEACHER_CONFIG";
 const STUDENT_CONFIG: &str = "STUDENT_CONFIG";
 const GPU: &str = "GPU";
@@ -54,6 +55,27 @@ const TRAIN_DATA: &str = "TRAIN_DATA";
 const VALIDATION_DATA: &str = "VALIDATION_DATA";
 const WARMUP: &str = "WARMUP";
 const WEIGHT_DECAY: &str = "WEIGHT_DECAY";
+
+/// Auxiliary model parameters used during distillation.
+///
+/// These are additional student model parameters that are only
+/// necessary for some distillation options.
+struct AuxiliaryParameters {
+    /// Hidden layer lappings.
+    hidden_mappings: Option<Vec<HiddenMapping>>,
+}
+
+/// Hidden layer mapping.
+struct HiddenMapping {
+    /// Teacher hidden layer.
+    teacher_layer: usize,
+
+    /// Student hidden layer.
+    student_layer: usize,
+
+    /// Transform student hidden layer space to teacher.
+    mapping: Tensor,
+}
 
 struct BiaffineEpochStats {
     // Labeled attachment score.
@@ -73,6 +95,7 @@ struct BiaffineEpochStats {
 struct DistillLoss {
     pub loss: Tensor,
     pub attention_loss: Tensor,
+    pub hidden_loss: Tensor,
     pub soft_loss: Tensor,
 }
 
@@ -81,6 +104,7 @@ pub struct DistillApp {
     batch_size: usize,
     device: Device,
     eval_steps: usize,
+    hidden_loss: Option<Vec<(usize, usize)>>,
     keep_best_steps: Option<usize>,
     max_len: SequenceLength,
     mixed_precision: bool,
@@ -101,6 +125,7 @@ pub struct LearningRateSchedules {
 
 struct StudentModel {
     inner: BertModel,
+    pretrain_config: PretrainConfig,
     tokenizer: Box<dyn Tokenize>,
     vs: VarStore,
 }
@@ -208,6 +233,48 @@ impl DistillApp {
         Ok(head_soft_loss.f_add(&relation_soft_loss)?)
     }
 
+    fn create_auxiliary_params(
+        &self,
+        vs: &VarStore,
+        teacher: &PretrainConfig,
+        student: &dyn PretrainBertConfig,
+    ) -> Result<AuxiliaryParameters> {
+        let root = vs.root_ext(|_| ParameterGroup::Classifier as usize);
+        let path = root.sub("auxiliary_params");
+
+        // Create hidden layer mappings.
+        let hidden_mappings = self
+            .hidden_loss
+            .as_ref()
+            .map(|layer_mapping| {
+                layer_mapping
+                    .iter()
+                    .map(|&(teacher_layer, student_layer)| {
+                        let mapping = path.var(
+                            &format!("hidden_mapping_{}_{}", teacher_layer, student_layer),
+                            &[
+                                student.bert_config().hidden_size,
+                                teacher.bert_config().hidden_size,
+                            ],
+                            Init::Randn {
+                                mean: 0.0,
+                                stdev: student.bert_config().initializer_range,
+                            },
+                        )?;
+
+                        Ok(HiddenMapping {
+                            teacher_layer,
+                            student_layer,
+                            mapping,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
+
+        Ok(AuxiliaryParameters { hidden_mappings })
+    }
+
     fn select_relations_for_predicted_heads(
         logits: &Tensor,
         head_predictions: &Tensor,
@@ -229,9 +296,11 @@ impl DistillApp {
             .f_view_(&[-1, n_relations])?)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn distill_model(
         &self,
         grad_scaler: &mut GradScaler<impl Optimizer>,
+        auxiliary_params: &AuxiliaryParameters,
         teacher: &Model,
         student: &StudentModel,
         teacher_train_file: &File,
@@ -275,6 +344,7 @@ impl DistillApp {
                 .zip(student_train_batches.chunks(self.eval_steps).into_iter())
             {
                 self.train_steps(
+                    auxiliary_params,
                     &train_progress,
                     teacher_steps,
                     student_steps,
@@ -347,6 +417,70 @@ impl DistillApp {
         }
     }
 
+    /// Hidden layer loss.
+    fn hidden_loss(
+        &self,
+        token_mask: &TokenMask,
+        mappings: &[HiddenMapping],
+        teacher_layer_outputs: &[LayerOutput],
+        student_layer_outputs: &[LayerOutput],
+    ) -> Result<Tensor> {
+        let token_mask = token_mask.with_root()?;
+
+        let mut loss = Tensor::zeros(&[], (Kind::Float, self.device));
+
+        for mapping in mappings {
+            let teacher_output = teacher_layer_outputs
+                .get(mapping.teacher_layer)
+                .ok_or_else(|| anyhow!("Unknown teacher layer: {}", mapping.teacher_layer))?;
+            let student_output = student_layer_outputs
+                .get(mapping.student_layer)
+                .ok_or_else(|| anyhow!("Unknown student layer: {}", mapping.student_layer))?;
+
+            let teacher_hidden = teacher_output
+                .output()
+                .f_masked_select(&token_mask.f_unsqueeze(-1)?)?;
+            let student_hidden = student_output
+                .output()
+                .f_matmul(&mapping.mapping)?
+                .f_masked_select(&token_mask.f_unsqueeze(-1)?)?;
+
+            let _ = loss.f_add_(&student_hidden.f_mse_loss(&teacher_hidden, Reduction::Mean)?)?;
+        }
+
+        Ok(loss)
+    }
+
+    fn parse_layer_mappings(layers: &str) -> Result<Vec<(usize, usize)>> {
+        let mut mappings = Vec::new();
+
+        for layer_mapping in layers.split(',') {
+            let mut parts_iter = layer_mapping.split(':');
+
+            let teacher_layer = parts_iter
+                .next()
+                .ok_or_else(|| anyhow!("No teacher layer in mapping: {}", layer_mapping))?
+                .parse()
+                .context("Cannot parse teacher layer")?;
+            let student_layer = parts_iter
+                .next()
+                .ok_or_else(|| anyhow!("No student layer in mapping: {}", layer_mapping))?
+                .parse()
+                .context("Cannot parse student layer")?;
+
+            if parts_iter.next().is_some() {
+                bail!(
+                    "Layer mapping contains too many components: {}",
+                    layer_mapping
+                );
+            }
+
+            mappings.push((teacher_layer, student_layer));
+        }
+
+        Ok(mappings)
+    }
+
     /// Compute loss for sequence encoders.
     fn seq_encoders_loss(
         teacher_encoder_logits: HashMap<String, Tensor>,
@@ -382,6 +516,7 @@ impl DistillApp {
 
     fn student_loss(
         &self,
+        auxiliary_params: &AuxiliaryParameters,
         teacher: &BertModel,
         student: &BertModel,
         teacher_batch: Tensors,
@@ -465,9 +600,20 @@ impl DistillApp {
                 Tensor::zeros(&[], (Kind::Float, self.device))
             };
 
+            let hidden_loss = match auxiliary_params.hidden_mappings {
+                Some(ref mappings) => self.hidden_loss(
+                    &token_mask,
+                    mappings,
+                    &teacher_layer_outputs,
+                    &student_layer_outputs,
+                )?,
+                None => Tensor::zeros(&[], (Kind::Float, self.device)),
+            };
+
             Ok(DistillLoss {
-                loss: soft_loss.f_add(&attention_loss)?,
+                loss: soft_loss.f_add(&attention_loss)?.f_add(&hidden_loss)?,
                 attention_loss,
+                hidden_loss,
                 soft_loss,
             })
         })
@@ -476,6 +622,7 @@ impl DistillApp {
     #[allow(clippy::too_many_arguments)]
     fn train_steps(
         &self,
+        auxiliary_params: &AuxiliaryParameters,
         progress: &ProgressBar,
         teacher_batches: impl Iterator<Item = Result<Tensors, SyntaxDotError>>,
         student_batches: impl Iterator<Item = Result<Tensors, SyntaxDotError>>,
@@ -488,7 +635,13 @@ impl DistillApp {
             let teacher_batch = teacher_batch.context("Cannot read teacher batch")?;
             let student_batch = student_batch.context("Cannot read student batch")?;
 
-            let distill_loss = self.student_loss(teacher, student, teacher_batch, student_batch)?;
+            let distill_loss = self.student_loss(
+                auxiliary_params,
+                teacher,
+                student,
+                teacher_batch,
+                student_batch,
+            )?;
 
             let lr_classifier = self
                 .lr_schedules
@@ -523,12 +676,13 @@ impl DistillApp {
             )?;
 
             progress.set_message(&format!(
-                "step: {} | lr enc: {:+.1e}, class: {:+.1e} | loss soft: {:+.1e}, attention: {:+.1e}",
+                "step: {} | lr enc: {:+.1e}, class: {:+.1e} | loss soft: {:+.1e}, attention: {:+.1e}, hidden: {:+.1e}",
                 global_step,
                 lr_encoder,
                 lr_classifier,
                 f32::from(distill_loss.soft_loss),
-                f32::from(distill_loss.attention_loss)
+                f32::from(distill_loss.attention_loss),
+                f32::from(distill_loss.hidden_loss)
             ));
             progress.inc(1);
 
@@ -576,6 +730,7 @@ impl DistillApp {
 
         Ok(StudentModel {
             inner,
+            pretrain_config,
             tokenizer,
             vs,
         })
@@ -896,6 +1051,13 @@ impl SyntaxDotApp for DistillApp {
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
+                Arg::with_name(HIDDEN_LOSS)
+                    .long("hidden-loss")
+                    .value_name("MAPPING")
+                    .takes_value(true)
+                    .help("Add hidden representations MSE loss"),
+            )
+            .arg(
                 Arg::with_name(INITIAL_LR_CLASSIFIER)
                     .long("lr-classifier")
                     .value_name("LR")
@@ -995,6 +1157,10 @@ impl SyntaxDotApp for DistillApp {
             .unwrap()
             .parse()
             .context("Cannot parse number of batches after which to save")?;
+        let hidden_loss = matches
+            .value_of(HIDDEN_LOSS)
+            .map(Self::parse_layer_mappings)
+            .transpose()?;
         let initial_lr_classifier = matches
             .value_of(INITIAL_LR_CLASSIFIER)
             .unwrap()
@@ -1066,6 +1232,7 @@ impl SyntaxDotApp for DistillApp {
             batch_size,
             device,
             eval_steps,
+            hidden_loss,
             keep_best_steps,
             max_len,
             mixed_precision,
@@ -1104,8 +1271,15 @@ impl SyntaxDotApp for DistillApp {
 
         let mut grad_scaler = self.build_optimizer(&student.vs)?;
 
+        let auxiliary_params = self.create_auxiliary_params(
+            &student.vs,
+            &teacher.pretrain_config,
+            &student.pretrain_config,
+        )?;
+
         self.distill_model(
             &mut grad_scaler,
+            &auxiliary_params,
             &teacher,
             &student,
             &teacher_train_file,

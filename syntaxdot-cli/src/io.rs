@@ -15,6 +15,7 @@ pub struct Model {
     pub biaffine_encoder: Option<ImmutableDependencyEncoder>,
     pub encoders: Encoders,
     pub model: BertModel,
+    pub pretrain_config: PretrainConfig,
     pub tokenizer: Box<dyn Tokenize>,
     pub vs: VarStore,
 }
@@ -117,6 +118,7 @@ impl Model {
             biaffine_encoder: biaffine_decoder,
             encoders,
             model,
+            pretrain_config,
             tokenizer,
             vs,
         })
