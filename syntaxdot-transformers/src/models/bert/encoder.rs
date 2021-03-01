@@ -54,7 +54,8 @@ impl Encoder for BertEncoder {
         attention_mask: Option<&Tensor>,
         train: bool,
     ) -> Result<Vec<LayerOutput>, TransformerError> {
-        let mut all_layer_outputs = Vec::with_capacity(self.layers.len());
+        let mut all_layer_outputs = Vec::with_capacity(self.layers.len() + 1);
+        all_layer_outputs.push(LayerOutput::Embedding(input.shallow_clone()));
 
         let attention_mask = attention_mask
             .map(|mask| LogitsMask::from_bool_mask(mask))
@@ -72,7 +73,7 @@ impl Encoder for BertEncoder {
     }
 
     fn n_layers(&self) -> i64 {
-        self.layers.len() as i64
+        self.layers.len() as i64 + 1
     }
 }
 

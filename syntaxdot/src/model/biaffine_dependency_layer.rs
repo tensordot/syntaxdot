@@ -82,6 +82,7 @@ impl BiaffineDependencyLayer {
         vs: impl Borrow<PathExt<'a>>,
         pretrain_config: &PretrainConfig,
         biaffine_config: &BiaffineParserConfig,
+        n_layers: i64,
         n_relations: i64,
     ) -> Result<BiaffineDependencyLayer, SyntaxDotError> {
         let bert_config = pretrain_config.bert_config();
@@ -89,11 +90,7 @@ impl BiaffineDependencyLayer {
         let vs = vs.borrow() / "biaffine";
         let vs = vs.borrow();
 
-        let scalar_weight = ScalarWeight::new(
-            vs,
-            bert_config.num_hidden_layers,
-            bert_config.hidden_dropout_prob,
-        )?;
+        let scalar_weight = ScalarWeight::new(vs, n_layers, bert_config.hidden_dropout_prob)?;
 
         let arc_dependent = Self::affine(
             vs / "arc_dependent",

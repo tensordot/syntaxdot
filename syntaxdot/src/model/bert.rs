@@ -235,7 +235,13 @@ impl BertModel {
 
         let biaffine = biaffine_config
             .map(|config| {
-                BiaffineDependencyLayer::new(vs, pretrain_config, config, n_relations as i64)
+                BiaffineDependencyLayer::new(
+                    vs,
+                    pretrain_config,
+                    config,
+                    encoder.n_layers(),
+                    n_relations as i64,
+                )
             })
             .transpose()?;
 
