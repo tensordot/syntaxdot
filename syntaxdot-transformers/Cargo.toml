@@ -12,7 +12,7 @@ license = "BlueOak-1.0.0"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.3.0-beta" }
-tch = "0.3"
+tch = "0.4"
 thiserror = "1"
 
 [dev-dependencies]
