@@ -2,7 +2,7 @@
   description = "SyntaxDot sequence labeler";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs";
     crate2nix = {
       url = "github:kolloch/crate2nix";
       flake = false;
