@@ -295,7 +295,7 @@ mod tests {
     use udgraph::token::TokenBuilder;
 
     use super::{POSLayer, RelativePOS, RelativePOSEncoder, ROOT_POS};
-    use crate::deprel::{DecodeError, DependencyEncoding};
+    use crate::depseq::{DecodeError, DependencyEncoding};
     use crate::{EncodingProb, SentenceDecoder};
 
     const ROOT_RELATION: &str = "root";

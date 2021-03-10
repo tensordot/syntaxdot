@@ -8,7 +8,7 @@ pub mod categorical;
 
 pub mod dependency;
 
-pub mod deprel;
+pub mod depseq;
 
 pub mod layer;
 

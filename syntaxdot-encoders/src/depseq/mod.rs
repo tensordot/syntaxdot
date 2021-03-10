@@ -1,4 +1,4 @@
-//! Dependency relation encoders.
+//! Dependency parsing as sequence labeling (Spoustová & Spousta, 2010).
 
 use serde_derive::{Deserialize, Serialize};
 

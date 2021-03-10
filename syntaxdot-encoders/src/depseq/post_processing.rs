@@ -181,7 +181,7 @@ mod tests {
     use udgraph::token::TokenBuilder;
 
     use super::{attach_orphans, break_cycles, find_or_create_root, first_root};
-    use crate::deprel::{DependencyEncoding, POSLayer, RelativePOS, RelativePOSEncoder};
+    use crate::depseq::{DependencyEncoding, POSLayer, RelativePOS, RelativePOSEncoder};
     use crate::{EncodingProb, SentenceEncoder};
 
     const ROOT_POS: &str = "ROOT";

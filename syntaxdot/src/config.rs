@@ -320,7 +320,7 @@ fn relativize_path(config_path: &Path, filename: &str) -> Result<String, SyntaxD
 
 #[cfg(test)]
 mod tests {
-    use syntaxdot_encoders::deprel::POSLayer;
+    use syntaxdot_encoders::depseq::POSLayer;
     use syntaxdot_encoders::layer::Layer;
     use syntaxdot_encoders::lemma::BackoffStrategy;
 
