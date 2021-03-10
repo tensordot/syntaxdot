@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
+use syntaxdot_encoders::deprel::POSLayer;
 use syntaxdot_encoders::layer::Layer;
 use syntaxdot_encoders::lemma::BackoffStrategy;
 
@@ -24,6 +25,12 @@ impl Deref for EncodersConfig {
 #[serde(rename_all = "lowercase")]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum EncoderType {
+    /// Encoder for syntactical dependencies.
+    Dependency {
+        encoder: DependencyEncoder,
+        root_relation: String,
+    },
+
     /// Lemma encoder using edit trees.
     Lemma(BackoffStrategy),
 
@@ -33,6 +40,17 @@ pub enum EncoderType {
     /// Lemma encoder using edit trees, with TüBa-D/Z-specific
     /// transformations.
     TdzLemma(BackoffStrategy),
+}
+
+/// The type of dependency encoder.
+#[serde(rename_all = "lowercase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum DependencyEncoder {
+    /// Encode a token's head by relative position.
+    RelativePosition,
+
+    /// Encode a token's head by relative position of the POS tag.
+    RelativePOS(POSLayer),
 }
 
 /// Configuration of an encoder with a name.
