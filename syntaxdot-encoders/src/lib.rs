@@ -8,6 +8,8 @@ pub mod categorical;
 
 pub mod dependency;
 
+pub mod deprel;
+
 pub mod layer;
 
 pub mod lemma;

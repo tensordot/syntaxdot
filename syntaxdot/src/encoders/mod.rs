@@ -1,7 +1,7 @@
 //! Encoder configuration and construction.
 
 mod config;
-pub use config::{EncoderType, EncodersConfig, NamedEncoderConfig};
+pub use config::{DependencyEncoder, EncoderType, EncodersConfig, NamedEncoderConfig};
 
 #[allow(clippy::module_inception)]
 mod encoders;

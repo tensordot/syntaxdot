@@ -4,13 +4,16 @@ use std::ops::Deref;
 use numberer::Numberer;
 use serde::{Deserialize, Serialize};
 use syntaxdot_encoders::categorical::{ImmutableCategoricalEncoder, MutableCategoricalEncoder};
+use syntaxdot_encoders::deprel::{
+    DependencyEncoding, RelativePOS, RelativePOSEncoder, RelativePosition, RelativePositionEncoder,
+};
 use syntaxdot_encoders::layer::LayerEncoder;
 use syntaxdot_encoders::lemma::{EditTree, EditTreeEncoder, TdzLemmaEncoder};
 use syntaxdot_encoders::{EncodingProb, SentenceDecoder, SentenceEncoder};
 use thiserror::Error;
 use udgraph::graph::Sentence;
 
-use crate::encoders::{EncoderType, EncodersConfig};
+use crate::encoders::{DependencyEncoder, EncoderType, EncodersConfig};
 
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
@@ -90,6 +93,12 @@ pub enum DecoderError {
     Layer(<LayerEncoder as SentenceDecoder>::Error),
 
     #[error(transparent)]
+    RelativePOS(<RelativePOSEncoder as SentenceDecoder>::Error),
+
+    #[error(transparent)]
+    RelativePosition(<RelativePositionEncoder as SentenceDecoder>::Error),
+
+    #[error(transparent)]
     TdzLemma(<TdzLemmaEncoder as SentenceDecoder>::Error),
 }
 
@@ -103,6 +112,12 @@ pub enum EncoderError {
     Layer(<LayerEncoder as SentenceEncoder>::Error),
 
     #[error(transparent)]
+    RelativePOS(<RelativePOSEncoder as SentenceEncoder>::Error),
+
+    #[error(transparent)]
+    RelativePosition(<RelativePositionEncoder as SentenceEncoder>::Error),
+
+    #[error(transparent)]
     TdzLemma(<TdzLemmaEncoder as SentenceEncoder>::Error),
 }
 
@@ -111,6 +126,10 @@ pub enum EncoderError {
 pub enum Encoder {
     Lemma(CategoricalEncoderWrap<EditTreeEncoder, EditTree>),
     Layer(CategoricalEncoderWrap<LayerEncoder, String>),
+    RelativePOS(CategoricalEncoderWrap<RelativePOSEncoder, DependencyEncoding<RelativePOS>>),
+    RelativePosition(
+        CategoricalEncoderWrap<RelativePositionEncoder, DependencyEncoding<RelativePosition>>,
+    ),
     TdzLemma(CategoricalEncoderWrap<TdzLemmaEncoder, EditTree>),
 }
 
@@ -120,6 +139,8 @@ impl Encoder {
         match self {
             Encoder::Layer(encoder) => encoder.len(),
             Encoder::Lemma(encoder) => encoder.len(),
+            Encoder::RelativePOS(encoder) => encoder.len(),
+            Encoder::RelativePosition(encoder) => encoder.len(),
             Encoder::TdzLemma(encoder) => encoder.len(),
         }
     }
@@ -141,6 +162,12 @@ impl SentenceDecoder for Encoder {
             Encoder::Lemma(decoder) => decoder
                 .decode(labels, sentence)
                 .map_err(DecoderError::Lemma),
+            Encoder::RelativePOS(decoder) => decoder
+                .decode(labels, sentence)
+                .map_err(DecoderError::RelativePOS),
+            Encoder::RelativePosition(decoder) => decoder
+                .decode(labels, sentence)
+                .map_err(DecoderError::RelativePosition),
             Encoder::TdzLemma(decoder) => decoder
                 .decode(labels, sentence)
                 .map_err(DecoderError::TdzLemma),
@@ -157,6 +184,12 @@ impl SentenceEncoder for Encoder {
         match self {
             Encoder::Layer(encoder) => encoder.encode(sentence).map_err(EncoderError::Layer),
             Encoder::Lemma(encoder) => encoder.encode(sentence).map_err(EncoderError::Lemma),
+            Encoder::RelativePOS(encoder) => {
+                encoder.encode(sentence).map_err(EncoderError::RelativePOS)
+            }
+            Encoder::RelativePosition(encoder) => encoder
+                .encode(sentence)
+                .map_err(EncoderError::RelativePosition),
             Encoder::TdzLemma(encoder) => encoder.encode(sentence).map_err(EncoderError::TdzLemma),
         }
     }
@@ -166,6 +199,26 @@ impl From<&EncoderType> for Encoder {
     fn from(encoder_type: &EncoderType) -> Self {
         // We start labeling at 2. 0 is reserved for padding, 1 for continuations.
         match encoder_type {
+            EncoderType::Dependency {
+                encoder: DependencyEncoder::RelativePOS(pos_layer),
+                root_relation,
+            } => Encoder::RelativePOS(
+                MutableCategoricalEncoder::new(
+                    RelativePOSEncoder::new(*pos_layer, root_relation),
+                    Numberer::new(2),
+                )
+                .into(),
+            ),
+            EncoderType::Dependency {
+                encoder: DependencyEncoder::RelativePosition,
+                root_relation,
+            } => Encoder::RelativePosition(
+                MutableCategoricalEncoder::new(
+                    RelativePositionEncoder::new(root_relation),
+                    Numberer::new(2),
+                )
+                .into(),
+            ),
             EncoderType::Lemma(backoff_strategy) => Encoder::Lemma(
                 MutableCategoricalEncoder::new(
                     EditTreeEncoder::new(*backoff_strategy),
