@@ -4,7 +4,7 @@ use std::ops::Deref;
 use numberer::Numberer;
 use serde::{Deserialize, Serialize};
 use syntaxdot_encoders::categorical::{ImmutableCategoricalEncoder, MutableCategoricalEncoder};
-use syntaxdot_encoders::deprel::{
+use syntaxdot_encoders::depseq::{
     DependencyEncoding, RelativePOS, RelativePOSEncoder, RelativePosition, RelativePositionEncoder,
 };
 use syntaxdot_encoders::layer::LayerEncoder;

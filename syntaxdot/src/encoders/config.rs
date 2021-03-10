@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
-use syntaxdot_encoders::deprel::POSLayer;
+use syntaxdot_encoders::depseq::POSLayer;
 use syntaxdot_encoders::layer::Layer;
 use syntaxdot_encoders::lemma::BackoffStrategy;
 
