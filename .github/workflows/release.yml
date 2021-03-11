@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    runs-on: ubuntu-16.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Get release version
+      run: |
+        echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        echo "tag: ${{ env.TAG_NAME }}"
+    - name: Install dependencies
+      run: sudo apt-get install build-essential bzip2 cmake pkg-config libssl-dev
+    # Patchelf in Ubuntu 16.04 cannot patch the syntaxdot binary.
+    - name: Build patchelf
+      run: |
+        wget "https://github.com/NixOS/patchelf/releases/download/0.12/patchelf-0.12.tar.bz2"
+        echo "699a31cf52211cf5ad6e35a8801eb637bc7f3c43117140426400d67b7babd792  patchelf-0.12.tar.bz2" | sha256sum -c -
+        tar jxf patchelf-0.12.tar.bz2
+        ( cd patchelf-0.12.20200827.8d3a16e && ./configure && make -j4 )
+    - name: Download libtorch
+      run: |
+        wget "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.8.0%2Bcpu.zip"
+        echo "0a0a02d264a68a48cda7a0ff8597c1162916336557e08d26ad6ce906f0c4a35d libtorch-cxx11-abi-shared-with-deps-1.8.0+cpu.zip" | sha256sum -c -
+        unzip libtorch-cxx11-abi-shared-with-deps-1.8.0+cpu.zip
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release
+    - name: Create release archive
+      id: create_archive
+      run: |
+        DIST=syntaxdot-${{ env.TAG_NAME }}-cpu-x86_64-linux-gnu-gcc
+        ARCHIVE=${DIST}.tar.gz
+        install -Dm755 -t ${DIST} target/release/syntaxdot
+        install -Dm755 -t ${DIST} libtorch/lib/*.so*
+        patchelf-0.12.20200827.8d3a16e/src/patchelf --set-rpath '$ORIGIN' ${DIST}/*.so* ${DIST}/syntaxdot
+        tar -czvf ${ARCHIVE} ${DIST}
+        echo ::set-output name=ASSET::$ARCHIVE
+    - uses: actions/create-release@v1.0.0
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
+        prerelease: false
+    - uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.create_archive.outputs.ASSET }}
+        asset_name: ${{ steps.create_archive.outputs.ASSET }}
+        asset_content_type: application/gzip
