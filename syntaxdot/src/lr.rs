@@ -142,6 +142,55 @@ impl LearningRateSchedule for ExponentialDecay {
     }
 }
 
+#[derive(Clone)]
+pub struct LinearDecay {
+    initial_lr: f32,
+    lr: f32,
+    warmup_steps: usize,
+    max_steps: usize,
+}
+
+impl LinearDecay {
+    pub fn new(initial_lr: f32, warmup_steps: usize, max_steps: usize) -> Self {
+        Self {
+            initial_lr,
+            lr: initial_lr,
+            warmup_steps,
+            max_steps,
+        }
+    }
+
+    pub fn set_max_steps(&mut self, max_steps: usize) {
+        self.max_steps = max_steps;
+    }
+}
+
+impl LearningRateSchedule for LinearDecay {
+    fn compute_epoch_learning_rate(&mut self, _epoch: usize, _last_score: f32) -> f32 {
+        self.lr
+    }
+
+    fn compute_step_learning_rate(&mut self, global_step: usize) -> f32 {
+        if global_step < self.warmup_steps {
+            return (self.initial_lr / (self.warmup_steps as f32)) * global_step as f32;
+        }
+
+        // start decay after warmup
+        let step = global_step - self.warmup_steps;
+        let scale = 1. - (step as f32 / self.max_steps as f32);
+        self.lr = self.initial_lr * scale;
+        self.lr
+    }
+
+    fn initial_lr(&self) -> f32 {
+        self.initial_lr
+    }
+
+    fn set_initial_lr(&mut self, lr: f32) {
+        self.initial_lr = lr;
+    }
+}
+
 /// Plateau learning rate schedule.
 ///
 /// This schedule scales the learning rate by some factor when a

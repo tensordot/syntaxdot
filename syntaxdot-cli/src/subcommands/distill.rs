@@ -15,7 +15,7 @@ use syntaxdot::dataset::{
 };
 use syntaxdot::encoders::Encoders;
 use syntaxdot::error::SyntaxDotError;
-use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule};
+use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule, LinearDecay};
 use syntaxdot::model::bert::{BertModel, FreezeLayers, PretrainBertConfig};
 use syntaxdot::model::biaffine_dependency_layer::BiaffineScoreLogits;
 use syntaxdot::optimizers::{GradScaler, Optimizer};
@@ -119,8 +119,8 @@ pub struct DistillApp {
 }
 
 pub struct LearningRateSchedules {
-    pub classifier: ExponentialDecay,
-    pub encoder: ExponentialDecay,
+    pub classifier: LinearDecay,
+    pub encoder: LinearDecay,
 }
 
 struct StudentModel {
@@ -318,6 +318,15 @@ impl DistillApp {
             .train_duration
             .to_steps(&teacher_train_file, self.batch_size)
             .context("Cannot determine number of training steps")?;
+
+        self.lr_schedules
+            .borrow_mut()
+            .classifier
+            .set_max_steps(n_steps);
+        self.lr_schedules
+            .borrow_mut()
+            .encoder
+            .set_max_steps(n_steps);
 
         let train_progress = ProgressBar::new(n_steps as u64);
         train_progress.set_style(ProgressStyle::default_bar().template(
@@ -742,14 +751,10 @@ impl DistillApp {
         lr_decay_rate: NotNan<f32>,
         lr_decay_steps: usize,
         warmup_steps: usize,
+        max_steps: usize,
     ) -> LearningRateSchedules {
-        let classifier = ExponentialDecay::new(
-            initial_lr_classifier.into_inner(),
-            lr_decay_rate.into_inner(),
-            lr_decay_steps,
-            false,
-            warmup_steps,
-        );
+        let classifier =
+            LinearDecay::new(initial_lr_classifier.into_inner(), warmup_steps, max_steps);
 
         let mut encoder = classifier.clone();
         encoder.set_initial_lr(initial_lr_encoder.into_inner());
@@ -1242,6 +1247,7 @@ impl SyntaxDotApp for DistillApp {
                 lr_decay_rate,
                 lr_decay_steps,
                 warmup_steps,
+                1,
             )),
             student_config,
             teacher_config,
