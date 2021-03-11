@@ -31,6 +31,7 @@ model](https://github.com/stickeritis/sticker2/blob/master/doc/pretrained.md)
   * Simple sequence labels (e.g. POS, morphology, named entities)
   * Lemmatization, based on edit trees
   * Simple API to extend to other tasks
+  * Dependency parsing as sequence labeling
 * Dependency parsing using deep biaffine attention and MST decoding.
 * Multi-task training and classification using scalar weighting.
 * Encoder models:
