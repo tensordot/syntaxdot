@@ -46,6 +46,7 @@ model](https://github.com/stickeritis/sticker2/blob/master/doc/pretrained.md)
 
 * [Installation](doc/install.md)
 * [Finetuning](doc/finetune.md) (training)
+* [Ready-to-use models](doc/models.md)
 
 ## References
 
