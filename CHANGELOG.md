@@ -4,15 +4,19 @@
 
 ### Added
 
-- Added support for biaffine dependency parsing (Dozat & Manning, 2016).
-  Biaffine parsing is enabled through the `biaffine` configuration option.
-- Added support for pooling the pieces of a token by taking the mean
-  of the pieces. This type of pooling is enabled by setting the
+- Support for biaffine dependency parsing (Dozat & Manning, 2016).
+  Biaffine parsing is enabled through the `biaffine` configuration
+  option.
+- Support for pooling the pieces of a token by taking the mean of the
+  pieces. This type of pooling is enabled by setting the
   `model.pooler` option to `mean`. The old behavior of discarding
   continuation pieces is used when this option is set to `discard`.
 - Add the `keep-best` option to the `finetune` and `distill`
   subcommands. With this option only the parameter files for the N
   best epochs/steps are retained during distillation.
+- Support for hidden layer distillation loss. This loss uses the mean
+  squared error of the teacher's hidden layer representations and
+  student representations for faster convergence.
 
 ### Changed
 
@@ -28,8 +32,9 @@
   updated to insert the `[CLS]` piece as a beginning of sentence marker.
   **Warning:** this breaks existing models with `tokenizer = "bert"`, which should
   be retrained.
-- Replace all calls to the Rust Torch crate (`tch`) by fallible counterparts,
-  this makes exceptions thrown by Torch far easier to read.
+- Replace calls to the Rust Torch crate (`tch`) by fallible
+  counterparts, this makes exceptions thrown by Torch far easier to
+  read.
 - Uses of the `eprintln!` macro are replaced by logging using `log` and
   `env_logger`. The verbosity of the logs can be controlled with the `RUST_LOG`
   environment variable (e.g. `RUST_LOG=info`).
