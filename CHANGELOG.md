@@ -20,6 +20,9 @@
 
 ### Changed
 
+- Update to [libtorch
+  1.8.0](https://github.com/pytorch/pytorch/releases/tag/v1.8.0) and
+  [tch 0.4.0](https://github.com/LaurentMazare/tch-rs).
 - Pretrained models are now loaded from the libtorch OutputArchive format,
   rather than the HDF5 format. This removes HDF5 as a dependency.
 - Properly prefix embeddings with `embeddings` rather than `encoder` in
