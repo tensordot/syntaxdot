@@ -536,7 +536,7 @@ impl SyntaxDotApp for FinetuneApp {
                     .help(
                         "For the first N timesteps, the learning rate is linearly scaled up to LR.",
                     )
-                    .default_value("2000"),
+                    .default_value("10000"),
             )
             .arg(
                 Arg::with_name(WEIGHT_DECAY)
