@@ -27,7 +27,6 @@
         config = {
           allowUnfreePredicate = pkg: builtins.elem (pkgsWithCuda.lib.getName pkg) [
             "libtorch"
-            "nvidia-x11"
           ];
           cudaSupport = true;
         };
@@ -60,8 +59,9 @@
         };
       });
 
-      packages.syntaxdot = syntaxdot pkgsWithoutCuda;
-
-      packages.syntaxdotWithCuda = syntaxdot pkgsWithCuda;
+      packages = {
+        syntaxdot = syntaxdot pkgsWithoutCuda;
+        syntaxdotWithCuda = syntaxdot pkgsWithCuda;
+      };
     });
 }

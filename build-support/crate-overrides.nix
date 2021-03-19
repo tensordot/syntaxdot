@@ -5,7 +5,6 @@
 # Native build inputs
 , cmake
 , installShellFiles
-, removeReferencesTo
 
 # Build inputs
 , hdf5
@@ -29,11 +28,8 @@ defaultCrateOverrides // {
     pname = "syntaxdot";
     name = "${pname}-${attr.version}";
 
-    buildInputs = [ libtorch-bin ];
-
     nativeBuildInputs = [
       installShellFiles
-      removeReferencesTo
     ];
 
     postInstall = ''
@@ -47,11 +43,7 @@ defaultCrateOverrides // {
       done
 
       installShellCompletion completions.{bash,fish,zsh}
-
-      remove-references-to -t ${libtorch-bin.dev} $out/bin/syntaxdot
     '';
-
-    disallowedReferences = [ libtorch-bin.dev ];
 
     meta = with lib; {
       description = "Neural sequence labeler";
@@ -62,6 +54,9 @@ defaultCrateOverrides // {
   };
 
   torch-sys = attr: {
-    LIBTORCH = libtorch-bin.dev;
+    LIBTORCH = symlinkJoin {
+      name = "torch-join";
+      paths = [ libtorch-bin.dev libtorch-bin.out ];
+    };
   };
 }
