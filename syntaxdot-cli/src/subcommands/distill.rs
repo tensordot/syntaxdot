@@ -1062,7 +1062,7 @@ impl SyntaxDotApp for DistillApp {
                     .long("lr-classifier")
                     .value_name("LR")
                     .help("Initial classifier learning rate")
-                    .default_value("1e-3"),
+                    .default_value("5e-5"),
             )
             .arg(
                 Arg::with_name(INITIAL_LR_ENCODER)
