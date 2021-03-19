@@ -1,6 +1,6 @@
 [package]
 name = "syntaxdot-summary"
-version = "0.3.0-beta.1"
+version = "0.3.0-beta.2"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
 edition = "2018"
 description = "TensorBoard summary writer"
