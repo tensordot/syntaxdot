@@ -50,7 +50,6 @@ impl AnnotateApp {
         let mut speed = TaggerSpeed::new();
 
         let mut sent_proc = SentProcessor::new(
-            tokenizer,
             &tagger,
             write,
             self.batch_size,
@@ -60,11 +59,14 @@ impl AnnotateApp {
 
         for sentence in read.sentences() {
             let sentence = sentence.context("Cannot parse sentence")?;
-            sent_proc
-                .process(sentence)
-                .context("Error processing sentence")?;
 
-            speed.count_sentence()
+            let tokenized_sentence = tokenizer.tokenize(sentence);
+
+            speed.count_sentence(&tokenized_sentence);
+
+            sent_proc
+                .process(tokenized_sentence)
+                .context("Error processing sentence")?;
         }
 
         Ok(())

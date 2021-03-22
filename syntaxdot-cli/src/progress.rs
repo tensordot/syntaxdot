@@ -2,8 +2,7 @@ use std::io::{self, Read, Seek, SeekFrom};
 use std::time::Instant;
 
 use indicatif::{ProgressBar, ProgressStyle};
-
-const NANOS_PER_SEC: u32 = 1_000_000_000;
+use syntaxdot_tokenizers::SentenceWithPieces;
 
 pub struct ReadProgress<R> {
     inner: R,
@@ -73,6 +72,7 @@ impl<R> Drop for ReadProgress<R> {
 /// processing speed to *stderr* when the instance is dropped.
 pub struct TaggerSpeed {
     start: Instant,
+    n_pieces: usize,
     n_sentences: usize,
 }
 
@@ -81,12 +81,14 @@ impl TaggerSpeed {
     pub fn new() -> Self {
         TaggerSpeed {
             start: Instant::now(),
+            n_pieces: 0,
             n_sentences: 0,
         }
     }
 
     /// Count a processed sentences.
-    pub fn count_sentence(&mut self) {
+    pub fn count_sentence(&mut self, sentence: &SentenceWithPieces) {
+        self.n_pieces += sentence.pieces.len();
         self.n_sentences += 1;
     }
 }
@@ -101,13 +103,14 @@ impl Drop for TaggerSpeed {
     fn drop(&mut self) {
         let elapsed = self.start.elapsed();
         // From nightly-only as_secs_f32.
-        let elapsed_secs =
-            (elapsed.as_secs() as f32) + (elapsed.subsec_nanos() as f32) / (NANOS_PER_SEC as f32);
+        let elapsed_secs = elapsed.as_secs_f32();
+        log::info!("Annotation took {:.1}s", elapsed_secs);
         log::info!(
-            "Processed {} sentences in {:.1}s ({:.1} sents/s)",
+            "Processed {} sentences, {:.0} sents/s, {} pieces, {:.0} pieces/s",
             self.n_sentences,
-            elapsed_secs,
-            self.n_sentences as f32 / elapsed_secs
+            self.n_sentences as f32 / elapsed_secs,
+            self.n_pieces,
+            self.n_pieces as f32 / elapsed_secs,
         );
     }
 }

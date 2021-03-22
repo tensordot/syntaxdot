@@ -1,15 +1,13 @@
 use anyhow::Result;
 use conllu::io::WriteSentence;
-use udgraph::graph::Sentence;
 
 use syntaxdot::tagger::Tagger;
-use syntaxdot_tokenizers::{SentenceWithPieces, Tokenize};
+use syntaxdot_tokenizers::SentenceWithPieces;
 
 pub struct SentProcessor<'a, W>
 where
     W: WriteSentence,
 {
-    tokenizer: &'a dyn Tokenize,
     tagger: &'a Tagger,
     writer: W,
     batch_size: usize,
@@ -32,7 +30,6 @@ where
     /// process sentences. This read-ahead is used to sort sentences
     /// by length to speed up processing.
     pub fn new(
-        tokenizer: &'a dyn Tokenize,
         tagger: &'a Tagger,
         writer: W,
         batch_size: usize,
@@ -43,7 +40,6 @@ where
         assert!(read_ahead > 0, "Read ahead should at least be 1.");
 
         SentProcessor {
-            tokenizer,
             tagger,
             writer,
             batch_size,
@@ -54,9 +50,7 @@ where
     }
 
     /// Process a sentence.
-    pub fn process(&mut self, sent: Sentence) -> Result<()> {
-        let tokenized_sentence = self.tokenizer.tokenize(sent);
-
+    pub fn process(&mut self, tokenized_sentence: SentenceWithPieces) -> Result<()> {
         if let Some(max_len) = self.max_len {
             // sent.len() includes the root node, whereas max_len is
             // the actual sentence length without the root node.
