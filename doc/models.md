@@ -17,9 +17,11 @@ $ syntaxdot annotate model-name/syntaxdot.conf
 
 ## Dutch
 
-| Model                                                                                     | UD POS | Lemma | UD morph |   LAS | Size (MiB) | CPU sent/s | GPU sents/s |
-|:------------------------------------------------------------------------------------------|-------:|------:|---------:|------:|-----------:|-----------:|------------:|
-| [Finetuned XLM-R base](https://s3.tensordot.com/syntaxdot/models/nl-xlmr-20210301.tar.gz) |  98.90 | 99.03 |    98.87 | 94.37 |       1087 |         61 |         755 |
+| Model                                                                                                     | UD POS | Lemma | UD morph |   LAS | Size (MiB) | CPU sent/s | GPU sents/s |
+|:----------------------------------------------------------------------------------------------------------|-------:|------:|---------:|------:|-----------:|-----------:|------------:|
+| [Finetuned XLM-R base](https://s3.tensordot.com/syntaxdot/models/nl-ud-huge-20210301.tar.gz)              |  98.90 | 99.03 |    98.87 | 94.37 |       1087 |         61 |         755 |
+| [Distilled, 12 layers, 384 hidden](https://s3.tensordot.com/syntaxdot/models/nl-ud-large-20210324.tar.gz) |  98.83 | 99.03 |    98.80 | 93.91 |        200 |        135 |        1450 |
+| [Distilled, 6 layers, 384 hidden](https://s3.tensordot.com/syntaxdot/models/nl-ud-medium-20210312.tar.gz) |  98.80 | 99.05 |    98.79 | 93.42 |        133 |        240 |        2359 |
 
 ## German
 
