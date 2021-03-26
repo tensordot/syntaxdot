@@ -50,6 +50,7 @@ pub enum DependencyEncoder {
     RelativePosition,
 
     /// Encode a token's head by relative position of the POS tag.
+    #[allow(clippy::upper_case_acronyms)]
     RelativePOS(POSLayer),
 }
 

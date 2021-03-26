@@ -3,6 +3,7 @@ use std::io::{self, Write};
 use crate::crc32::CheckSummer;
 
 /// Write data in TFRecord format.
+#[allow(clippy::upper_case_acronyms)]
 pub struct TFRecordWriter<W> {
     checksummer: CheckSummer,
     write: W,

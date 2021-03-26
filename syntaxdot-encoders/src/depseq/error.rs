@@ -11,6 +11,7 @@ pub enum EncodeError {
     MissingHead { token: usize, sent: Vec<String> },
 
     /// The token's head does not have a part-of-speech.
+    #[allow(clippy::upper_case_acronyms)]
     MissingPOS { sent: Vec<String>, token: usize },
 
     /// The token does not have a dependency relation.
@@ -102,6 +103,7 @@ pub(crate) enum DecodeError {
     PositionOutOfBounds,
 
     /// The head part-of-speech tag does not occur in the sentence.
+    #[allow(clippy::upper_case_acronyms)]
     #[error("unknown part-of-speech tag")]
     InvalidPOS,
 }

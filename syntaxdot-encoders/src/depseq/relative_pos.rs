@@ -22,6 +22,7 @@ use crate::{EncodingProb, SentenceDecoder, SentenceEncoder};
 const ROOT_POS: &str = "ROOT";
 
 /// Part-of-speech layer.
+#[allow(clippy::upper_case_acronyms)]
 #[serde(rename_all = "lowercase")]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum POSLayer {
@@ -47,6 +48,7 @@ impl POSLayer {
 /// in terms of part-of-speech tags. For example, a position of
 /// *-2* with the pos *noun* means that the head is the second
 /// preceding noun.
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct RelativePOS {
     pos: String,
@@ -74,6 +76,7 @@ impl ToString for DependencyEncoding<RelativePOS> {
 /// This encoder encodes dependency relations as token labels. The
 /// dependency relation is encoded as-is. The position of the head
 /// is encoded relative to the (dependent) token by part-of-speech.
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RelativePOSEncoder {
     pos_layer: POSLayer,
