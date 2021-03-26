@@ -15,6 +15,7 @@ pub enum SyntaxDotError {
     #[error(transparent)]
     BertError(#[from] TransformerError),
 
+    #[allow(clippy::upper_case_acronyms)]
     #[error(transparent)]
     ConlluIOError(#[from] conllu::IOError),
 
@@ -30,6 +31,7 @@ pub enum SyntaxDotError {
     #[error("Illegal configuration: {0}")]
     IllegalConfigurationError(String),
 
+    #[allow(clippy::upper_case_acronyms)]
     #[error(transparent)]
     IOError(#[from] io::Error),
 
@@ -49,6 +51,7 @@ pub enum SyntaxDotError {
     Tch(#[from] TchError),
 
     #[error(transparent)]
+    #[allow(clippy::upper_case_acronyms)]
     TOMLDeserializationError(#[from] toml::de::Error),
 
     #[error(transparent)]

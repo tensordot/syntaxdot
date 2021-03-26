@@ -14,6 +14,7 @@ pub trait Activation: Clone + FallibleModule {}
 /// GELU(x)=x Φ(x)
 ///
 /// where Φ(x) is the CDF for the Gaussian distribution.
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Copy, Debug)]
 pub struct GELUNew;
 
@@ -37,6 +38,7 @@ impl Activation for GELUNew {}
 /// GELU(x)=x Φ(x)
 ///
 /// where Φ(x) is the CDF for the Gaussian distribution.
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Copy, Debug)]
 pub struct GELU;
 

@@ -92,6 +92,7 @@ pub enum DecoderError {
     #[error(transparent)]
     Layer(<LayerEncoder as SentenceDecoder>::Error),
 
+    #[allow(clippy::upper_case_acronyms)]
     #[error(transparent)]
     RelativePOS(<RelativePOSEncoder as SentenceDecoder>::Error),
 
@@ -111,6 +112,7 @@ pub enum EncoderError {
     #[error(transparent)]
     Layer(<LayerEncoder as SentenceEncoder>::Error),
 
+    #[allow(clippy::upper_case_acronyms)]
     #[error(transparent)]
     RelativePOS(<RelativePOSEncoder as SentenceEncoder>::Error),
 
@@ -126,6 +128,7 @@ pub enum EncoderError {
 pub enum Encoder {
     Lemma(CategoricalEncoderWrap<EditTreeEncoder, EditTree>),
     Layer(CategoricalEncoderWrap<LayerEncoder, String>),
+    #[allow(clippy::upper_case_acronyms)]
     RelativePOS(CategoricalEncoderWrap<RelativePOSEncoder, DependencyEncoding<RelativePOS>>),
     RelativePosition(
         CategoricalEncoderWrap<RelativePositionEncoder, DependencyEncoding<RelativePosition>>,

@@ -98,6 +98,7 @@ impl EditTree {
 }
 
 /// Struct representing a continuous match between two sequences.
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct LCSMatch {
     start_src: usize,
@@ -128,7 +129,7 @@ impl PartialOrd for LCSMatch {
 fn longest_match(script: &[IndexedOperation<LCSOp>]) -> Option<LCSMatch> {
     let mut longest = LCSMatch::empty();
 
-    let mut script_slice = &script[..];
+    let mut script_slice = script;
     while !script_slice.is_empty() {
         let op = &script_slice[0];
 
