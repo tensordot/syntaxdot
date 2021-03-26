@@ -340,8 +340,8 @@ pub(crate) fn bert_activations(
     activation_name: &str,
 ) -> Option<Box<dyn FallibleModule<Error = TransformerError>>> {
     match activation_name {
-        "gelu" => Some(Box::new(activations::GELU)),
-        "gelu_new" => Some(Box::new(activations::GELUNew)),
+        "gelu" => Some(Box::new(activations::Gelu)),
+        "gelu_new" => Some(Box::new(activations::GeluNew)),
         _ => None,
     }
 }

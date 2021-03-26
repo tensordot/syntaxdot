@@ -16,7 +16,7 @@ pub enum SyntaxDotError {
     BertError(#[from] TransformerError),
 
     #[error(transparent)]
-    ConlluIOError(#[from] conllu::IOError),
+    ConlluIoError(#[from] conllu::IOError),
 
     #[error(transparent)]
     DecoderError(#[from] DecoderError),
@@ -31,7 +31,7 @@ pub enum SyntaxDotError {
     IllegalConfigurationError(String),
 
     #[error(transparent)]
-    IOError(#[from] io::Error),
+    IoError(#[from] io::Error),
 
     #[error("The optimizer does not have any associated trainable variables")]
     NoTrainableVariables,
@@ -49,7 +49,7 @@ pub enum SyntaxDotError {
     Tch(#[from] TchError),
 
     #[error(transparent)]
-    TOMLDeserializationError(#[from] toml::de::Error),
+    TomlDeserializationError(#[from] toml::de::Error),
 
     #[error(transparent)]
     TokenizerError(#[from] TokenizerError),

@@ -50,7 +50,7 @@ where
             // Bubble up read errors.
             let line = match line {
                 Ok(line) => line,
-                Err(err) => return Some(Err(SyntaxDotError::IOError(err))),
+                Err(err) => return Some(Err(SyntaxDotError::IoError(err))),
             };
 
             let line_trimmed = line.trim();

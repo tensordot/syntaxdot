@@ -49,7 +49,7 @@ mod tests {
     use conllu::io::Reader;
     use udgraph::graph::{Node, Sentence};
 
-    use super::{POSLayer, RelativePOSEncoder, RelativePositionEncoder};
+    use super::{PosLayer, RelativePosEncoder, RelativePositionEncoder};
     use crate::{EncodingProb, SentenceDecoder, SentenceEncoder};
 
     const NON_PROJECTIVE_DATA: &str = "testdata/lassy-small-dev.conllu";
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn relative_pos_position() {
-        let encoder = RelativePOSEncoder::new(POSLayer::XPos, ROOT_RELATION);
+        let encoder = RelativePosEncoder::new(PosLayer::XPos, ROOT_RELATION);
         test_encoding(NON_PROJECTIVE_DATA, encoder);
     }
 

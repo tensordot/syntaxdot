@@ -5,7 +5,7 @@ use numberer::Numberer;
 use serde::{Deserialize, Serialize};
 use syntaxdot_encoders::categorical::{ImmutableCategoricalEncoder, MutableCategoricalEncoder};
 use syntaxdot_encoders::depseq::{
-    DependencyEncoding, RelativePOS, RelativePOSEncoder, RelativePosition, RelativePositionEncoder,
+    DependencyEncoding, RelativePos, RelativePosEncoder, RelativePosition, RelativePositionEncoder,
 };
 use syntaxdot_encoders::layer::LayerEncoder;
 use syntaxdot_encoders::lemma::{EditTree, EditTreeEncoder, TdzLemmaEncoder};
@@ -93,7 +93,7 @@ pub enum DecoderError {
     Layer(<LayerEncoder as SentenceDecoder>::Error),
 
     #[error(transparent)]
-    RelativePOS(<RelativePOSEncoder as SentenceDecoder>::Error),
+    RelativePos(<RelativePosEncoder as SentenceDecoder>::Error),
 
     #[error(transparent)]
     RelativePosition(<RelativePositionEncoder as SentenceDecoder>::Error),
@@ -112,7 +112,7 @@ pub enum EncoderError {
     Layer(<LayerEncoder as SentenceEncoder>::Error),
 
     #[error(transparent)]
-    RelativePOS(<RelativePOSEncoder as SentenceEncoder>::Error),
+    RelativePos(<RelativePosEncoder as SentenceEncoder>::Error),
 
     #[error(transparent)]
     RelativePosition(<RelativePositionEncoder as SentenceEncoder>::Error),
@@ -126,7 +126,7 @@ pub enum EncoderError {
 pub enum Encoder {
     Lemma(CategoricalEncoderWrap<EditTreeEncoder, EditTree>),
     Layer(CategoricalEncoderWrap<LayerEncoder, String>),
-    RelativePOS(CategoricalEncoderWrap<RelativePOSEncoder, DependencyEncoding<RelativePOS>>),
+    RelativePos(CategoricalEncoderWrap<RelativePosEncoder, DependencyEncoding<RelativePos>>),
     RelativePosition(
         CategoricalEncoderWrap<RelativePositionEncoder, DependencyEncoding<RelativePosition>>,
     ),
@@ -139,7 +139,7 @@ impl Encoder {
         match self {
             Encoder::Layer(encoder) => encoder.len(),
             Encoder::Lemma(encoder) => encoder.len(),
-            Encoder::RelativePOS(encoder) => encoder.len(),
+            Encoder::RelativePos(encoder) => encoder.len(),
             Encoder::RelativePosition(encoder) => encoder.len(),
             Encoder::TdzLemma(encoder) => encoder.len(),
         }
@@ -162,9 +162,9 @@ impl SentenceDecoder for Encoder {
             Encoder::Lemma(decoder) => decoder
                 .decode(labels, sentence)
                 .map_err(DecoderError::Lemma),
-            Encoder::RelativePOS(decoder) => decoder
+            Encoder::RelativePos(decoder) => decoder
                 .decode(labels, sentence)
-                .map_err(DecoderError::RelativePOS),
+                .map_err(DecoderError::RelativePos),
             Encoder::RelativePosition(decoder) => decoder
                 .decode(labels, sentence)
                 .map_err(DecoderError::RelativePosition),
@@ -184,8 +184,8 @@ impl SentenceEncoder for Encoder {
         match self {
             Encoder::Layer(encoder) => encoder.encode(sentence).map_err(EncoderError::Layer),
             Encoder::Lemma(encoder) => encoder.encode(sentence).map_err(EncoderError::Lemma),
-            Encoder::RelativePOS(encoder) => {
-                encoder.encode(sentence).map_err(EncoderError::RelativePOS)
+            Encoder::RelativePos(encoder) => {
+                encoder.encode(sentence).map_err(EncoderError::RelativePos)
             }
             Encoder::RelativePosition(encoder) => encoder
                 .encode(sentence)
@@ -200,11 +200,11 @@ impl From<&EncoderType> for Encoder {
         // We start labeling at 2. 0 is reserved for padding, 1 for continuations.
         match encoder_type {
             EncoderType::Dependency {
-                encoder: DependencyEncoder::RelativePOS(pos_layer),
+                encoder: DependencyEncoder::RelativePos(pos_layer),
                 root_relation,
-            } => Encoder::RelativePOS(
+            } => Encoder::RelativePos(
                 MutableCategoricalEncoder::new(
-                    RelativePOSEncoder::new(*pos_layer, root_relation),
+                    RelativePosEncoder::new(*pos_layer, root_relation),
                     Numberer::new(2),
                 )
                 .into(),

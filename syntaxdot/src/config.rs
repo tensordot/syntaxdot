@@ -320,7 +320,7 @@ fn relativize_path(config_path: &Path, filename: &str) -> Result<String, SyntaxD
 
 #[cfg(test)]
 mod tests {
-    use syntaxdot_encoders::depseq::POSLayer;
+    use syntaxdot_encoders::depseq::PosLayer;
     use syntaxdot_encoders::layer::Layer;
     use syntaxdot_encoders::lemma::BackoffStrategy;
 
@@ -363,7 +363,7 @@ mod tests {
                         NamedEncoderConfig {
                             name: "dep".to_string(),
                             encoder: EncoderType::Dependency {
-                                encoder: DependencyEncoder::RelativePOS(POSLayer::XPos),
+                                encoder: DependencyEncoder::RelativePos(PosLayer::XPos),
                                 root_relation: "root".to_string()
                             }
                         },

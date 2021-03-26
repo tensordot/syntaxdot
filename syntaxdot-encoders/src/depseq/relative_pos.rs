@@ -24,7 +24,7 @@ const ROOT_POS: &str = "ROOT";
 /// Part-of-speech layer.
 #[serde(rename_all = "lowercase")]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum POSLayer {
+pub enum PosLayer {
     /// Universal part-of-speech tag.
     UPos,
 
@@ -32,11 +32,11 @@ pub enum POSLayer {
     XPos,
 }
 
-impl POSLayer {
+impl PosLayer {
     fn pos(self, token: &Token) -> Option<&str> {
         match self {
-            POSLayer::UPos => token.upos(),
-            POSLayer::XPos => token.xpos(),
+            PosLayer::UPos => token.upos(),
+            PosLayer::XPos => token.xpos(),
         }
     }
 }
@@ -48,22 +48,22 @@ impl POSLayer {
 /// *-2* with the pos *noun* means that the head is the second
 /// preceding noun.
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct RelativePOS {
+pub struct RelativePos {
     pos: String,
     position: isize,
 }
 
-impl RelativePOS {
+impl RelativePos {
     #[allow(dead_code)]
     pub fn new(pos: impl Into<String>, position: isize) -> Self {
-        RelativePOS {
+        RelativePos {
             pos: pos.into(),
             position,
         }
     }
 }
 
-impl ToString for DependencyEncoding<RelativePOS> {
+impl ToString for DependencyEncoding<RelativePos> {
     fn to_string(&self) -> String {
         format!("{}/{}/{}", self.label, self.head.pos, self.head.position)
     }
@@ -75,31 +75,31 @@ impl ToString for DependencyEncoding<RelativePOS> {
 /// dependency relation is encoded as-is. The position of the head
 /// is encoded relative to the (dependent) token by part-of-speech.
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
-pub struct RelativePOSEncoder {
-    pos_layer: POSLayer,
+pub struct RelativePosEncoder {
+    pos_layer: PosLayer,
     root_relation: String,
 }
 
-impl RelativePOSEncoder {
-    pub fn new(pos_layer: POSLayer, root_relation: impl Into<String>) -> Self {
-        RelativePOSEncoder {
+impl RelativePosEncoder {
+    pub fn new(pos_layer: PosLayer, root_relation: impl Into<String>) -> Self {
+        RelativePosEncoder {
             pos_layer,
             root_relation: root_relation.into(),
         }
     }
 }
 
-impl RelativePOSEncoder {
+impl RelativePosEncoder {
     pub(crate) fn decode_idx(
         pos_table: &HashMap<String, Vec<usize>>,
         idx: usize,
-        encoding: &DependencyEncoding<RelativePOS>,
+        encoding: &DependencyEncoding<RelativePos>,
     ) -> Result<DepTriple<String>, DecodeError> {
         let DependencyEncoding { label, head } = encoding;
 
         let indices = pos_table
             .get(head.pos.as_str())
-            .ok_or(DecodeError::InvalidPOS)?;
+            .ok_or(DecodeError::InvalidPos)?;
 
         let head_idx = Self::head_index(indices, idx, head.position)?;
 
@@ -197,8 +197,8 @@ impl RelativePOSEncoder {
     }
 }
 
-impl SentenceEncoder for RelativePOSEncoder {
-    type Encoding = DependencyEncoding<RelativePOS>;
+impl SentenceEncoder for RelativePosEncoder {
+    type Encoding = DependencyEncoding<RelativePos>;
 
     type Error = EncodeError;
 
@@ -235,7 +235,7 @@ impl SentenceEncoder for RelativePOSEncoder {
 
             encoded.push(DependencyEncoding {
                 label: relation.to_owned(),
-                head: RelativePOS {
+                head: RelativePos {
                     pos: head_pos.to_owned(),
                     position,
                 },
@@ -246,8 +246,8 @@ impl SentenceEncoder for RelativePOSEncoder {
     }
 }
 
-impl SentenceDecoder for RelativePOSEncoder {
-    type Encoding = DependencyEncoding<RelativePOS>;
+impl SentenceDecoder for RelativePosEncoder {
+    type Encoding = DependencyEncoding<RelativePos>;
 
     type Error = Infallible;
 
@@ -264,7 +264,7 @@ impl SentenceDecoder for RelativePOSEncoder {
         for (idx, encodings) in token_indices.into_iter().zip(labels) {
             for encoding in encodings.as_ref() {
                 if let Ok(triple) =
-                    RelativePOSEncoder::decode_idx(&pos_table, idx, encoding.encoding())
+                    RelativePosEncoder::decode_idx(&pos_table, idx, encoding.encoding())
                 {
                     sentence.dep_graph_mut().add_deprel(triple);
                     break;
@@ -294,7 +294,7 @@ mod tests {
     use udgraph::graph::{DepTriple, Sentence};
     use udgraph::token::TokenBuilder;
 
-    use super::{POSLayer, RelativePOS, RelativePOSEncoder, ROOT_POS};
+    use super::{PosLayer, RelativePos, RelativePosEncoder, ROOT_POS};
     use crate::depseq::{DecodeError, DependencyEncoding};
     use crate::{EncodingProb, SentenceDecoder};
 
@@ -306,30 +306,30 @@ mod tests {
     #[test]
     fn invalid_pos() {
         assert_eq!(
-            RelativePOSEncoder::decode_idx(
+            RelativePosEncoder::decode_idx(
                 &HashMap::new(),
                 0,
                 &DependencyEncoding {
                     label: "X".into(),
-                    head: RelativePOS {
+                    head: RelativePos {
                         pos: "C".into(),
                         position: -1,
                     },
                 },
             ),
-            Err(DecodeError::InvalidPOS)
+            Err(DecodeError::InvalidPos)
         )
     }
 
     #[test]
     fn position_out_of_bounds() {
         assert_eq!(
-            RelativePOSEncoder::decode_idx(
+            RelativePosEncoder::decode_idx(
                 &HashMap::from_iter(vec![("A".to_string(), vec![0])]),
                 1,
                 &DependencyEncoding {
                     label: "X".into(),
-                    head: RelativePOS {
+                    head: RelativePos {
                         pos: "A".into(),
                         position: -2,
                     },
@@ -344,12 +344,12 @@ mod tests {
         let mut sent = Sentence::new();
         sent.push(TokenBuilder::new("a").xpos("A").into());
 
-        let decoder = RelativePOSEncoder::new(POSLayer::XPos, ROOT_RELATION);
+        let decoder = RelativePosEncoder::new(PosLayer::XPos, ROOT_RELATION);
         let labels = vec![vec![
             EncodingProb::new(
                 DependencyEncoding {
                     label: ROOT_RELATION.into(),
-                    head: RelativePOS {
+                    head: RelativePos {
                         pos: ROOT_POS.into(),
                         position: -2,
                     },
@@ -359,7 +359,7 @@ mod tests {
             EncodingProb::new(
                 DependencyEncoding {
                     label: ROOT_RELATION.into(),
-                    head: RelativePOS {
+                    head: RelativePos {
                         pos: ROOT_POS.into(),
                         position: -1,
                     },

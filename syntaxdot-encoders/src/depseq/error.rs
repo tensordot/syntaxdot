@@ -11,7 +11,7 @@ pub enum EncodeError {
     MissingHead { token: usize, sent: Vec<String> },
 
     /// The token's head does not have a part-of-speech.
-    MissingPOS { sent: Vec<String>, token: usize },
+    MissingPos { sent: Vec<String>, token: usize },
 
     /// The token does not have a dependency relation.
     MissingRelation { token: usize, sent: Vec<String> },
@@ -34,7 +34,7 @@ impl EncodeError {
     /// Construct an error. `token` is the node index for which the
     /// error applies in `sentence`.
     pub fn missing_pos(token: usize, sentence: &Sentence) -> EncodeError {
-        EncodeError::MissingPOS {
+        EncodeError::MissingPos {
             sent: Self::sentence_to_forms(sentence),
             token: token - 1,
         }
@@ -79,7 +79,7 @@ impl fmt::Display for EncodeError {
                 "Token does not have a head:\n\n{}\n",
                 Self::format_bracketed(*token, sent),
             ),
-            MissingPOS { token, sent } => write!(
+            MissingPos { token, sent } => write!(
                 f,
                 "Head of token '{}' does not have a part-of-speech:\n\n{}\n",
                 sent[*token],
@@ -103,5 +103,5 @@ pub(crate) enum DecodeError {
 
     /// The head part-of-speech tag does not occur in the sentence.
     #[error("unknown part-of-speech tag")]
-    InvalidPOS,
+    InvalidPos,
 }
