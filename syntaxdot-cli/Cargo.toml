@@ -1,6 +1,6 @@
 [package]
 name = "syntaxdot-cli"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2018"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
 description = "Neural sequence labeler"
@@ -26,7 +26,7 @@ ndarray = "0.14"
 ordered-float = { version = "2", features = ["serde"] }
 serde_yaml = "0.8"
 stdinout = "0.4"
-syntaxdot = { path = "../syntaxdot", version = "0.3.0", default-features = false }
+syntaxdot = { path = "../syntaxdot", version = "0.3.1", default-features = false }
 syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.3.0" }
 syntaxdot-summary = { path = "../syntaxdot-summary", version = "0.3.0" }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.3.0" }
