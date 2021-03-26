@@ -3,24 +3,24 @@ use std::io::{self, Write};
 use crate::crc32::CheckSummer;
 
 /// Write data in TFRecord format.
-pub struct TFRecordWriter<W> {
+pub struct TfRecordWriter<W> {
     checksummer: CheckSummer,
     write: W,
 }
 
-impl<W> From<W> for TFRecordWriter<W>
+impl<W> From<W> for TfRecordWriter<W>
 where
     W: Write,
 {
     fn from(write: W) -> Self {
-        TFRecordWriter {
+        TfRecordWriter {
             checksummer: CheckSummer::new(),
             write,
         }
     }
 }
 
-impl<W> TFRecordWriter<W>
+impl<W> TfRecordWriter<W>
 where
     W: Write,
 {

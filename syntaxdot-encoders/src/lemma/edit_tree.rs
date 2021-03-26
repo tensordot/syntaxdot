@@ -99,36 +99,36 @@ impl EditTree {
 
 /// Struct representing a continuous match between two sequences.
 #[derive(Debug, PartialEq, Eq, Hash)]
-struct LCSMatch {
+struct LcsMatch {
     start_src: usize,
     start_targ: usize,
     length: usize,
 }
 
-impl LCSMatch {
+impl LcsMatch {
     fn new(start_src: usize, start_targ: usize, length: usize) -> Self {
-        LCSMatch {
+        LcsMatch {
             start_src,
             start_targ,
             length,
         }
     }
     fn empty() -> Self {
-        LCSMatch::new(0, 0, 0)
+        LcsMatch::new(0, 0, 0)
     }
 }
 
-impl PartialOrd for LCSMatch {
-    fn partial_cmp(&self, other: &LCSMatch) -> Option<Ordering> {
+impl PartialOrd for LcsMatch {
+    fn partial_cmp(&self, other: &LcsMatch) -> Option<Ordering> {
         Some(self.length.cmp(&other.length))
     }
 }
 
 /// Returns the start and end index of the longest match. Returns none if no match is found.
-fn longest_match(script: &[IndexedOperation<LCSOp>]) -> Option<LCSMatch> {
-    let mut longest = LCSMatch::empty();
+fn longest_match(script: &[IndexedOperation<LCSOp>]) -> Option<LcsMatch> {
+    let mut longest = LcsMatch::empty();
 
-    let mut script_slice = &script[..];
+    let mut script_slice = script;
     while !script_slice.is_empty() {
         let op = &script_slice[0];
 
@@ -144,7 +144,7 @@ fn longest_match(script: &[IndexedOperation<LCSOp>]) -> Option<LCSMatch> {
                     None => script_slice.len(),
                 };
                 if end > longest.length {
-                    longest = LCSMatch::new(in_start, o_start, end);
+                    longest = LcsMatch::new(in_start, o_start, end);
                 };
 
                 script_slice = &script_slice[end..];

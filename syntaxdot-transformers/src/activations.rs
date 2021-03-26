@@ -15,9 +15,9 @@ pub trait Activation: Clone + FallibleModule {}
 ///
 /// where Φ(x) is the CDF for the Gaussian distribution.
 #[derive(Clone, Copy, Debug)]
-pub struct GELUNew;
+pub struct GeluNew;
 
-impl FallibleModule for GELUNew {
+impl FallibleModule for GeluNew {
     type Error = TransformerError;
 
     fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
@@ -30,7 +30,7 @@ impl FallibleModule for GELUNew {
     }
 }
 
-impl Activation for GELUNew {}
+impl Activation for GeluNew {}
 
 /// GELU activation function.
 ///
@@ -38,9 +38,9 @@ impl Activation for GELUNew {}
 ///
 /// where Φ(x) is the CDF for the Gaussian distribution.
 #[derive(Clone, Copy, Debug)]
-pub struct GELU;
+pub struct Gelu;
 
-impl FallibleModule for GELU {
+impl FallibleModule for Gelu {
     type Error = TransformerError;
 
     fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
@@ -48,7 +48,7 @@ impl FallibleModule for GELU {
     }
 }
 
-impl Activation for GELU {}
+impl Activation for Gelu {}
 
 #[cfg(test)]
 mod tests {
@@ -58,12 +58,12 @@ mod tests {
     use ndarray::{array, ArrayD};
     use tch::Tensor;
 
-    use super::GELUNew;
+    use super::GeluNew;
     use crate::module::FallibleModule;
 
     #[test]
     fn gelu_new_returns_correct_values() {
-        let gelu_new = GELUNew;
+        let gelu_new = GeluNew;
         let activations: ArrayD<f32> = (&gelu_new
             .forward(&Tensor::of_slice(&[-1., -0.5, 0., 0.5, 1.]))
             .unwrap())

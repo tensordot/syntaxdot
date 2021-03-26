@@ -3,11 +3,11 @@ use std::io::{self, Write};
 use prost::Message;
 
 use crate::event_writer::event::What;
-use crate::record_writer::TFRecordWriter;
+use crate::record_writer::TfRecordWriter;
 use std::time::SystemTime;
 
 pub struct EventWriter<W> {
-    writer: TFRecordWriter<W>,
+    writer: TfRecordWriter<W>,
 }
 
 impl<W> EventWriter<W> {
@@ -30,7 +30,7 @@ where
 
     pub fn new_with_wall_time(write: W, wall_time: f64) -> io::Result<Self> {
         let mut writer = EventWriter {
-            writer: TFRecordWriter::from(write),
+            writer: TfRecordWriter::from(write),
         };
 
         writer.write_event_with_wall_time(

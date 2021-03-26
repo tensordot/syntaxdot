@@ -181,7 +181,7 @@ mod tests {
     use udgraph::token::TokenBuilder;
 
     use super::{attach_orphans, break_cycles, find_or_create_root, first_root};
-    use crate::depseq::{DependencyEncoding, POSLayer, RelativePOS, RelativePOSEncoder};
+    use crate::depseq::{DependencyEncoding, PosLayer, RelativePos, RelativePosEncoder};
     use crate::{EncodingProb, SentenceEncoder};
 
     const ROOT_POS: &str = "ROOT";
@@ -259,7 +259,7 @@ mod tests {
         sent.dep_graph_mut()
             .add_deprel(DepTriple::new(0, Some(ROOT_RELATION), 3));
 
-        let encodings: Vec<_> = RelativePOSEncoder::new(POSLayer::XPos, ROOT_RELATION)
+        let encodings: Vec<_> = RelativePosEncoder::new(PosLayer::XPos, ROOT_RELATION)
             .encode(&test_graph())
             .unwrap()
             .into_iter()
@@ -275,11 +275,11 @@ mod tests {
     fn add_missing_root() {
         let mut sent = test_graph_no_root();
 
-        let encodings: Vec<Vec<EncodingProb<DependencyEncoding<RelativePOS>>>> = vec![
+        let encodings: Vec<Vec<EncodingProb<DependencyEncoding<RelativePos>>>> = vec![
             vec![EncodingProb::new(
                 DependencyEncoding {
                     label: ROOT_RELATION.to_owned(),
-                    head: RelativePOS::new(ROOT_POS, -1),
+                    head: RelativePos::new(ROOT_POS, -1),
                 },
                 0.4,
             )],
@@ -288,14 +288,14 @@ mod tests {
                 EncodingProb::new(
                     DependencyEncoding {
                         label: "distractor".to_owned(),
-                        head: RelativePOS::new(ROOT_POS, -1),
+                        head: RelativePos::new(ROOT_POS, -1),
                     },
                     0.6,
                 ),
                 EncodingProb::new(
                     DependencyEncoding {
                         label: ROOT_RELATION.to_owned(),
-                        head: RelativePOS::new(ROOT_POS, -1),
+                        head: RelativePos::new(ROOT_POS, -1),
                     },
                     0.4,
                 ),
@@ -303,17 +303,17 @@ mod tests {
             vec![EncodingProb::new(
                 DependencyEncoding {
                     label: ROOT_RELATION.to_owned(),
-                    head: RelativePOS::new(ROOT_POS, -1),
+                    head: RelativePos::new(ROOT_POS, -1),
                 },
                 0.3,
             )],
         ];
 
-        let pos_table = RelativePOSEncoder::new(POSLayer::XPos, "root").pos_position_table(&sent);
+        let pos_table = RelativePosEncoder::new(PosLayer::XPos, "root").pos_position_table(&sent);
         find_or_create_root(
             &encodings,
             &mut sent,
-            |idx, encoding| RelativePOSEncoder::decode_idx(&pos_table, idx, encoding).ok(),
+            |idx, encoding| RelativePosEncoder::decode_idx(&pos_table, idx, encoding).ok(),
             ROOT_RELATION,
         );
 

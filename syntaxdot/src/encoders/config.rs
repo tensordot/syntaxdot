@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
-use syntaxdot_encoders::depseq::POSLayer;
+use syntaxdot_encoders::depseq::PosLayer;
 use syntaxdot_encoders::layer::Layer;
 use syntaxdot_encoders::lemma::BackoffStrategy;
 
@@ -50,7 +50,7 @@ pub enum DependencyEncoder {
     RelativePosition,
 
     /// Encode a token's head by relative position of the POS tag.
-    RelativePOS(POSLayer),
+    RelativePos(PosLayer),
 }
 
 /// Configuration of an encoder with a name.
