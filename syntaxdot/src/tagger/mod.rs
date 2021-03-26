@@ -62,14 +62,17 @@ impl Tagger {
             predictions.biaffine_score_logits.is_some(),
         );
 
-        self.decode_sequence_labels(sentences, predictions.sequences_top_k)?;
-
+        // Decode dependencies before sequence labels. Biaffine parsing does not require any
+        // other annotations. Sequence labelers, however, may require dependencies (e.g. the
+        // TüBa-D/Z lemmatizer).
         if let (Some(encoder), Some(biaffine_score_logits)) = (
             self.biaffine_encoder.as_ref(),
             predictions.biaffine_score_logits,
         ) {
             tch::no_grad(|| self.decode_biaffine(encoder, sentences, biaffine_score_logits))?
         }
+
+        self.decode_sequence_labels(sentences, predictions.sequences_top_k)?;
 
         Ok(())
     }
