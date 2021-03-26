@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Apply biaffine dependency encoding before sequence labeling, so that
+  the TüBa-D/Z lemma decoder has access to dependency relations.
+
 ## 0.3.0
 
 ### Added
