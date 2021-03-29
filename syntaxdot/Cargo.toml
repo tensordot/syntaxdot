@@ -11,7 +11,7 @@ license = "BlueOak-1.0.0"
 
 [dependencies]
 conllu = "0.6"
-ndarray = "0.14"
+ndarray = "0.15"
 numberer = "0.2"
 log = "0.4"
 ordered-float = "2"

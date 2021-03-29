@@ -18,7 +18,7 @@ thiserror = "1"
 [dev-dependencies]
 approx = "0.4"
 maplit = "1"
-ndarray = { version = "0.14", features = ["approx"] }
+ndarray = { version = "0.15", features = ["approx"] }
 
 [features]
 model-tests = []
