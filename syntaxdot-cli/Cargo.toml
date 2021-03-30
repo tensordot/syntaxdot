@@ -22,7 +22,7 @@ env_logger = "0.8"
 indicatif = "0.15"
 itertools = "0.10"
 log = "0.4"
-ndarray = "0.14"
+ndarray = "0.15"
 ordered-float = { version = "2", features = ["serde"] }
 serde_yaml = "0.8"
 stdinout = "0.4"
