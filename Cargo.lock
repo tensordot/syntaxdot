@@ -103,12 +103,6 @@ checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 
 [[package]]
 name = "bytes"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
-
-[[package]]
-name = "bytes"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b700ce4376041dcd0a327fd0097c41095743c4c8af8887265942faf1100bd040"
@@ -511,15 +505,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
@@ -844,35 +829,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce49aefe0a6144a45de32927c77bd2859a5f7677b55f220ae5b744e87389c212"
-dependencies = [
- "bytes 0.5.6",
- "prost-derive 0.6.1",
-]
-
-[[package]]
-name = "prost"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e6984d2f1a23009bd270b8bb56d0926810a3d483f59c987d77969e9d8e840b2"
 dependencies = [
- "bytes 1.0.1",
- "prost-derive 0.7.0",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "537aa19b95acde10a12fec4301466386f757403de4cd4e5b4fa78fb5ecb18f72"
-dependencies = [
- "anyhow",
- "itertools 0.8.2",
- "proc-macro2",
- "quote",
- "syn",
+ "bytes",
+ "prost-derive",
 ]
 
 [[package]]
@@ -1127,24 +1089,24 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "sentencepiece"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5131aee706c699f1dccb06e88b72cae4efa1d4ab20ec447ee3c19aacdacbfaaa"
+checksum = "7bbe824d268289a69bb4a5f9de6e61502847d2b2b70a21a5036fca3124ea913c"
 dependencies = [
  "libc",
  "num-derive",
  "num-traits",
- "prost 0.6.1",
- "prost-derive 0.6.1",
+ "prost",
+ "prost-derive",
  "sentencepiece-sys",
  "thiserror",
 ]
 
 [[package]]
 name = "sentencepiece-sys"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c69535f0845e0d26858b82bd9b5fae6adadc5a94dbc4a0ba8ee5dca0718794f9"
+checksum = "dab104616df4dd7dd8e989137eb4cf4c0bba0287390389f3f343df9c09787e04"
 dependencies = [
  "cc",
  "cmake",
@@ -1327,7 +1289,7 @@ name = "syntaxdot-summary"
 version = "0.3.0"
 dependencies = [
  "hostname",
- "prost 0.7.0",
+ "prost",
 ]
 
 [[package]]
