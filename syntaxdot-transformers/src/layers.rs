@@ -159,10 +159,9 @@ impl LayerNorm {
         };
 
         LayerNorm {
-            eps,
             elementwise_affine,
+            eps,
             normalized_shape,
-
             weight,
             bias,
         }

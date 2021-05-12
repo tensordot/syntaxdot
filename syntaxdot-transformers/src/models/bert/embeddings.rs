@@ -85,9 +85,9 @@ impl BertEmbeddings {
         let dropout = Dropout::new(config.hidden_dropout_prob);
 
         Ok(BertEmbeddings {
-            word_embeddings,
             position_embeddings,
             token_type_embeddings,
+            word_embeddings,
             layer_norm,
             dropout,
         })

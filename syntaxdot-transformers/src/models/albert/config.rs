@@ -4,8 +4,8 @@ use crate::models::bert::BertConfig;
 use crate::models::traits::WordEmbeddingsConfig;
 
 /// ALBERT model configuration.
-#[serde(default)]
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct AlbertConfig {
     pub attention_probs_dropout_prob: f64,
     pub embedding_size: i64,

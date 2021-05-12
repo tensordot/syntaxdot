@@ -22,8 +22,8 @@ impl Deref for EncodersConfig {
 }
 
 /// The type of encoder.
-#[serde(rename_all = "lowercase")]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum EncoderType {
     /// Encoder for syntactical dependencies.
     Dependency {
@@ -43,8 +43,8 @@ pub enum EncoderType {
 }
 
 /// The type of dependency encoder.
-#[serde(rename_all = "lowercase")]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum DependencyEncoder {
     /// Encode a token's head by relative position.
     RelativePosition,
