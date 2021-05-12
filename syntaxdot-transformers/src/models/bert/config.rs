@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::models::traits::WordEmbeddingsConfig;
 
 /// Bert model configuration.
-#[serde(default)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct BertConfig {
     pub attention_probs_dropout_prob: f64,
     pub hidden_act: String,

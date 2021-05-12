@@ -657,11 +657,11 @@ impl SyntaxDotApp for FinetuneApp {
             mixed_precision,
             summary_writer,
             lr_schedule: LrSchedule {
-                initial_lr_classifier,
                 initial_lr_encoder,
+                initial_lr_classifier,
                 lr_decay_rate,
-                lr_patience,
                 lr_scale,
+                lr_patience,
                 warmup_steps,
             },
             patience,

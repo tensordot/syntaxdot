@@ -22,8 +22,8 @@ use crate::{EncodingProb, SentenceDecoder, SentenceEncoder};
 const ROOT_POS: &str = "ROOT";
 
 /// Part-of-speech layer.
-#[serde(rename_all = "lowercase")]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PosLayer {
     /// Universal part-of-speech tag.
     UPos,

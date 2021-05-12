@@ -32,10 +32,10 @@ impl Tagger {
         encoders: Encoders,
     ) -> Self {
         Tagger {
-            device,
-            model,
             biaffine_encoder,
+            device,
             encoders,
+            model,
         }
     }
 

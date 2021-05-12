@@ -11,8 +11,8 @@ use crate::{EncodingProb, SentenceDecoder, SentenceEncoder};
 ///
 /// This is the strategy that will be used when an edit tree
 /// could not be applied.
-#[serde(rename_all = "lowercase")]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum BackoffStrategy {
     Nothing,
     Form,

@@ -38,8 +38,8 @@ use crate::util::LogitsMask;
 /// * ALBERT uses `num_hidden_groups` to configure the number of layer
 ///   groups and `embedding_size` to configure the size of piece
 ///   embeddings.
-#[serde(default)]
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct SqueezeAlbertConfig {
     pub attention_probs_dropout_prob: f64,
     pub embedding_size: i64,

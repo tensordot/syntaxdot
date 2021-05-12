@@ -53,8 +53,8 @@ impl SyntaxDotApp for FilterLenApp {
 
         Ok(FilterLenApp {
             config,
-            max_len,
             input,
+            max_len,
             output,
         })
     }

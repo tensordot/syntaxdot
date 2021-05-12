@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::models::bert::BertConfig;
 
 /// SqueezeBert model configuration.
-#[serde(default)]
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct SqueezeBertConfig {
     pub attention_probs_dropout_prob: f64,
     pub embedding_size: i64,

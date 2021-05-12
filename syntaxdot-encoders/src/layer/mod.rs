@@ -13,8 +13,8 @@ use self::error::*;
 use conllu::display::ConlluFeatures;
 
 /// Tagging layer.
-#[serde(rename_all = "lowercase")]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Layer {
     UPos,
     XPos,
