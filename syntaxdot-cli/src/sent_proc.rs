@@ -1,14 +1,31 @@
+use std::ops::Deref;
+
 use anyhow::Result;
 use conllu::io::WriteSentence;
-
+use rayon::iter::ParallelIterator;
+use rayon::slice::ParallelSliceMut;
 use syntaxdot::tagger::Tagger;
 use syntaxdot_tokenizers::SentenceWithPieces;
+
+struct TaggerWrap<'a>(&'a Tagger);
+
+unsafe impl<'a> Send for TaggerWrap<'a> {}
+
+unsafe impl<'a> Sync for TaggerWrap<'a> {}
+
+impl<'a> Deref for TaggerWrap<'a> {
+    type Target = Tagger;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 pub struct SentProcessor<'a, W>
 where
     W: WriteSentence,
 {
-    tagger: &'a Tagger,
+    tagger: TaggerWrap<'a>,
     writer: W,
     batch_size: usize,
     max_len: Option<usize>,
@@ -40,7 +57,7 @@ where
         assert!(read_ahead > 0, "Read ahead should at least be 1.");
 
         SentProcessor {
-            tagger,
+            tagger: TaggerWrap(tagger),
             writer,
             batch_size,
             max_len,
@@ -50,6 +67,16 @@ where
     }
 
     /// Process a sentence.
+    ///
+    /// The sentences are not annotated until `batch_size * read_ahead` sentences
+    /// are queued using this method or the destructor is invoked. Once one of these
+    /// two conditions are met, the sentences are annotated and written after
+    /// annotation.
+    ///
+    /// The annotation of sentences is parallelized using Rayon. By default, the
+    /// global Rayon thread pool is used. Another [`rayon::ThreadPool`] can be used
+    /// through [`rayon::ThreadPool::install`], however then `SentenceProcessor`
+    /// must also be destructed in the scope of the closure.
     pub fn process(&mut self, tokenized_sentence: SentenceWithPieces) -> Result<()> {
         if let Some(max_len) = self.max_len {
             // sent.len() includes the root node, whereas max_len is
@@ -73,10 +100,14 @@ where
         let mut sent_refs: Vec<_> = self.buffer.iter_mut().collect();
         sent_refs.sort_unstable_by_key(|s| s.pieces.len());
 
+        // Convince the type system that we are not borrowing SentProcessor, which is
+        // not Sync.
+        let tagger = &self.tagger;
+
         // Split in batches, tag, and merge results.
-        for batch in sent_refs.chunks_mut(self.batch_size) {
-            self.tagger.tag_sentences(batch)?;
-        }
+        sent_refs
+            .par_chunks_mut(self.batch_size)
+            .try_for_each(|batch| tagger.tag_sentences(batch))?;
 
         // Write out sentences.
         let mut sents = Vec::with_capacity(self.read_ahead * self.batch_size);

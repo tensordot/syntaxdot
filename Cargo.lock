@@ -1249,6 +1249,7 @@ dependencies = [
  "log",
  "ndarray",
  "ordered-float",
+ "rayon",
  "serde_yaml",
  "stdinout",
  "syntaxdot",
