@@ -18,6 +18,7 @@ const CONFIG: &str = "CONFIG";
 const GPU: &str = "GPU";
 const INPUT: &str = "INPUT";
 const MAX_LEN: &str = "MAX_LEN";
+const NUM_ANNOTATION_THREADS: &str = "NUM_ANNOTATION_THREADS";
 const NUM_INTEROP_THREADS: &str = "NUM_INTEROP_THREADS";
 const NUM_INTRAOP_THREADS: &str = "NUM_INTRAOP_THREADS";
 const OUTPUT: &str = "OUTPUT";
@@ -28,6 +29,7 @@ pub struct AnnotateApp {
     config: String,
     device: Device,
     input: Option<String>,
+    num_annotation_threads: usize,
     num_interop_threads: usize,
     num_intraop_threads: usize,
     max_len: Option<usize>,
@@ -105,6 +107,13 @@ impl SyntaxDotApp for AnnotateApp {
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
+                Arg::with_name(NUM_ANNOTATION_THREADS)
+                    .help("Annotation threads")
+                    .long("annotation-threads")
+                    .value_name("N")
+                    .default_value("1"),
+            )
+            .arg(
                 Arg::with_name(NUM_INTEROP_THREADS)
                     .help("Inter op parallelism threads")
                     .long("interop-threads")
@@ -148,6 +157,11 @@ impl SyntaxDotApp for AnnotateApp {
             None => Device::Cpu,
         };
         let input = matches.value_of(INPUT).map(ToOwned::to_owned);
+        let num_annotation_threads = matches
+            .value_of(NUM_ANNOTATION_THREADS)
+            .unwrap()
+            .parse()
+            .context("Cannot number of inter op threads")?;
         let num_interop_threads = matches
             .value_of(NUM_INTEROP_THREADS)
             .unwrap()
@@ -174,6 +188,7 @@ impl SyntaxDotApp for AnnotateApp {
             config,
             device,
             input,
+            num_annotation_threads,
             num_interop_threads,
             num_intraop_threads,
             max_len,
@@ -186,6 +201,12 @@ impl SyntaxDotApp for AnnotateApp {
         // Set number of PyTorch threads.
         tch::set_num_threads(self.num_intraop_threads as i32);
         tch::set_num_interop_threads(self.num_interop_threads as i32);
+
+        // Rayon threads.
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(self.num_annotation_threads)
+            .build_global()
+            .unwrap();
 
         let model = Model::load(&self.config, self.device, true, false, |_| 0)?;
         let tagger = Tagger::new(

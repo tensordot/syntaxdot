@@ -24,6 +24,7 @@ itertools = "0.10"
 log = "0.4"
 ndarray = "0.14"
 ordered-float = { version = "2", features = ["serde"] }
+rayon = "1"
 serde_yaml = "0.8"
 stdinout = "0.4"
 syntaxdot = { path = "../syntaxdot", version = "0.3.0", default-features = false }
