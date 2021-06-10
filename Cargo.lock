@@ -242,7 +242,7 @@ dependencies = [
  "clap",
  "criterion-plot",
  "csv",
- "itertools 0.10.0",
+ "itertools 0.10.1",
  "lazy_static",
  "num-traits",
  "oorandom",
@@ -514,9 +514,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37d572918e350e82412fe766d24b15e6682fb2ed2bbe018280caa810397cb319"
+checksum = "69ddb889f9d0d08a67338271fa9b62996bc788c7796a5c18cf057420aaed5eaf"
 dependencies = [
  "either",
 ]
@@ -1245,7 +1245,7 @@ dependencies = [
  "conllu",
  "env_logger",
  "indicatif",
- "itertools 0.10.0",
+ "itertools 0.10.1",
  "log",
  "ndarray",
  "ordered-float",
@@ -1269,7 +1269,7 @@ version = "0.3.0"
 dependencies = [
  "conllu",
  "criterion",
- "itertools 0.10.0",
+ "itertools 0.10.1",
  "lazy_static",
  "ndarray",
  "ndarray-rand",
@@ -1298,7 +1298,7 @@ dependencies = [
 name = "syntaxdot-tch-ext"
 version = "0.3.0"
 dependencies = [
- "itertools 0.10.0",
+ "itertools 0.10.1",
  "tch",
 ]
 
