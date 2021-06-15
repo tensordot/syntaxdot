@@ -3,48 +3,61 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    crate2nix = {
-      url = "github:kolloch/crate2nix";
-      flake = false;
-    };
     utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, crate2nix, nixpkgs, utils }:
+  outputs = { self, nixpkgs, utils }:
     utils.lib.eachSystem  [ "x86_64-linux" ] (system:
     let
       models = import ./models.nix { inherit (pkgsWithCuda) fetchurl; };
+      allowLibTorch = pkgs: pkg: builtins.elem (pkgs.lib.getName pkg) [
+        "libtorch"
+      ];
       pkgsWithoutCuda = import nixpkgs {
         inherit system;
         config = {
-          allowUnfreePredicate = pkg: builtins.elem (pkgsWithoutCuda.lib.getName pkg) [
-            "libtorch"
-          ];
+          allowUnfreePredicate = allowLibTorch pkgsWithoutCuda;
         };
       };
       pkgsWithCuda = import nixpkgs {
         inherit system;
         config = {
-          allowUnfreePredicate = pkg: builtins.elem (pkgsWithCuda.lib.getName pkg) [
-            "libtorch"
-          ];
+          allowUnfreePredicate = allowLibTorch pkgsWithCuda;
           cudaSupport = true;
         };
       };
-      syntaxdot = pkgs:
-      let
-        crateOverrides = pkgs.callPackage build-support/crate-overrides.nix {};
-        crateTools = pkgs.callPackage "${crate2nix}/tools.nix" {};
-        buildRustCrate = pkgs.buildRustCrate.override {
-          defaultCrateOverrides = crateOverrides;
-        };
-        cargoNix = pkgs.callPackage (crateTools.generatedCargoNix {
+      version = (builtins.fromTOML (builtins.readFile syntaxdot-cli/Cargo.toml)).package.version;
+      syntaxdot = pkgs: with pkgs; rustPlatform.buildRustPackage {
+        inherit version;
+
+        pname = "syntaxdot";
+
+        src = builtins.path {
           name = "syntaxdot";
-          src = ./.;
-        }) {
-          inherit buildRustCrate;
+          path = ./.;
         };
-      in cargoNix.workspaceMembers.syntaxdot-cli.build;
+
+        cargoLock = {
+          lockFile = ./Cargo.lock;
+        };
+
+        nativeBuildInputs = [ cmake pkg-config ];
+
+        buildInputs = [ openssl ];
+
+        LIBTORCH = symlinkJoin {
+          name = "torch-join";
+          paths = [ libtorch-bin.dev libtorch-bin.out ];
+        };
+
+        meta = with lib; {
+          description = "Multi-task syntax annotator using transformers";
+          homepage = "https://github.com/tensordot/syntaxdot";
+          license = licenses.blueOak100;
+          platforms = [ "x86_64-linux" ];
+          maintainers = with maintainers; [ danieldk ];
+        };
+      };
     in {
       defaultPackage = self.packages.${system}.syntaxdot;
 
