@@ -23,7 +23,7 @@ syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.3.0" }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.3.0" }
 syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", default-features = false, version = "0.3.0" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", default-features = false, version = "0.3.0" }
-tch = "0.4"
+tch = "0.5"
 thiserror = "1"
 toml = "0.5"
 udgraph = "0.6"
