@@ -56,11 +56,10 @@ mod tests {
             Tensor::of_slice(&[2106i64, 1996, 22091, 2080, 7861, 4783, 17644, 11440, 1029])
                 .reshape(&[1, 9]);
 
-        let summed_embeddings =
-            embeddings
-                .forward_t(&pieces, false)
-                .unwrap()
-                .sum1(&[-1], false, Kind::Float);
+        let summed_embeddings = embeddings
+            .forward_t(&pieces, false)
+            .unwrap()
+            .sum_dim_intlist(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_embeddings).try_into().unwrap();
 

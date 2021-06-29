@@ -177,9 +177,10 @@ impl DistillApp {
         // The attention matrix uses logits. Tokens are masked by giving them very
         // negative values. Remove such tokens by removing extreme negative values.
         // The threshold is the same as that used by TinyBERT.
-        let zeros = Tensor::zeros_like(&teacher_attention);
-        let teacher_attention = teacher_attention.where1(&teacher_attention.lt(-1e2), &zeros);
-        let student_attention = student_attention.where1(&student_attention.lt(-1e2), &zeros);
+        let teacher_attention =
+            teacher_attention.where_scalarother(&teacher_attention.lt(-1e2), 0.);
+        let student_attention =
+            student_attention.where_scalarother(&student_attention.lt(-1e2), 0.);
 
         Ok(student_attention.mse_loss(&teacher_attention, Reduction::Mean))
     }
@@ -292,7 +293,7 @@ impl DistillApp {
                     .f_expand(&[-1, -1, 1, n_relations], true)?,
                 false,
             )?
-            .f_squeeze1(2)?
+            .f_squeeze_dim(2)?
             .f_view_(&[-1, n_relations])?)
     }
 
@@ -506,7 +507,7 @@ impl DistillApp {
             let soft_losses = teacher_probs.f_mul(&student_logprobs)?.f_neg()?;
             let _ = loss.f_add_(
                 &soft_losses
-                    .f_sum1(&[-1], false, Kind::Float)?
+                    .f_sum_dim_intlist(&[-1], false, Kind::Float)?
                     .f_mean(Kind::Float)?,
             )?;
         }

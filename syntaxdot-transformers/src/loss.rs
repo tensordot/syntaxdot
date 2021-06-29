@@ -68,13 +68,13 @@ impl CrossEntropyLoss {
 
                 // Do not attempt to use negative indices for the correct target.
                 let targets_non_negative =
-                    targets.f_where3(&targets.f_ne(self.ignore_index)?, 0)?;
+                    targets.f_where_scalarother(&targets.f_ne(self.ignore_index)?, 0)?;
 
                 // Set all labels to label_smoothing and the target to 1-label_smoothing.
                 let smoothed_targets = tch::no_grad(|| match target_mask {
                     None => {
                         Tensor::f_full_like(&log_probs, label_smoothing / (n_classes - 1) as f64)?
-                            .f_scatter1(
+                            .f_scatter_value(
                                 1,
                                 &targets_non_negative.f_unsqueeze(1)?,
                                 1. - label_smoothing,
@@ -82,21 +82,23 @@ impl CrossEntropyLoss {
                     }
                     Some(target_mask) => {
                         let batch_probs = label_smoothing
-                            / target_mask.f_sum1(&[-1], false, Kind::Float)?.f_sub1(1)?;
+                            / target_mask
+                                .f_sum_dim_intlist(&[-1], false, Kind::Float)?
+                                .f_sub_scalar(1)?;
                         Tensor::f_zeros_like(&log_probs)?
                             // Set label probabilities to batch smoothing probability.
                             .f_add_(&batch_probs.f_unsqueeze(-1)?)?
                             // Mask out padding.
                             .f_mul(&target_mask.to_kind(Kind::Float))?
                             // Assign probabilities to gold standard labels.
-                            .f_scatter1(
+                            .f_scatter_value(
                                 1,
                                 &targets_non_negative.f_unsqueeze(1)?,
                                 1. - label_smoothing,
                             )
                     }
                 })?;
-                let losses = (smoothed_targets.f_neg()?.f_mul(&log_probs)?).f_sum1(
+                let losses = (smoothed_targets.f_neg()?.f_mul(&log_probs)?).f_sum_dim_intlist(
                     &[-1],
                     false,
                     log_probs.kind(),

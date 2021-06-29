@@ -75,18 +75,18 @@ impl PiecePooler {
         Ok(token_embeddings
             .embeddings
             .f_slice(2, 0, 1, 1)?
-            .f_squeeze1(2)?)
+            .f_squeeze_dim(2)?)
     }
 
     /// Mean pooling
     fn pool_mean(token_embeddings: &TokenEmbeddings) -> Result<Tensor, TransformerError> {
         let pieces_per_token = token_embeddings
             .mask
-            .f_sum1(&[2], false, Kind::Float)?
+            .f_sum_dim_intlist(&[2], false, Kind::Float)?
             .f_clamp_min(1)?;
         Ok(token_embeddings
             .embeddings
-            .f_sum1(&[2], false, Kind::Float)?
+            .f_sum_dim_intlist(&[2], false, Kind::Float)?
             .f_div(&pieces_per_token.f_unsqueeze(-1)?)?)
     }
 }
@@ -130,7 +130,7 @@ impl EmbeddingsPerToken for TokenSpansWithRoot {
         let piece_range = Tensor::f_arange(max_token_len, (Kind::Int64, self.lens().device()))?
             .f_view([1, 1, max_token_len])?;
 
-        let mask = piece_range.less1(&self.lens().f_unsqueeze(-1)?);
+        let mask = piece_range.less_tensor(&self.lens().f_unsqueeze(-1)?);
 
         let piece_indices = (piece_range + self.offsets().unsqueeze(-1)).f_mul(&mask)?;
 
@@ -166,7 +166,7 @@ mod tests {
             Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
-        let hidden = Tensor::arange2(36, 0, -1, (Kind::Int64, Device::Cpu))
+        let hidden = Tensor::arange_start_step(36, 0, -1, (Kind::Int64, Device::Cpu))
             .view([2, 9, 2])
             .to_kind(Kind::Float);
 
@@ -193,7 +193,8 @@ mod tests {
             Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
-        let hidden = Tensor::arange2(32, 0, -1, (Kind::Int64, Device::Cpu)).view([2, 8, 2]);
+        let hidden =
+            Tensor::arange_start_step(32, 0, -1, (Kind::Int64, Device::Cpu)).view([2, 8, 2]);
 
         let token_embeddings = spans.embeddings_per_token(&hidden).unwrap();
 
@@ -223,7 +224,7 @@ mod tests {
             Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
-        let hidden = Tensor::arange2(36, 0, -1, (Kind::Int64, Device::Cpu))
+        let hidden = Tensor::arange_start_step(36, 0, -1, (Kind::Int64, Device::Cpu))
             .view([2, 9, 2])
             .to_kind(Kind::Float);
 

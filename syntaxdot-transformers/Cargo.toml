@@ -12,13 +12,13 @@ license = "BlueOak-1.0.0"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.3.0" }
-tch = "0.4"
+tch = "0.5"
 thiserror = "1"
 
 [dev-dependencies]
 approx = "0.4"
 maplit = "1"
-ndarray = { version = "0.14", features = ["approx"] }
+ndarray = { version = "0.15", features = ["approx"] }
 
 [features]
 model-tests = []

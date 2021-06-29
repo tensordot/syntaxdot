@@ -305,7 +305,7 @@ impl PairwiseBilinear {
         // the shape [batch_size, seq_len, seq_len, out_features].
         let bilinear = Tensor::f_einsum("bmv,blov->bmlo", &[&v, &intermediate])?;
 
-        Ok(bilinear.f_squeeze1(-1)?)
+        Ok(bilinear.f_squeeze_dim(-1)?)
     }
 }
 

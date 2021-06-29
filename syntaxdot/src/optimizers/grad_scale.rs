@@ -100,9 +100,8 @@ where
             return;
         };
 
-        self.scale = Tensor::internal_amp_update_scale(
+        self.scale = self.scale.internal_amp_update_scale_(
             &self.growth_tracker,
-            &self.scale,
             &self.found_inf,
             self.growth_factor,
             self.backoff_factor,

@@ -58,7 +58,7 @@ impl RobertaEmbeddings {
             None => {
                 let mask = input_ids.f_ne(PADDING_IDX)?.to_kind(Kind::Int64);
                 let incremental_indices = mask.f_cumsum(1, Kind::Int64)?.f_mul(&mask)?;
-                CowTensor::Owned(incremental_indices.f_add1(PADDING_IDX)?)
+                CowTensor::Owned(incremental_indices.f_add_scalar(PADDING_IDX)?)
             }
         };
 
@@ -130,11 +130,10 @@ mod tests {
         ])
         .reshape(&[1, 12]);
 
-        let summed_embeddings =
-            embeddings
-                .forward_t(&pieces, false)
-                .unwrap()
-                .sum1(&[-1], false, Kind::Float);
+        let summed_embeddings = embeddings
+            .forward_t(&pieces, false)
+            .unwrap()
+            .sum_dim_intlist(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_embeddings).try_into().unwrap();
 
@@ -177,7 +176,7 @@ mod tests {
                 .last()
                 .unwrap()
                 .output()
-                .sum1(&[-1], false, Kind::Float);
+                .sum_dim_intlist(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();
 

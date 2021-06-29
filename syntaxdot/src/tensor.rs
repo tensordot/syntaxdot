@@ -335,7 +335,7 @@ impl SequenceLengths {
             .f_repeat(&[batch_size])?
             .f_view_(&[batch_size, max_len])?
             // Time steps less than the length in the sequence lengths are active.
-            .f_lt_1(&self.inner.unsqueeze(1))?
+            .f_lt_tensor(&self.inner.unsqueeze(1))?
             // For some reason the kind is Int?
             .to_kind(Kind::Bool))
     }
@@ -393,7 +393,7 @@ impl TokenSpans {
     pub fn seq_lens(&self) -> Result<Tensor, SyntaxDotError> {
         Ok(self
             .token_mask()?
-            .f_sum1(&[-1], false, self.offsets().kind())?)
+            .f_sum_dim_intlist(&[-1], false, self.offsets().kind())?)
     }
 
     /// Get the token spans with the ROOT depedency token prepended.

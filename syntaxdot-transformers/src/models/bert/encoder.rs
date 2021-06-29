@@ -142,7 +142,7 @@ mod tests {
             .repeat(&[batch_size])
             .view_(&[batch_size, max_len])
             // Time steps less than the length in seq_lens are active.
-            .lt1(&seq_lens.unsqueeze(1))
+            .lt_tensor(&seq_lens.unsqueeze(1))
     }
 
     fn varstore_variables(vs: &VarStore) -> BTreeSet<String> {
@@ -177,7 +177,7 @@ mod tests {
                 .last()
                 .unwrap()
                 .output()
-                .sum1(&[-1], false, Kind::Float);
+                .sum_dim_intlist(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();
 
@@ -224,7 +224,7 @@ mod tests {
             .unwrap()
             .output()
             .slice(-2, 0, 10, 1)
-            .sum1(&[-1], false, Kind::Float);
+            .sum_dim_intlist(&[-1], false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();
 
