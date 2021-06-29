@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add support for parallelizing annotation at the batch level. SyntaxDot has
+  so far used PyTorch inter/intraop parallelization. This change adds
+  support for parallelization at the batch level. Annotation-level
+  parallelization can be configured with the `annotation-threads`
+  command-line option of `syntaxdot annotate`.
+
+### Changed
+
+- Update to [libtorch
+  1.9.0](https://github.com/pytorch/pytorch/releases/tag/v1.9.0) and
+  [tch 0.5.0](https://github.com/LaurentMazare/tch-rs).
+
+## 0.3.1
+
 ### Fixed
 
 - Apply biaffine dependency encoding before sequence labeling, so that
