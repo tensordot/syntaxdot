@@ -25,9 +25,9 @@ jobs:
         ( cd patchelf-0.12.20200827.8d3a16e && ./configure && make -j4 )
     - name: Download libtorch
       run: |
-        wget "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.8.0%2Bcpu.zip"
-        echo "0a0a02d264a68a48cda7a0ff8597c1162916336557e08d26ad6ce906f0c4a35d libtorch-cxx11-abi-shared-with-deps-1.8.0+cpu.zip" | sha256sum -c -
-        unzip libtorch-cxx11-abi-shared-with-deps-1.8.0+cpu.zip
+        wget "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-1.9.0%2Bcpu.zip"
+        echo "6b99edc046f37ad37a3b04dc86663895f10c362af09fdd10884f30360d0ba023 libtorch-cxx11-abi-shared-with-deps-1.9.0+cpu.zip" | sha256sum -c -
+        unzip libtorch-cxx11-abi-shared-with-deps-1.9.0+cpu.zip
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal

@@ -22,7 +22,7 @@ env_logger = "0.8"
 indicatif = "0.15"
 itertools = "0.10"
 log = "0.4"
-ndarray = "0.14"
+ndarray = "0.15"
 ordered-float = { version = "2", features = ["serde"] }
 rayon = "1"
 serde_yaml = "0.8"
@@ -33,6 +33,6 @@ syntaxdot-summary = { path = "../syntaxdot-summary", version = "0.3.0" }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.3.0" }
 syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", version = "0.3.0" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.3.0", default-features = false }
-tch = "0.4"
+tch = "0.5"
 threadpool = "1"
 udgraph = "0.6"

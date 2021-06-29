@@ -212,7 +212,7 @@ impl BiaffineDependencyLayer {
         // Mask padding. But do not mask BOS/ROOT as a possible head for each token.
         let logits_mask: Tensor = Tensor::from(1.0)
             .f_sub(&token_mask_with_root.to_kind(Kind::Float))?
-            .f_mul1(-10_000.)?;
+            .f_mul_scalar(-10_000.)?;
         let _ = logits_mask.f_slice(1, 0, 1, 1)?.f_fill_(0)?;
 
         // Get weighted hidden representation.
@@ -341,7 +341,7 @@ impl BiaffineDependencyLayer {
                     .f_expand(&[-1, -1, 1, self.n_relations], true)?,
                 false,
             )?
-            .f_squeeze1(2)?
+            .f_squeeze_dim(2)?
             .f_view_(&[-1, self.n_relations])?;
 
         let relation_targets = targets.relations.f_view_(&[-1])?;
@@ -373,7 +373,7 @@ impl BiaffineDependencyLayer {
         let head_predicted = biaffine_score_logits
             .head_score_logits
             .f_argmax(-1, false)?;
-        let head_correct = head_predicted.f_eq1(&targets.heads)?;
+        let head_correct = head_predicted.f_eq_tensor(&targets.heads)?;
 
         let relations_predicted = biaffine_score_logits
             .relation_score_logits
@@ -381,7 +381,7 @@ impl BiaffineDependencyLayer {
             .f_gather(2, &head_predicted.f_unsqueeze(-1)?, false)?
             .f_squeeze()?;
         let relations_correct = relations_predicted
-            .f_eq1(&targets.relations)?
+            .f_eq_tensor(&targets.relations)?
             .f_view_(&[batch_size, seq_len])?;
 
         let head_and_relations_correct = head_correct.f_logical_and(&relations_correct)?;

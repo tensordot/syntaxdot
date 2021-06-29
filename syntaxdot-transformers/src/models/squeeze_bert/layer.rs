@@ -211,7 +211,7 @@ impl SqueezeBertSelfAttention {
 
         // Get the raw attention scores.
         let mut attention_scores = query_layer.f_matmul(&key_layer)?;
-        let _ = attention_scores.f_div_1((self.attention_head_size as f64).sqrt());
+        let _ = attention_scores.f_div_scalar_((self.attention_head_size as f64).sqrt());
 
         if let Some(mask) = attention_mask {
             let _ = attention_scores.f_add_(&**mask)?;

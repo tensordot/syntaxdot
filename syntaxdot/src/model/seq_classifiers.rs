@@ -169,7 +169,7 @@ impl SequenceClassifiers {
                     .f_topk(k as i64, -1, true, true)?;
 
                 // Fix label offsets.
-                let _ = labels.f_add_1(2)?;
+                let _ = labels.f_add_scalar_(2)?;
 
                 Ok((encoder_name.to_string(), TopK { labels, probs }))
             })

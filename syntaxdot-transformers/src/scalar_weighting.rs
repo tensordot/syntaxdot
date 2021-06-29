@@ -119,8 +119,8 @@ impl ScalarWeight {
             let dropout_mask = Tensor::f_empty_like(&self.layer_weights)?
                 .f_fill_(1.0 - self.layer_dropout_prob)?
                 .f_bernoulli()?;
-            let softmax_mask =
-                (Tensor::from(1.0).f_sub(&dropout_mask.to_kind(Kind::Float))?).f_mul1(-10_000.)?;
+            let softmax_mask = (Tensor::from(1.0).f_sub(&dropout_mask.to_kind(Kind::Float))?)
+                .f_mul_scalar(-10_000.)?;
             CowTensor::Owned(self.layer_weights.f_add(&softmax_mask)?)
         } else {
             CowTensor::Borrowed(&self.layer_weights)
@@ -138,7 +138,7 @@ impl ScalarWeight {
 
         // Sum across all layers and scale.
         Ok(weighted_layers
-            .f_sum1(&[-2], false, Kind::Float)?
+            .f_sum_dim_intlist(&[-2], false, Kind::Float)?
             .f_mul(&self.scale)?)
     }
 }
@@ -252,7 +252,9 @@ impl ScalarWeightClassifier {
 
         Ok((
             losses,
-            predicted.f_eq1(&targets)?.f_view([batch_size, seq_len])?,
+            predicted
+                .f_eq_tensor(&targets)?
+                .f_view([batch_size, seq_len])?,
         ))
     }
 }

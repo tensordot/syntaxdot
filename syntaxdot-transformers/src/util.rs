@@ -30,7 +30,7 @@ impl LogitsMask {
         // Use (very) negative values for time steps that should be masked.
         let logits_mask = Tensor::from(1.0)
             .f_sub(&extended_mask.f_to_kind(Kind::Float)?)?
-            .f_mul1(-10_000)?;
+            .f_mul_scalar(-10_000)?;
 
         Ok(LogitsMask { inner: logits_mask })
     }
@@ -105,9 +105,10 @@ impl SinusoidalPositions for Tensor {
         // Avoids the use of larger numbers with decreased precision.
         let position =
             Tensor::f_arange(num_embeddings, (Kind::Float, self.device()))?.f_unsqueeze(1)?;
-        let div_term = (Tensor::f_arange2(0, embedding_dim, 2, (Kind::Float, self.device()))?
-            .f_mul1(-(10_000f64.ln()) / embedding_dim as f64))?
-        .f_exp()?;
+        let div_term =
+            (Tensor::f_arange_start_step(0, embedding_dim, 2, (Kind::Float, self.device()))?
+                .f_mul_scalar(-(10_000f64.ln()) / embedding_dim as f64))?
+            .f_exp()?;
         let position_encodings = position.f_mul(&div_term)?;
 
         // Copy the sinusoidal embeddings into the output shape. Run with
@@ -121,7 +122,7 @@ impl SinusoidalPositions for Tensor {
 
             if let Some(p) = p_norm {
                 // Compute the p-norm.
-                let norm = self.f_norm2(p, &[-1], true)?;
+                let norm = self.f_norm_scalaropt_dim(p, &[-1], true)?;
 
                 // Normalize embeddings.
                 let _ = self.f_div_(&norm)?;
@@ -193,7 +194,7 @@ pub mod tests {
         let positions: Tensor =
             SinusoidalPositions::sinusoidal_positions(5, 8, Some(1.), (Kind::Float, Device::Cpu))
                 .unwrap();
-        let norms: ArrayD<f32> = (&positions.abs().sum1(&[-1], false, Kind::Float))
+        let norms: ArrayD<f32> = (&positions.abs().sum_dim_intlist(&[-1], false, Kind::Float))
             .try_into()
             .unwrap();
         assert_abs_diff_eq!(norms, array![1., 1., 1., 1., 1.].into_dyn(), epsilon = 1e-4);
@@ -204,7 +205,9 @@ pub mod tests {
         let positions: Tensor =
             SinusoidalPositions::sinusoidal_positions(5, 8, Some(2.), (Kind::Float, Device::Cpu))
                 .unwrap();
-        let norms: ArrayD<f32> = (&positions.norm2(2., &[-1], false)).try_into().unwrap();
+        let norms: ArrayD<f32> = (&positions.norm_scalaropt_dim(2., &[-1], false))
+            .try_into()
+            .unwrap();
         assert_abs_diff_eq!(norms, array![1., 1., 1., 1., 1.].into_dyn(), epsilon = 1e-4);
     }
 
