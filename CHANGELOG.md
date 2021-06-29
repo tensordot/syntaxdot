@@ -15,6 +15,9 @@
 - Update to [libtorch
   1.9.0](https://github.com/pytorch/pytorch/releases/tag/v1.9.0) and
   [tch 0.5.0](https://github.com/LaurentMazare/tch-rs).
+- Change the default number of inter/intraop threads to 1. Use 4 threads for
+  annotation-level parallelization. This has shown to be faster for all models,
+  both on AMD Ryzen and Apple M1.
 
 ## 0.3.1
 

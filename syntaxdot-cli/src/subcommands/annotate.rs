@@ -111,21 +111,21 @@ impl SyntaxDotApp for AnnotateApp {
                     .help("Annotation threads")
                     .long("annotation-threads")
                     .value_name("N")
-                    .default_value("1"),
+                    .default_value("4"),
             )
             .arg(
                 Arg::with_name(NUM_INTEROP_THREADS)
                     .help("Inter op parallelism threads")
                     .long("interop-threads")
                     .value_name("N")
-                    .default_value("4"),
+                    .default_value("1"),
             )
             .arg(
                 Arg::with_name(NUM_INTRAOP_THREADS)
                     .help("Intra op parallelism threads")
                     .long("intraop-threads")
                     .value_name("N")
-                    .default_value("4"),
+                    .default_value("1"),
             )
             .arg(
                 Arg::with_name(MAX_LEN)
