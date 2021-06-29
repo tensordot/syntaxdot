@@ -50,6 +50,22 @@ impl FallibleModule for Gelu {
 
 impl Activation for Gelu {}
 
+/// ReLU activation function
+///
+/// ReLU(x)=max(0,x)
+#[derive(Clone, Copy, Debug)]
+pub struct Relu;
+
+impl FallibleModule for Relu {
+    type Error = TransformerError;
+
+    fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
+        Ok(input.f_relu()?)
+    }
+}
+
+impl Activation for Relu {}
+
 #[cfg(test)]
 mod tests {
     use std::convert::TryInto;

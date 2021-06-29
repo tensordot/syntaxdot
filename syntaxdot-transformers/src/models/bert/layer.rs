@@ -342,6 +342,7 @@ pub(crate) fn bert_activations(
     match activation_name {
         "gelu" => Some(Box::new(activations::Gelu)),
         "gelu_new" => Some(Box::new(activations::GeluNew)),
+        "relu" => Some(Box::new(activations::Relu)),
         _ => None,
     }
 }
