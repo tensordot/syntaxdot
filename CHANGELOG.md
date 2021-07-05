@@ -12,6 +12,24 @@
 
 ### Changed
 
+- SyntaxDot now uses dynamic batch sizes. Before this change, the batch
+  size (`--batch-size`) was specified as the number of sentences per
+  batch. Since sentences are sorted by length before batching, annotation
+  is performed on batches with roughly equisized sequences. However,
+  later batches required more computations per batch due to longer
+  sequence lengths.
+
+  This change replaces the `--batch-size` option by the `--max-batch-pieces`
+  option. This option specifies the number of word/sentence pieces that
+  a batch should contain. SyntaxDot annotation creates batches that contains
+  at most that number of pieces. The only exception are single sentences
+  that are longer than the maximum number of batch pieces.
+
+  With this change, annotating each batch is approximately the same amount
+  of work. This leads to approximately 10% increase in performance.
+
+  Since the batch size is not fixed anymore, the readahead (`--readahead`)
+  is now specified in number of sentences.
 - Update to [libtorch
   1.9.0](https://github.com/pytorch/pytorch/releases/tag/v1.9.0) and
   [tch 0.5.0](https://github.com/LaurentMazare/tch-rs).
