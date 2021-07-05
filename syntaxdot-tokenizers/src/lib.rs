@@ -26,6 +26,7 @@ pub trait Tokenize: Send + Sync {
 }
 
 /// A sentence and its word pieces.
+#[derive(Debug, Eq, PartialEq)]
 pub struct SentenceWithPieces {
     /// Word pieces in a sentence.
     pub pieces: Array1<i64>,

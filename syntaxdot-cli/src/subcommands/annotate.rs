@@ -13,10 +13,10 @@ use crate::progress::TaggerSpeed;
 use crate::sent_proc::SentProcessor;
 use crate::traits::{SyntaxDotApp, DEFAULT_CLAP_SETTINGS};
 
-const BATCH_SIZE: &str = "BATCH_SIZE";
 const CONFIG: &str = "CONFIG";
 const GPU: &str = "GPU";
 const INPUT: &str = "INPUT";
+const MAX_BATCH_PIECES: &str = "MAX_BATCH_PIECES";
 const MAX_LEN: &str = "MAX_LEN";
 const NUM_ANNOTATION_THREADS: &str = "NUM_ANNOTATION_THREADS";
 const NUM_INTEROP_THREADS: &str = "NUM_INTEROP_THREADS";
@@ -25,14 +25,14 @@ const OUTPUT: &str = "OUTPUT";
 const READ_AHEAD: &str = "READ_AHEAD";
 
 pub struct AnnotateApp {
-    batch_size: usize,
     config: String,
     device: Device,
     input: Option<String>,
+    max_batch_pieces: usize,
+    max_len: Option<usize>,
     num_annotation_threads: usize,
     num_interop_threads: usize,
     num_intraop_threads: usize,
-    max_len: Option<usize>,
     output: Option<String>,
     read_ahead: usize,
 }
@@ -54,7 +54,7 @@ impl AnnotateApp {
         let mut sent_proc = SentProcessor::new(
             &tagger,
             write,
-            self.batch_size,
+            self.max_batch_pieces,
             self.max_len,
             self.read_ahead,
         );
@@ -94,17 +94,17 @@ impl SyntaxDotApp for AnnotateApp {
                     .takes_value(true),
             )
             .arg(
-                Arg::with_name(BATCH_SIZE)
-                    .long("batch-size")
-                    .takes_value(true)
-                    .help("Batch size")
-                    .default_value("32"),
-            )
-            .arg(
                 Arg::with_name(GPU)
                     .long("gpu")
                     .takes_value(true)
                     .help("Use the GPU with the given identifier"),
+            )
+            .arg(
+                Arg::with_name(MAX_BATCH_PIECES)
+                    .long("max-batch-pieces")
+                    .takes_value(true)
+                    .help("Maximum number of pieces per batch")
+                    .default_value("1000"),
             )
             .arg(
                 Arg::with_name(NUM_ANNOTATION_THREADS)
@@ -136,19 +136,14 @@ impl SyntaxDotApp for AnnotateApp {
             )
             .arg(
                 Arg::with_name(READ_AHEAD)
-                    .help("Readahead (number of batches)")
+                    .help("Readahead (number of sentences)")
                     .long("readahead")
-                    .default_value("100"),
+                    .default_value("5000"),
             )
     }
 
     fn parse(matches: &ArgMatches) -> Result<Self> {
         let config = matches.value_of(CONFIG).unwrap().into();
-        let batch_size = matches
-            .value_of(BATCH_SIZE)
-            .unwrap()
-            .parse()
-            .context("Cannot parse batch size")?;
         let device = match matches.value_of("GPU") {
             Some(gpu) => Device::Cuda(
                 gpu.parse()
@@ -157,6 +152,11 @@ impl SyntaxDotApp for AnnotateApp {
             None => Device::Cpu,
         };
         let input = matches.value_of(INPUT).map(ToOwned::to_owned);
+        let max_batch_pieces = matches
+            .value_of(MAX_BATCH_PIECES)
+            .unwrap()
+            .parse()
+            .context("Cannot parse maximum number of batch pieces")?;
         let num_annotation_threads = matches
             .value_of(NUM_ANNOTATION_THREADS)
             .unwrap()
@@ -181,17 +181,17 @@ impl SyntaxDotApp for AnnotateApp {
             .value_of(READ_AHEAD)
             .unwrap()
             .parse()
-            .context("Cannot parse number of batches to read ahead")?;
+            .context("Cannot parse number of sentences to read ahead")?;
 
         Ok(AnnotateApp {
-            batch_size,
             config,
             device,
             input,
+            max_batch_pieces,
+            max_len,
             num_annotation_threads,
             num_interop_threads,
             num_intraop_threads,
-            max_len,
             output,
             read_ahead,
         })
