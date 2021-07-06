@@ -1,10 +1,8 @@
 // Copyright 2019 The edit_tree contributors
 // Copyright 2020 TensorDot
 //
-// edit_tree is provided to you by its contributors under the Blue Oak Model License
-// Version 1.0.0 (see LICENSE.md). Tobias Pütz and Daniël de Kok may individually,
-// at their own discretion, relicense future versions of edit_tree under any later
-// version of the Blue Oak Model License.
+// Licensed under the Apache License, Version 2.0 or the MIT license,
+// at your option.
 //
 // Contributors:
 //
