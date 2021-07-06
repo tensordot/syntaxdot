@@ -7,7 +7,7 @@ description = "Encoders for linguistic features"
 homepage = "https://github.com/tensordot/syntaxdot"
 repository = "https://github.com/tensordot/syntaxdot.git"
 documentation = "https://docs.rs/syntaxdot-encoders/"
-license = "BlueOak-1.0.0"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 conllu = "0.6"

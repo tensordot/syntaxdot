@@ -7,7 +7,7 @@ description = "tch path extension for partitioning parameters in groups"
 homepage = "https://github.com/tensordot/syntaxdot"
 repository = "https://github.com/tensordot/syntaxdot.git"
 documentation = "https://docs.rs/syntaxdot-tch-ext/"
-license = "BlueOak-1.0.0"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 itertools = "0.10"

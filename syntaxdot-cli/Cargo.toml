@@ -7,7 +7,7 @@ description = "Neural sequence labeler"
 homepage = "https://github.com/tensordot/syntaxdot"
 repository = "https://github.com/tensordot/syntaxdot.git"
 documentation = "https://github.com/tensordot/syntaxdot"
-license = "BlueOak-1.0.0"
+license = "MIT OR Apache-2.0"
 
 [[bin]]
 name = "syntaxdot"

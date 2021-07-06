@@ -7,7 +7,7 @@ description = "Subword tokenizers"
 homepage = "https://github.com/tensordot/syntaxdot"
 repository = "https://github.com/tensordot/syntaxdot.git"
 documentation = "https://docs.rs/syntaxdot-tokenizers/"
-license = "BlueOak-1.0.0"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 ndarray = "0.15"
