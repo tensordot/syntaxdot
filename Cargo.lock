@@ -1610,9 +1610,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "wordpieces"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24ce31b1a06f8358e5e9b4a0e0c6c39e2f3c887a235f3b9255065c1509728f14"
+checksum = "b28fb50e814eb5e0fadbdbdd2eabb4f70d54d6b1981943c32d019555c0247b9e"
 dependencies = [
  "fst",
  "thiserror",
