@@ -17,7 +17,7 @@ lazy_static = "1"
 ndarray = "0.15"
 ohnomore = "0.3"
 ordered-float = "2"
-petgraph = "0.5"
+petgraph = "0.6"
 seqalign = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
