@@ -187,11 +187,11 @@ dependencies = [
 
 [[package]]
 name = "conllu"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6028c5904fccbda78f6ed6c50630ff5c8b58f58dc9df8ecab380e3634b8e6f37"
+checksum = "e51035ddeddc53089de8cc4b694717f0bc0cb54ced7327d228c359929c5b7a96"
 dependencies = [
- "itertools 0.9.0",
+ "itertools 0.10.1",
  "thiserror",
  "udgraph",
 ]
@@ -385,9 +385,9 @@ dependencies = [
 
 [[package]]
 name = "fixedbitset"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
+checksum = "398ea4fabe40b9b0d885340a2a991a44c8a645624075ad966d21f88688e2b69e"
 
 [[package]]
 name = "flate2"
@@ -706,9 +706,9 @@ dependencies = [
 
 [[package]]
 name = "ohnomore"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77a85f1351b834be91a4e4d5d027cb3617dc7c9bf54b7731d376b51c53e470dd"
+checksum = "441e27caad5f55c51ff4480488a68a9746c3c9470a1d4144e649fe24fa0a1725"
 dependencies = [
  "caseless",
  "fst",
@@ -757,9 +757,9 @@ dependencies = [
 
 [[package]]
 name = "petgraph"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
+checksum = "4a13a2fa9d0b63e5f22328828741e523766fff0ee9e779316902290dff3f824f"
 dependencies = [
  "fixedbitset",
  "indexmap",
@@ -1423,9 +1423,9 @@ dependencies = [
 
 [[package]]
 name = "udgraph"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a8abeedb97ece847696e6d956f8899fddcdd96e5552c5401ba10ac69faecd42"
+checksum = "a7031b81c4aa60645b03e708b567fcae6ade407a12b9cbd5d5643c53d81a3787"
 dependencies = [
  "petgraph",
 ]
