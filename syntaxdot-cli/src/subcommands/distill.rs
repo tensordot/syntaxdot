@@ -676,7 +676,7 @@ impl DistillApp {
                 grad_scaler.current_scale(),
             )?;
 
-            progress.set_message(&format!(
+            progress.set_message(format!(
                 "step: {} | lr enc: {:+.1e}, class: {:+.1e} | loss soft: {:+.1e}, attention: {:+.1e}, hidden: {:+.1e}",
                 global_step,
                 lr_encoder,
@@ -957,12 +957,12 @@ impl DistillApp {
                 biaffine_head_loss += head_loss * n_batch_tokens as f32;
                 biaffine_relation_loss += relation_loss * n_batch_tokens as f32;
 
-                progress_bar.set_message(&format!(
+                progress_bar.set_message(format!(
                     "seq loss: {:.4}, head loss: {:.4}, rel los: {:.4}, global step: {}",
                     scalar_loss, head_loss, relation_loss, global_step
                 ));
             } else {
-                progress_bar.set_message(&format!(
+                progress_bar.set_message(format!(
                     "seq loss: {:.4}, global step: {}",
                     scalar_loss, global_step
                 ));
