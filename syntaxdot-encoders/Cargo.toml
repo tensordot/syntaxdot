@@ -10,7 +10,7 @@ documentation = "https://docs.rs/syntaxdot-encoders/"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-conllu = "0.6"
+conllu = "0.7"
 itertools = "0.10"
 numberer = "0.2"
 lazy_static = "1"

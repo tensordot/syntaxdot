@@ -187,13 +187,13 @@ dependencies = [
 
 [[package]]
 name = "conllu"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6028c5904fccbda78f6ed6c50630ff5c8b58f58dc9df8ecab380e3634b8e6f37"
+checksum = "e51035ddeddc53089de8cc4b694717f0bc0cb54ced7327d228c359929c5b7a96"
 dependencies = [
- "itertools 0.9.0",
+ "itertools 0.10.1",
  "thiserror",
- "udgraph",
+ "udgraph 0.7.0",
 ]
 
 [[package]]
@@ -388,6 +388,12 @@ name = "fixedbitset"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
+
+[[package]]
+name = "fixedbitset"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "398ea4fabe40b9b0d885340a2a991a44c8a645624075ad966d21f88688e2b69e"
 
 [[package]]
 name = "flate2"
@@ -716,7 +722,7 @@ dependencies = [
  "maplit",
  "seqalign",
  "thiserror",
- "udgraph",
+ "udgraph 0.6.0",
  "unicode-normalization",
 ]
 
@@ -761,7 +767,17 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "467d164a6de56270bd7c4d070df81d07beace25012d5103ced4e9ff08d6afdb7"
 dependencies = [
- "fixedbitset",
+ "fixedbitset 0.2.0",
+ "indexmap",
+]
+
+[[package]]
+name = "petgraph"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a13a2fa9d0b63e5f22328828741e523766fff0ee9e779316902290dff3f824f"
+dependencies = [
+ "fixedbitset 0.4.0",
  "indexmap",
 ]
 
@@ -1196,7 +1212,7 @@ dependencies = [
  "tch",
  "thiserror",
  "toml",
- "udgraph",
+ "udgraph 0.6.0",
  "wordpieces",
 ]
 
@@ -1225,7 +1241,7 @@ dependencies = [
  "syntaxdot-transformers",
  "tch",
  "threadpool",
- "udgraph",
+ "udgraph 0.6.0",
 ]
 
 [[package]]
@@ -1241,14 +1257,14 @@ dependencies = [
  "numberer",
  "ohnomore",
  "ordered-float",
- "petgraph",
+ "petgraph 0.5.1",
  "rand 0.8.4",
  "rand_xorshift 0.3.0",
  "seqalign",
  "serde",
  "serde_derive",
  "thiserror",
- "udgraph",
+ "udgraph 0.6.0",
 ]
 
 [[package]]
@@ -1274,7 +1290,7 @@ dependencies = [
  "ndarray",
  "sentencepiece",
  "thiserror",
- "udgraph",
+ "udgraph 0.6.0",
  "wordpieces",
 ]
 
@@ -1427,7 +1443,16 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a8abeedb97ece847696e6d956f8899fddcdd96e5552c5401ba10ac69faecd42"
 dependencies = [
- "petgraph",
+ "petgraph 0.5.1",
+]
+
+[[package]]
+name = "udgraph"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7031b81c4aa60645b03e708b567fcae6ade407a12b9cbd5d5643c53d81a3787"
+dependencies = [
+ "petgraph 0.6.0",
 ]
 
 [[package]]
