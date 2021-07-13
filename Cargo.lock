@@ -34,15 +34,6 @@ checksum = "595d3cfa7a60d4555cb5067b99f07142a08ea778de5cf993f7b75c7d8fabc486"
 
 [[package]]
 name = "approx"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0e60b75072ecd4168020818c0107f2857bb6c4e64252d8d3983f6263b40a5c3"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
-name = "approx"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
@@ -619,7 +610,7 @@ version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08e854964160a323e65baa19a0b1a027f76d590faba01f05c0cbc3187221a8c9"
 dependencies = [
- "approx 0.4.0",
+ "approx",
  "matrixmultiply",
  "num-complex",
  "num-integer",
@@ -1177,7 +1168,7 @@ dependencies = [
 name = "syntaxdot"
 version = "0.3.0"
 dependencies = [
- "approx 0.3.2",
+ "approx",
  "conllu",
  "lazy_static",
  "log",
@@ -1282,7 +1273,7 @@ dependencies = [
 name = "syntaxdot-transformers"
 version = "0.3.0"
 dependencies = [
- "approx 0.4.0",
+ "approx",
  "maplit",
  "ndarray",
  "serde",

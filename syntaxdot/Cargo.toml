@@ -29,7 +29,7 @@ toml = "0.5"
 udgraph = "0.7"
 
 [dev-dependencies]
-approx = "0.3"
+approx = "0.4"
 lazy_static = "1"
 maplit = "1"
 wordpieces = "0.5"
