@@ -26,7 +26,7 @@ syntaxdot-transformers = { path = "../syntaxdot-transformers", default-features 
 tch = "0.5"
 thiserror = "1"
 toml = "0.5"
-udgraph = "0.6"
+udgraph = "0.7"
 
 [dev-dependencies]
 approx = "0.3"

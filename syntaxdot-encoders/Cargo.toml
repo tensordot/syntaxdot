@@ -22,7 +22,7 @@ seqalign = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
 thiserror = "1"
-udgraph = "0.6"
+udgraph = "0.7"
 
 [dev-dependencies]
 criterion = "0.3"

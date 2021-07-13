@@ -35,4 +35,4 @@ syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", version = "0.3.0" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.3.0", default-features = false }
 tch = "0.5"
 threadpool = "1"
-udgraph = "0.6"
+udgraph = "0.7"

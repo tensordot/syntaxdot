@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 ndarray = "0.15"
 sentencepiece = "0.8"
 thiserror = "1"
-udgraph = "0.6"
+udgraph = "0.7"
 wordpieces = "0.5"
 
 [features]
