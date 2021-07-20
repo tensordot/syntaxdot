@@ -25,6 +25,8 @@
 
 ### Changed
 
+- The license of SyntaxDot has changed from the Blue Oak Model License 1.0
+  to the MIT License *or* Apache License version 2.0 (at your option).
 - SyntaxDot now uses dynamic batch sizes. Before this change, the batch
   size (`--batch-size`) was specified as the number of sentences per
   batch. Since sentences are sorted by length before batching, annotation
