@@ -99,13 +99,14 @@ mod tests {
     use tch::nn::VarStore;
     use tch::Device;
 
+    use crate::activations::Activation;
     use crate::models::albert::{AlbertConfig, AlbertEmbeddings};
 
     fn albert_config() -> AlbertConfig {
         AlbertConfig {
             attention_probs_dropout_prob: 0.,
             embedding_size: 128,
-            hidden_act: "gelu_new".to_string(),
+            hidden_act: Activation::GeluNew,
             hidden_dropout_prob: 0.,
             hidden_size: 768,
             initializer_range: 0.02,

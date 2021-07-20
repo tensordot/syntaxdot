@@ -153,6 +153,7 @@ mod tests {
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
 
+    use crate::activations::Activation;
     use crate::models::bert::{BertConfig, BertEmbeddings};
     use crate::module::FallibleModuleT;
 
@@ -161,7 +162,7 @@ mod tests {
     fn german_bert_config() -> BertConfig {
         BertConfig {
             attention_probs_dropout_prob: 0.1,
-            hidden_act: "gelu".to_string(),
+            hidden_act: Activation::Gelu,
             hidden_dropout_prob: 0.1,
             hidden_size: 768,
             initializer_range: 0.02,

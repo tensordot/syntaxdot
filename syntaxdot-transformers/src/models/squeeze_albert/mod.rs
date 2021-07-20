@@ -13,11 +13,12 @@
 
 use std::borrow::Borrow;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use syntaxdot_tch_ext::PathExt;
 use tch::nn::Module;
 use tch::Tensor;
 
+use crate::activations::Activation;
 use crate::error::TransformerError;
 use crate::models::albert::{AlbertConfig, AlbertEmbeddingProjection};
 use crate::models::bert::BertConfig;
@@ -38,12 +39,12 @@ use crate::util::LogitsMask;
 /// * ALBERT uses `num_hidden_groups` to configure the number of layer
 ///   groups and `embedding_size` to configure the size of piece
 ///   embeddings.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct SqueezeAlbertConfig {
     pub attention_probs_dropout_prob: f64,
     pub embedding_size: i64,
-    pub hidden_act: String,
+    pub hidden_act: Activation,
     pub hidden_dropout_prob: f64,
     pub hidden_size: i64,
     pub initializer_range: f64,
@@ -68,7 +69,7 @@ impl Default for SqueezeAlbertConfig {
         SqueezeAlbertConfig {
             attention_probs_dropout_prob: 0.,
             embedding_size: 128,
-            hidden_act: "gelu_new".to_owned(),
+            hidden_act: Activation::GeluNew,
             hidden_dropout_prob: 0.,
             hidden_size: 768,
             initializer_range: 0.02,
@@ -95,7 +96,7 @@ impl From<&SqueezeAlbertConfig> for AlbertConfig {
         AlbertConfig {
             attention_probs_dropout_prob: albert_config.attention_probs_dropout_prob,
             embedding_size: albert_config.embedding_size,
-            hidden_act: albert_config.hidden_act.clone(),
+            hidden_act: albert_config.hidden_act,
             hidden_dropout_prob: albert_config.hidden_dropout_prob,
             hidden_size: albert_config.hidden_size,
             initializer_range: albert_config.initializer_range,
@@ -115,7 +116,7 @@ impl From<&SqueezeAlbertConfig> for BertConfig {
     fn from(albert_config: &SqueezeAlbertConfig) -> Self {
         BertConfig {
             attention_probs_dropout_prob: albert_config.attention_probs_dropout_prob,
-            hidden_act: albert_config.hidden_act.clone(),
+            hidden_act: albert_config.hidden_act,
             hidden_dropout_prob: albert_config.hidden_dropout_prob,
             hidden_size: albert_config.hidden_size,
             initializer_range: albert_config.initializer_range,
@@ -135,7 +136,7 @@ impl From<&SqueezeAlbertConfig> for SqueezeBertConfig {
         SqueezeBertConfig {
             attention_probs_dropout_prob: config.attention_probs_dropout_prob,
             embedding_size: config.embedding_size,
-            hidden_act: config.hidden_act.clone(),
+            hidden_act: config.hidden_act,
             hidden_dropout_prob: config.hidden_dropout_prob,
             hidden_size: config.hidden_size,
             initializer_range: config.initializer_range,

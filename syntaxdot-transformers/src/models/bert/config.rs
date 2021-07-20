@@ -1,13 +1,14 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
+use crate::activations::Activation;
 use crate::models::traits::WordEmbeddingsConfig;
 
 /// Bert model configuration.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
 pub struct BertConfig {
     pub attention_probs_dropout_prob: f64,
-    pub hidden_act: String,
+    pub hidden_act: Activation,
     pub hidden_dropout_prob: f64,
     pub hidden_size: i64,
     pub initializer_range: f64,
@@ -24,7 +25,7 @@ impl Default for BertConfig {
     fn default() -> Self {
         BertConfig {
             attention_probs_dropout_prob: 0.1,
-            hidden_act: "gelu".to_owned(),
+            hidden_act: Activation::Gelu,
             hidden_dropout_prob: 0.1,
             hidden_size: 768,
             initializer_range: 0.02,

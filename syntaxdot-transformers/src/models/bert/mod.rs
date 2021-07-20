@@ -10,5 +10,5 @@ mod encoder;
 pub use encoder::BertEncoder;
 
 mod layer;
+pub(crate) use layer::bert_linear;
 pub use layer::BertLayer;
-pub(crate) use layer::{bert_activations, bert_linear};
