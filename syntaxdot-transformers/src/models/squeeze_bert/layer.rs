@@ -18,9 +18,9 @@ use std::borrow::Borrow;
 use syntaxdot_tch_ext::PathExt;
 use tch::{Kind, Tensor};
 
+use crate::activations::Activation;
 use crate::error::TransformerError;
 use crate::layers::{Conv1D, Dropout, LayerNorm};
-use crate::models::bert::bert_activations;
 use crate::models::layer_output::{HiddenLayer, LayerOutput};
 use crate::models::squeeze_bert::SqueezeBertConfig;
 use crate::module::{FallibleModule, FallibleModuleT};
@@ -98,7 +98,7 @@ impl ConvDropoutLayerNorm {
 #[derive(Debug)]
 struct ConvActivation {
     conv1d: Conv1D,
-    activation: Box<dyn FallibleModule<Error = TransformerError>>,
+    activation: Activation,
 }
 
 impl ConvActivation {
@@ -107,14 +107,9 @@ impl ConvActivation {
         cin: i64,
         cout: i64,
         groups: i64,
-        activation: &str,
+        activation: Activation,
     ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
-
-        let activation = match bert_activations(activation) {
-            Some(activation) => activation,
-            None => return Err(TransformerError::unknown_activation_function(activation)),
-        };
 
         Ok(ConvActivation {
             conv1d: Conv1D::new(vs.borrow() / "conv1d", cin, cout, 1, groups)?,
@@ -294,7 +289,7 @@ impl SqueezeBertLayer {
                 config.hidden_size,
                 config.intermediate_size,
                 config.intermediate_groups,
-                &config.hidden_act,
+                config.hidden_act,
             )?,
             output: ConvDropoutLayerNorm::new(
                 vs / "output",

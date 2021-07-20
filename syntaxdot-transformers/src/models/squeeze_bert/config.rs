@@ -1,14 +1,15 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
+use crate::activations::Activation;
 use crate::models::bert::BertConfig;
 
 /// SqueezeBert model configuration.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct SqueezeBertConfig {
     pub attention_probs_dropout_prob: f64,
     pub embedding_size: i64,
-    pub hidden_act: String,
+    pub hidden_act: Activation,
     pub hidden_dropout_prob: f64,
     pub hidden_size: i64,
     pub initializer_range: f64,
@@ -32,7 +33,7 @@ impl Default for SqueezeBertConfig {
         SqueezeBertConfig {
             attention_probs_dropout_prob: 0.1,
             embedding_size: 768,
-            hidden_act: "gelu".to_owned(),
+            hidden_act: Activation::Gelu,
             hidden_dropout_prob: 0.1,
             hidden_size: 768,
             initializer_range: 0.02,
@@ -57,7 +58,7 @@ impl From<&SqueezeBertConfig> for BertConfig {
     fn from(squeeze_bert_config: &SqueezeBertConfig) -> Self {
         BertConfig {
             attention_probs_dropout_prob: squeeze_bert_config.attention_probs_dropout_prob,
-            hidden_act: squeeze_bert_config.hidden_act.clone(),
+            hidden_act: squeeze_bert_config.hidden_act,
             hidden_dropout_prob: squeeze_bert_config.hidden_dropout_prob,
             hidden_size: squeeze_bert_config.hidden_size,
             initializer_range: squeeze_bert_config.initializer_range,

@@ -100,6 +100,7 @@ mod tests {
     use tch::{Device, Kind, Tensor};
 
     use super::SqueezeBertEncoder;
+    use crate::activations::Activation;
     use crate::models::bert::{BertConfig, BertEmbeddings};
     use crate::models::squeeze_bert::SqueezeBertConfig;
     use crate::models::Encoder;
@@ -111,7 +112,7 @@ mod tests {
         SqueezeBertConfig {
             attention_probs_dropout_prob: 0.1,
             embedding_size: 768,
-            hidden_act: "gelu".to_string(),
+            hidden_act: Activation::Gelu,
             hidden_dropout_prob: 0.1,
             hidden_size: 768,
             initializer_range: 0.02,

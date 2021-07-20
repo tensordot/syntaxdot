@@ -1,70 +1,76 @@
 //! Activation functions
 
+use std::convert::TryFrom;
 use std::f64;
 
+use serde::Deserialize;
 use tch::Tensor;
 
 use crate::module::FallibleModule;
 use crate::TransformerError;
 
-pub trait Activation: Clone + FallibleModule {}
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(try_from = "String")]
+pub enum Activation {
+    /// GELU activation function.
+    ///
+    /// GELU(x)=x Φ(x)
+    ///
+    /// where Φ(x) is the CDF for the Gaussian distribution.
+    Gelu,
 
-/// GELU activation function (Google/OpenAI flavor).
-///
-/// GELU(x)=x Φ(x)
-///
-/// where Φ(x) is the CDF for the Gaussian distribution.
-#[derive(Clone, Copy, Debug)]
-pub struct GeluNew;
+    /// GELU activation function (Google/OpenAI flavor).
+    ///
+    /// GELU(x)=x Φ(x)
+    ///
+    /// where Φ(x) is the CDF for the Gaussian distribution.
+    GeluNew,
 
-impl FallibleModule for GeluNew {
+    /// ReLU activation function
+    ///
+    /// ReLU(x)=max(0,x)
+    Relu,
+}
+
+impl TryFrom<&str> for Activation {
     type Error = TransformerError;
 
-    fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
-        Ok(0.5
-            * input
-            * (1.0
-                + Tensor::f_tanh(
-                    &((2. / f64::consts::PI).sqrt() * (input + 0.044715 * input.pow(3.0))),
-                )?))
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "gelu" => Ok(Activation::Gelu),
+            "gelu_new" => Ok(Activation::GeluNew),
+            "relu" => Ok(Activation::Relu),
+            unknown => Err(TransformerError::UnknownActivationFunction {
+                activation: unknown.to_string(),
+            }),
+        }
     }
 }
 
-impl Activation for GeluNew {}
-
-/// GELU activation function.
-///
-/// GELU(x)=x Φ(x)
-///
-/// where Φ(x) is the CDF for the Gaussian distribution.
-#[derive(Clone, Copy, Debug)]
-pub struct Gelu;
-
-impl FallibleModule for Gelu {
+impl TryFrom<String> for Activation {
     type Error = TransformerError;
 
-    fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
-        Ok(input.f_gelu()?)
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
     }
 }
 
-impl Activation for Gelu {}
-
-/// ReLU activation function
-///
-/// ReLU(x)=max(0,x)
-#[derive(Clone, Copy, Debug)]
-pub struct Relu;
-
-impl FallibleModule for Relu {
+impl FallibleModule for Activation {
     type Error = TransformerError;
 
     fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
-        Ok(input.f_relu()?)
+        match self {
+            Self::Gelu => Ok(input.f_gelu()?),
+            Self::GeluNew => Ok(0.5
+                * input
+                * (1.0
+                    + Tensor::f_tanh(
+                        &((2. / f64::consts::PI).sqrt() * (input + 0.044715 * input.pow(3.0))),
+                    )?)),
+            Self::Relu => Ok(input.f_relu()?),
+        }
     }
 }
-
-impl Activation for Relu {}
 
 #[cfg(test)]
 mod tests {
@@ -74,12 +80,12 @@ mod tests {
     use ndarray::{array, ArrayD};
     use tch::Tensor;
 
-    use super::GeluNew;
+    use crate::activations::Activation;
     use crate::module::FallibleModule;
 
     #[test]
     fn gelu_new_returns_correct_values() {
-        let gelu_new = GeluNew;
+        let gelu_new = Activation::GeluNew;
         let activations: ArrayD<f32> = (&gelu_new
             .forward(&Tensor::of_slice(&[-1., -0.5, 0., 0.5, 1.]))
             .unwrap())

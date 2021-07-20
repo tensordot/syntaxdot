@@ -166,7 +166,7 @@ fn sinusoidal_normalize_default() -> bool {
     true
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub enum PretrainConfig {
     Albert(AlbertConfig),
     Bert(BertConfig),

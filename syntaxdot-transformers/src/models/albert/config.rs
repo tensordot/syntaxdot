@@ -1,15 +1,16 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
+use crate::activations::Activation;
 use crate::models::bert::BertConfig;
 use crate::models::traits::WordEmbeddingsConfig;
 
 /// ALBERT model configuration.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct AlbertConfig {
     pub attention_probs_dropout_prob: f64,
     pub embedding_size: i64,
-    pub hidden_act: String,
+    pub hidden_act: Activation,
     pub hidden_dropout_prob: f64,
     pub hidden_size: i64,
     pub initializer_range: f64,
@@ -28,7 +29,7 @@ impl Default for AlbertConfig {
         AlbertConfig {
             attention_probs_dropout_prob: 0.,
             embedding_size: 128,
-            hidden_act: "gelu_new".to_owned(),
+            hidden_act: Activation::GeluNew,
             hidden_dropout_prob: 0.,
             hidden_size: 768,
             initializer_range: 0.02,
@@ -48,7 +49,7 @@ impl From<&AlbertConfig> for BertConfig {
     fn from(albert_config: &AlbertConfig) -> Self {
         BertConfig {
             attention_probs_dropout_prob: albert_config.attention_probs_dropout_prob,
-            hidden_act: albert_config.hidden_act.clone(),
+            hidden_act: albert_config.hidden_act,
             hidden_dropout_prob: albert_config.hidden_dropout_prob,
             hidden_size: albert_config.hidden_size,
             initializer_range: albert_config.initializer_range,

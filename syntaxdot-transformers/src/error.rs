@@ -23,11 +23,3 @@ pub enum TransformerError {
     #[error("unknown activation function: {activation:?}")]
     UnknownActivationFunction { activation: String },
 }
-
-impl TransformerError {
-    pub(crate) fn unknown_activation_function(activation: impl Into<String>) -> Self {
-        TransformerError::UnknownActivationFunction {
-            activation: activation.into(),
-        }
-    }
-}

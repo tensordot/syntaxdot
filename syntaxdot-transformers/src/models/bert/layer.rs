@@ -21,7 +21,7 @@ use syntaxdot_tch_ext::PathExt;
 use tch::nn::{Init, Linear, Module};
 use tch::{Kind, Tensor};
 
-use crate::activations;
+use crate::activations::Activation;
 use crate::error::TransformerError;
 use crate::layers::{Dropout, LayerNorm};
 use crate::models::bert::config::BertConfig;
@@ -32,7 +32,7 @@ use crate::util::LogitsMask;
 #[derive(Debug)]
 pub struct BertIntermediate {
     dense: Linear,
-    activation: Box<dyn FallibleModule<Error = TransformerError>>,
+    activation: Activation,
 }
 
 impl BertIntermediate {
@@ -42,17 +42,8 @@ impl BertIntermediate {
     ) -> Result<Self, TransformerError> {
         let vs = vs.borrow();
 
-        let activation = match bert_activations(&config.hidden_act) {
-            Some(activation) => activation,
-            None => {
-                return Err(TransformerError::unknown_activation_function(
-                    &config.hidden_act,
-                ))
-            }
-        };
-
         Ok(BertIntermediate {
-            activation,
+            activation: config.hidden_act,
             dense: bert_linear(
                 vs / "dense",
                 config,
@@ -333,17 +324,6 @@ impl BertSelfOutput {
         let mut hidden_states = self.dropout.forward_t(&hidden_states, train)?;
         let _ = hidden_states.f_add_(&input)?;
         self.layer_norm.forward(&hidden_states)
-    }
-}
-
-pub(crate) fn bert_activations(
-    activation_name: &str,
-) -> Option<Box<dyn FallibleModule<Error = TransformerError>>> {
-    match activation_name {
-        "gelu" => Some(Box::new(activations::Gelu)),
-        "gelu_new" => Some(Box::new(activations::GeluNew)),
-        "relu" => Some(Box::new(activations::Relu)),
-        _ => None,
     }
 }
 
