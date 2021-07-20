@@ -5,6 +5,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use syntaxdot_encoders::dependency::MutableDependencyEncoder;
 use syntaxdot_tokenizers::{AlbertTokenizer, BertTokenizer, Tokenize, XlmRobertaTokenizer};
+use syntaxdot_transformers::activations::Activation;
 use syntaxdot_transformers::models::albert::AlbertConfig;
 use syntaxdot_transformers::models::bert::BertConfig;
 use syntaxdot_transformers::models::squeeze_albert::SqueezeAlbertConfig;
@@ -23,9 +24,13 @@ pub struct BiaffineConfig {
 }
 
 /// Configuration for bi-affine dependency parsing.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename = "biaffine_parser")]
 pub struct BiaffineParserConfig {
+    /// Activation for feed-forward layers.
+    #[serde(default = "default_biaffine_activation")]
+    pub activation: Activation,
+
     /// Configuration for biaffine dependency head layer.
     pub head: BiaffineConfig,
 
@@ -40,6 +45,10 @@ impl From<&BiaffineParserConfig> for MutableDependencyEncoder {
     fn from(_config: &BiaffineParserConfig) -> Self {
         MutableDependencyEncoder::new()
     }
+}
+
+fn default_biaffine_activation() -> Activation {
+    Activation::Gelu
 }
 
 /// Input configuration.
@@ -186,7 +195,7 @@ pub enum PretrainModelType {
 }
 
 /// Sequence labeler configuration.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// Configuration of the input representations.
@@ -323,6 +332,7 @@ mod tests {
     use syntaxdot_encoders::depseq::PosLayer;
     use syntaxdot_encoders::layer::Layer;
     use syntaxdot_encoders::lemma::BackoffStrategy;
+    use syntaxdot_transformers::activations::Activation;
 
     use crate::config::{
         BiaffineConfig, BiaffineParserConfig, Config, Input, Labeler, Model, PositionEmbeddings,
@@ -345,6 +355,7 @@ mod tests {
                     },
                 },
                 biaffine: Some(BiaffineParserConfig {
+                    activation: Activation::Gelu,
                     head: BiaffineConfig {
                         dims: 50,
                         head_bias: true,

@@ -1,12 +1,13 @@
 use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::PathExt;
+use syntaxdot_transformers::activations::Activation;
 use syntaxdot_transformers::layers::{
     PairwiseBilinear, PairwiseBilinearConfig, VariationalDropout,
 };
 use syntaxdot_transformers::loss::CrossEntropyLoss;
 use syntaxdot_transformers::models::LayerOutput;
-use syntaxdot_transformers::module::FallibleModuleT;
+use syntaxdot_transformers::module::{FallibleModule, FallibleModuleT};
 use syntaxdot_transformers::scalar_weighting::ScalarWeight;
 use tch::nn::{Init, Linear, Module};
 use tch::{Kind, Reduction, Tensor};
@@ -64,6 +65,7 @@ pub struct BiaffineScoreLogits {
 pub struct BiaffineDependencyLayer {
     scalar_weight: ScalarWeight,
 
+    activation: Activation,
     arc_dependent: Linear,
     arc_head: Linear,
     label_dependent: Linear,
@@ -155,6 +157,7 @@ impl BiaffineDependencyLayer {
         Ok(BiaffineDependencyLayer {
             scalar_weight,
 
+            activation: biaffine_config.activation,
             arc_dependent,
             arc_head,
             label_dependent,
@@ -219,12 +222,16 @@ impl BiaffineDependencyLayer {
         let hidden = self.scalar_weight.forward(layers, train)?;
 
         // Compute dependent/head arc representations of each token.
-        let arc_dependent = self
-            .dropout
-            .forward_t(&self.arc_dependent.forward(&hidden).gelu(), train)?;
-        let arc_head = self
-            .dropout
-            .forward_t(&self.arc_head.forward(&hidden).gelu(), train)?;
+        let arc_dependent = self.dropout.forward_t(
+            &self
+                .activation
+                .forward(&self.arc_dependent.forward(&hidden))?,
+            train,
+        )?;
+        let arc_head = self.dropout.forward_t(
+            &self.activation.forward(&self.arc_head.forward(&hidden))?,
+            train,
+        )?;
 
         // From these representations, compute the arc score matrix.
         let head_score_logits = self
@@ -234,12 +241,16 @@ impl BiaffineDependencyLayer {
             .f_add_(&logits_mask.f_unsqueeze(1)?)?;
 
         // Compute dependent/head label representations of each token.
-        let label_dependent = self
-            .dropout
-            .forward_t(&self.label_dependent.forward(&hidden).f_gelu()?, train)?;
-        let label_head = self
-            .dropout
-            .forward_t(&self.label_head.forward(&hidden).f_gelu()?, train)?;
+        let label_dependent = self.dropout.forward_t(
+            &self
+                .activation
+                .forward(&self.label_dependent.forward(&hidden))?,
+            train,
+        )?;
+        let label_head = self.dropout.forward_t(
+            &self.activation.forward(&self.label_head.forward(&hidden))?,
+            train,
+        )?;
 
         // From from these representations, compute the label score matrix.
         let relation_score_logits = self

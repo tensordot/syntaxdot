@@ -9,7 +9,7 @@ use tch::Tensor;
 use crate::module::FallibleModule;
 use crate::TransformerError;
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(try_from = "String")]
 pub enum Activation {
     /// GELU activation function.
