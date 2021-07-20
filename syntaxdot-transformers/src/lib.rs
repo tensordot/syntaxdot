@@ -5,7 +5,7 @@
 //! e.g. their Huggingface counterparts, focusing only on the parts
 //! necessary for sequence labeling.
 
-pub(crate) mod activations;
+pub mod activations;
 
 pub(crate) mod cow;
 

@@ -12,6 +12,16 @@
 - Add ReLU (`relu`) as an option as the non-linearity in the feed-forward
   transformer layers. This is much faster for systems where no vectorized
   version of the normal distribution CDF is available (currently Apple M1).
+- The non-linearity that is used in the biaffine feed-forward layers is
+  now configurable. For example:
+
+  ```toml
+  [biaffine]
+  activation = "relu"
+  ```
+
+  When this option is absent, the GELU activation (`gelu`) will be used as
+  the default.
 
 ### Changed
 
