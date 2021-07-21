@@ -5,4 +5,5 @@ pub use encoder::{
     DependencyEncoding, EncodeError, ImmutableDependencyEncoder, MutableDependencyEncoder,
 };
 
-mod mst;
+#[doc(hidden)]
+pub mod mst;
