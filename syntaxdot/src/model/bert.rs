@@ -289,18 +289,18 @@ impl BertModel {
         };
 
         let encoded = if freeze_layers.encoder {
-            tch::no_grad(|| self.encoder.encode(&embeds, Some(&attention_mask), train))?
+            tch::no_grad(|| self.encoder.encode(&embeds, Some(attention_mask), train))?
         } else {
-            self.encoder.encode(&embeds, Some(&attention_mask), train)?
+            self.encoder.encode(&embeds, Some(attention_mask), train)?
         };
 
         let mut pooled = self.pooler.pool(token_spans, &encoded)?;
 
         for layer in &mut pooled {
             *layer.output_mut() = if freeze_layers.classifiers {
-                tch::no_grad(|| self.layers_dropout.forward_t(&layer.output(), train))?
+                tch::no_grad(|| self.layers_dropout.forward_t(layer.output(), train))?
             } else {
-                self.layers_dropout.forward_t(&layer.output(), train)?
+                self.layers_dropout.forward_t(layer.output(), train)?
             };
         }
 

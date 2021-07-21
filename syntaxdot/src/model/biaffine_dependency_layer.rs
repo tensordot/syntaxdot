@@ -311,7 +311,7 @@ impl BiaffineDependencyLayer {
             token_mask.dim()
         );
 
-        let biaffine_logits = self.forward(layers, &token_mask, true, train)?;
+        let biaffine_logits = self.forward(layers, token_mask, true, train)?;
 
         let (batch_size, seq_len) = targets.heads.size2()?;
 
@@ -325,7 +325,7 @@ impl BiaffineDependencyLayer {
         let head_targets = &targets.heads.f_view_(&[-1])?;
         let head_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean).forward(
             &head_logits,
-            &head_targets,
+            head_targets,
             Some(
                 &token_mask_with_root
                     // [batch_size, seq_len + 1] -> [batch_size, 1, seq_len + 1]
@@ -364,7 +364,7 @@ impl BiaffineDependencyLayer {
 
         // Compute greedy decoding accuracy.
         let acc =
-            tch::no_grad(|| Self::greedy_decode_accuracy(&biaffine_logits, targets, &token_mask))?;
+            tch::no_grad(|| Self::greedy_decode_accuracy(&biaffine_logits, targets, token_mask))?;
 
         Ok(BiaffineLoss {
             acc,
@@ -398,13 +398,13 @@ impl BiaffineDependencyLayer {
         let head_and_relations_correct = head_correct.f_logical_and(&relations_correct)?;
 
         let las = head_and_relations_correct
-            .f_masked_select(&token_mask)?
+            .f_masked_select(token_mask)?
             .f_mean(Kind::Float)?;
         let ls = relations_correct
-            .f_masked_select(&token_mask)?
+            .f_masked_select(token_mask)?
             .f_mean(Kind::Float)?;
         let uas = head_correct
-            .f_masked_select(&token_mask)?
+            .f_masked_select(token_mask)?
             .f_mean(Kind::Float)?;
 
         Ok(BiaffineAccuracy { las, ls, uas })

@@ -317,7 +317,7 @@ impl DistillApp {
 
         let n_steps = self
             .train_duration
-            .to_steps(&teacher_train_file, self.batch_size)
+            .as_steps(teacher_train_file, self.batch_size)
             .context("Cannot determine number of training steps")?;
 
         let train_progress = ProgressBar::new(n_steps as u64);
@@ -326,8 +326,8 @@ impl DistillApp {
         ));
 
         while global_step < n_steps - 1 {
-            let mut teacher_train_dataset = Self::open_dataset(&teacher_train_file)?;
-            let mut student_train_dataset = Self::open_dataset(&student_train_file)?;
+            let mut teacher_train_dataset = Self::open_dataset(teacher_train_file)?;
+            let mut student_train_dataset = Self::open_dataset(student_train_file)?;
 
             let teacher_train_batches = teacher_train_dataset
                 .sentences(&*teacher.tokenizer)?
@@ -727,7 +727,7 @@ impl DistillApp {
         )
         .context("Cannot construct fresh student model")?;
 
-        let tokenizer = load_tokenizer(&student_config)?;
+        let tokenizer = load_tokenizer(student_config)?;
 
         Ok(StudentModel {
             inner,
@@ -1308,7 +1308,7 @@ enum TrainDuration {
 }
 
 impl TrainDuration {
-    fn to_steps(&self, train_file: &File, batch_size: usize) -> Result<usize> {
+    fn as_steps(&self, train_file: &File, batch_size: usize) -> Result<usize> {
         use TrainDuration::*;
 
         match *self {

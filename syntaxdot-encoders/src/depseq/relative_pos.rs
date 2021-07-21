@@ -203,7 +203,7 @@ impl SentenceEncoder for RelativePosEncoder {
     type Error = EncodeError;
 
     fn encode(&self, sentence: &Sentence) -> Result<Vec<Self::Encoding>, Self::Error> {
-        let pos_table = self.pos_position_table(&sentence);
+        let pos_table = self.pos_position_table(sentence);
 
         let mut encoded = Vec::with_capacity(sentence.len());
         for idx in 0..sentence.len() {
@@ -255,7 +255,7 @@ impl SentenceDecoder for RelativePosEncoder {
     where
         S: AsRef<[EncodingProb<Self::Encoding>]>,
     {
-        let pos_table = self.pos_position_table(&sentence);
+        let pos_table = self.pos_position_table(sentence);
 
         let token_indices: Vec<_> = (0..sentence.len())
             .filter(|&idx| sentence[idx].is_token())

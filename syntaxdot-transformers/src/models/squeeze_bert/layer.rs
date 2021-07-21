@@ -89,7 +89,7 @@ impl ConvDropoutLayerNorm {
     ) -> Result<Tensor, TransformerError> {
         let x = self.conv1d.forward(hidden_states)?;
         let x = self.dropout.forward_t(&x, train)?;
-        let x = x.f_add(&input_tensor)?;
+        let x = x.f_add(input_tensor)?;
         self.layer_norm.forward_t(&x, true)
     }
 }
@@ -122,7 +122,7 @@ impl FallibleModule for ConvActivation {
     type Error = TransformerError;
 
     fn forward(&self, xs: &Tensor) -> Result<Tensor, Self::Error> {
-        let output = self.conv1d.forward(&xs)?;
+        let output = self.conv1d.forward(xs)?;
         self.activation.forward(&output)
     }
 }

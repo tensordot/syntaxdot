@@ -63,7 +63,7 @@ impl Encoder for AlbertEncoder {
     ) -> Result<Vec<LayerOutput>, TransformerError> {
         let mut all_layer_outputs = Vec::with_capacity(self.n_layers as usize + 1);
 
-        let input = self.projection.forward(&input);
+        let input = self.projection.forward(input);
 
         all_layer_outputs.push(LayerOutput::Embedding(input.shallow_clone()));
 
