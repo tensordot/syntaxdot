@@ -220,7 +220,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut batch_sentences = Vec::with_capacity(self.batch_size);
-        while let Some(sentence) = self.sentences.next() {
+        for sentence in &mut self.sentences {
             let sentence = match sentence {
                 Ok(sentence) => sentence,
                 Err(err) => return Some(Err(err)),

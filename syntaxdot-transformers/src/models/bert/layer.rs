@@ -158,7 +158,7 @@ impl BertOutput {
     ) -> Result<Tensor, TransformerError> {
         let hidden_states = self.dense.forward(hidden_states);
         let mut hidden_states = self.dropout.forward_t(&hidden_states, train)?;
-        let _ = hidden_states.f_add_(&input)?;
+        let _ = hidden_states.f_add_(input)?;
         self.layer_norm.forward(&hidden_states)
     }
 }
@@ -322,7 +322,7 @@ impl BertSelfOutput {
     ) -> Result<Tensor, TransformerError> {
         let hidden_states = self.dense.forward(hidden_states);
         let mut hidden_states = self.dropout.forward_t(&hidden_states, train)?;
-        let _ = hidden_states.f_add_(&input)?;
+        let _ = hidden_states.f_add_(input)?;
         self.layer_norm.forward(&hidden_states)
     }
 }

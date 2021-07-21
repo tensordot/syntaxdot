@@ -223,7 +223,7 @@ impl Config {
             biaffine.labels = relativize_path(config_path, &biaffine.labels)?;
         }
         *self.input.tokenizer.vocab_mut() =
-            relativize_path(config_path, &self.input.tokenizer.vocab())?;
+            relativize_path(config_path, self.input.tokenizer.vocab())?;
         self.labeler.labels = relativize_path(config_path, &self.labeler.labels)?;
         self.model.parameters = relativize_path(config_path, &self.model.parameters)?;
         self.model.pretrain_config = relativize_path(config_path, &self.model.pretrain_config)?;
@@ -263,9 +263,9 @@ impl Tokenizer {
     fn vocab(&self) -> &str {
         use Tokenizer::*;
         match self {
-            Albert { vocab } => &vocab,
-            Bert { vocab } => &vocab,
-            XlmRoberta { vocab } => &vocab,
+            Albert { vocab } => vocab,
+            Bert { vocab } => vocab,
+            XlmRoberta { vocab } => vocab,
         }
     }
 

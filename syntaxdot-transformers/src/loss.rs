@@ -107,7 +107,7 @@ impl CrossEntropyLoss {
                 Ok(self.reduction.reduce(&losses.masked_select(&token_mask))?)
             }
             None => Ok(log_probs.f_nll_loss::<&Tensor>(
-                &targets,
+                targets,
                 None,
                 self.reduction,
                 self.ignore_index,

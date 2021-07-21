@@ -19,7 +19,7 @@ impl<'a> Deref for TaggerWrap<'a> {
     type Target = Tagger;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0
     }
 }
 

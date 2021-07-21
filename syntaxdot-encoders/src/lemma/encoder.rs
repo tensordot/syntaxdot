@@ -127,7 +127,7 @@ mod tests {
         sent: &Sentence,
     ) -> Vec<Vec<EncodingProb<EditTree>>> {
         encoder
-            .encode(&sent)
+            .encode(sent)
             .unwrap()
             .into_iter()
             .map(|encoding| vec![EncodingProb::new(encoding, 1.0)])

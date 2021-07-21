@@ -46,7 +46,7 @@ where
     type Item = Result<SentenceWithPieces, SyntaxDotError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(line) = self.lines.next() {
+        for line in &mut self.lines {
             // Bubble up read errors.
             let line = match line {
                 Ok(line) => line,

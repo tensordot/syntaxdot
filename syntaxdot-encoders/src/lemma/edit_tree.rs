@@ -166,7 +166,7 @@ fn build_tree(form_ch: &[char], lem_ch: &[char]) -> Option<Box<EditTree>> {
         return None;
     }
 
-    let alignment = MEASURE.align(&form_ch, &lem_ch);
+    let alignment = MEASURE.align(form_ch, lem_ch);
     let root = match longest_match(&alignment.edit_script()[..]) {
         Some(m) => EditTree::MatchNode {
             pre: m.start_src,

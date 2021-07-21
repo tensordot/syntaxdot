@@ -65,7 +65,7 @@ where
     type Item = Result<SentenceWithPieces, SyntaxDotError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(sent) = self.inner.next() {
+        for sent in &mut self.inner {
             // Treat Err as length 0 to keep our type as Result<Sentence, Error>. The iterator
             // will properly return the Error at a later point.
             let too_long = match self.max_len {
@@ -107,7 +107,7 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.buffer.is_empty() {
-            while let Some(sent) = self.inner.next() {
+            for sent in &mut self.inner {
                 match sent {
                     Ok(sent) => self.buffer.push(sent),
                     Err(err) => return Some(Err(err)),

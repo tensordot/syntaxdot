@@ -230,7 +230,7 @@ impl Encoder for SqueezeAlbertEncoder {
         attention_mask: Option<&Tensor>,
         train: bool,
     ) -> Result<Vec<LayerOutput>, TransformerError> {
-        let hidden_states = self.projection.forward(&input);
+        let hidden_states = self.projection.forward(input);
 
         let input = hidden_states.f_permute(&[0, 2, 1])?;
 
