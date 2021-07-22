@@ -60,7 +60,7 @@ pub trait SentenceDecoder {
     type Encoding: ToOwned;
 
     /// The decoding error type.
-    type Error: Error;
+    type Error: Error + Send + Sync;
 
     fn decode<S>(&self, labels: &[S], sentence: &mut Sentence) -> Result<(), Self::Error>
     where

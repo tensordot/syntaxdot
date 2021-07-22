@@ -30,6 +30,7 @@ fn main() -> Result<()> {
     // Known subapplications.
     let apps = vec![
         subcommands::AnnotateApp::app(),
+        subcommands::Dep2LabelApp::app(),
         subcommands::DistillApp::app(),
         subcommands::FilterLenApp::app(),
         subcommands::FinetuneApp::app(),
@@ -63,6 +64,10 @@ fn main() -> Result<()> {
                 .unwrap();
             write_completion_script(cli, shell.parse::<Shell>().unwrap());
             Ok(())
+        }
+        "dep2label" => {
+            subcommands::Dep2LabelApp::parse(matches.subcommand_matches("dep2label").unwrap())?
+                .run()
         }
         "distill" => {
             subcommands::DistillApp::parse(matches.subcommand_matches("distill").unwrap())?.run()
