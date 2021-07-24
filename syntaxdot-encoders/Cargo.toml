@@ -1,6 +1,6 @@
 [package]
 name = "syntaxdot-encoders"
-version = "0.4.0-beta.0"
+version = "0.4.0"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
 edition = "2018"
 description = "Encoders for linguistic features"
