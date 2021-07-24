@@ -44,7 +44,7 @@ where
         } else {
             Some(
                 self.inner
-                    .swap_remove(self.rng.gen_range(0, self.inner.len())),
+                    .swap_remove(self.rng.gen_range(0..self.inner.len())),
             )
         }
     }
@@ -55,7 +55,7 @@ where
     pub fn push_and_remove_random(&mut self, replacement: T) -> T {
         self.inner.push(replacement);
         self.inner
-            .swap_remove(self.rng.gen_range(0, self.inner.len()))
+            .swap_remove(self.rng.gen_range(0..self.inner.len()))
     }
 }
 
@@ -75,27 +75,27 @@ mod tests {
         elems.push(3);
 
         // Before: [1 2 3]
-        assert_eq!(rng.gen_range(0, 4_usize), 1);
+        assert_eq!(rng.gen_range(0..4_usize), 1);
         assert_eq!(elems.push_and_remove_random(4), 2);
 
         // Before: [1 4 3]
-        assert_eq!(rng.gen_range(0, 4_usize), 2);
+        assert_eq!(rng.gen_range(0..4_usize), 2);
         assert_eq!(elems.push_and_remove_random(5), 3);
 
         // Before: [1 4 5]
-        assert_eq!(rng.gen_range(0, 4_usize), 1);
+        assert_eq!(rng.gen_range(0..4_usize), 1);
         assert_eq!(elems.push_and_remove_random(6), 4);
 
         // Before: [1 6 5]
-        assert_eq!(rng.gen_range(0, 3_usize), 1);
+        assert_eq!(rng.gen_range(0..3_usize), 1);
         assert_eq!(elems.remove_random().unwrap(), 6);
 
         // Before: [1 5]
-        assert_eq!(rng.gen_range(0, 2_usize), 0);
+        assert_eq!(rng.gen_range(0..2_usize), 0);
         assert_eq!(elems.remove_random().unwrap(), 1);
 
         // Before: [5]
-        assert_eq!(rng.gen_range(0, 1_usize), 0);
+        assert_eq!(rng.gen_range(0..1_usize), 0);
         assert_eq!(elems.remove_random().unwrap(), 5);
 
         // Exhausted
