@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
+### Fixed
+
+- Update to rand 0.8 in the syntaxdot crate. This voids a dependency on both
+  rand 0.7 and 0.8.
+
 ## 0.4.0
 
 ### Added

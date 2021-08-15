@@ -1103,7 +1103,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "approx",
  "conllu",
@@ -1130,7 +1130,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-cli"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "bytecount",
