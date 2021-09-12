@@ -27,7 +27,7 @@ $ syntaxdot annotate model-name/syntaxdot.conf
 
 | Model                                                                                                     | UD POS | STTS POS | Lemma | UD morph | TDZ morph |   LAS | Topo Field | Size (MiB) | CPU sent/s | GPU sent/s |
 |:----------------------------------------------------------------------------------------------------------|-------:|---------:|------:|---------:|----------:|------:|-----------:|-----------:|-----------:|-----------:|
-| [Finetuned XLM-R base](https://s3.tensordot.com/syntaxdot/models/de-ud-huge-20210307.tar.gz)              |  99.54 |    99.48 | 99.34 |    98.38 |     98.43 | 96.59 |      98.17 |       1087 |         45 |        614 |
-| [Distilled, 12 layers, 384 hidden](https://s3.tensordot.com/syntaxdot/models/de-ud-large-20210326.tar.gz) |  99.50 |    99.44 | 99.31 |    98.31 |     98.36 | 96.17 |      98.12 |        208 |        105 |       1131 |
-| [Distilled, 6 layers, 384 hidden](https://s3.tensordot.com/syntaxdot/models/de-ud-large-20210326.tar.gz)  |  99.46 |    99.40 | 99.29 |    98.20 |     98.27 | 95.48 |      97.97 |        140 |        180 |       1748 |
+| [Finetuned XLM-R base](https://github.com/tensordot/syntaxdot-models/releases/download/de-ud-2021/de-ud-huge-20210307.tar.gz)              |  99.54 |    99.48 | 99.34 |    98.38 |     98.43 | 96.59 |      98.17 |       1087 |         45 |        614 |
+| [Distilled, 12 layers, 384 hidden](https://github.com/tensordot/syntaxdot-models/releases/download/de-ud-2021/de-ud-large-20210326.tar.gz) |  99.50 |    99.44 | 99.31 |    98.31 |     98.36 | 96.17 |      98.12 |        208 |        105 |       1131 |
+| [Distilled, 6 layers, 384 hidden](https://github.com/tensordot/syntaxdot-models/releases/download/de-ud-2021/de-ud-medium-20210326.tar.gz)  |  99.46 |    99.40 | 99.29 |    98.20 |     98.27 | 95.48 |      97.97 |        140 |        180 |       1748 |
 
