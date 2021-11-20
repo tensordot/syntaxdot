@@ -346,6 +346,6 @@ pub(crate) fn bert_linear<'a>(
                 stdev: config.initializer_range,
             },
         )?,
-        bs: vs.var(bias_name, &[out_features], Init::Const(0.))?,
+        bs: Some(vs.var(bias_name, &[out_features], Init::Const(0.))?),
     })
 }

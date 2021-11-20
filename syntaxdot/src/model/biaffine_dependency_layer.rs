@@ -190,7 +190,7 @@ impl BiaffineDependencyLayer {
                     stdev: initializer_range,
                 },
             )?,
-            bs: vs.var(bias_name, &[out_features], Init::Const(0.))?,
+            bs: Some(vs.var(bias_name, &[out_features], Init::Const(0.))?),
         })
     }
 
@@ -399,12 +399,15 @@ impl BiaffineDependencyLayer {
 
         let las = head_and_relations_correct
             .f_masked_select(token_mask)?
+            .f_to_kind(Kind::Float)?
             .f_mean(Kind::Float)?;
         let ls = relations_correct
             .f_masked_select(token_mask)?
+            .f_to_kind(Kind::Float)?
             .f_mean(Kind::Float)?;
         let uas = head_correct
             .f_masked_select(token_mask)?
+            .f_to_kind(Kind::Float)?
             .f_mean(Kind::Float)?;
 
         Ok(BiaffineAccuracy { las, ls, uas })

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{App, AppSettings, ArgMatches};
 use syntaxdot::optimizers::{GradScaler, Optimizer};
-use tch::nn::{adamw, AdamW, Optimizer as TchOptimizer, OptimizerConfig, VarStore};
+use tch::nn::{adamw, Optimizer as TchOptimizer, OptimizerConfig, VarStore};
 
 pub static DEFAULT_CLAP_SETTINGS: &[AppSettings] = &[
     AppSettings::DontCollapseArgsInUsage,
@@ -47,7 +47,7 @@ pub trait SyntaxDotTrainApp: SyntaxDotApp {
         }
     }
 
-    fn build_optimizer(&self, var_store: &VarStore) -> Result<GradScaler<TchOptimizer<AdamW>>> {
+    fn build_optimizer(&self, var_store: &VarStore) -> Result<GradScaler<TchOptimizer>> {
         let opt = adamw(0.9, 0.999, self.weight_decay()).build(var_store, 1e-3)?;
         let mut grad_scaler = GradScaler::new_with_defaults(self.mixed_precision(), opt)?;
         grad_scaler.set_weight_decay_group(ParameterGroup::EncoderNoWeightDecay as usize, 0.);

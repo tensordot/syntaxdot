@@ -37,6 +37,7 @@ jobs:
           toolchain: 1.51.0
           override: true
           components: clippy
+      - uses: tensordot/libtorch-action@v1.10.0
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -59,6 +60,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - uses: tensordot/libtorch-action@v1.10.0
       - uses: actions-rs/cargo@v1
         with:
           command: test

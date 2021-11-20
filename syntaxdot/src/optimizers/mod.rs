@@ -29,7 +29,7 @@ pub trait Optimizer {
     fn trainable_variables(&self) -> Vec<Tensor>;
 }
 
-impl<C> Optimizer for nn::Optimizer<C> {
+impl Optimizer for nn::Optimizer {
     fn backward_step(&mut self, loss: &Tensor) -> Result<(), SyntaxDotError> {
         nn::Optimizer::backward_step(self, loss);
         Ok(())
