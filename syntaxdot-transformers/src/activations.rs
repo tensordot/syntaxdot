@@ -65,7 +65,8 @@ impl FallibleModule for Activation {
                 * input
                 * (1.0
                     + Tensor::f_tanh(
-                        &((2. / f64::consts::PI).sqrt() * (input + 0.044715 * input.pow(3.0))),
+                        &((2. / f64::consts::PI).sqrt()
+                            * (input + 0.044715 * input.pow_tensor_scalar(3.0))),
                     )?)),
             Self::Relu => Ok(input.f_relu()?),
         }

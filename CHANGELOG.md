@@ -1,5 +1,11 @@
 # Changelog
 
+### Changed
+
+- Update to [libtorch
+  1.10.0](https://github.com/pytorch/pytorch/releases/tag/v1.10.0) and
+  [tch 0.6.1](https://github.com/LaurentMazare/tch-rs).
+
 ## 0.4.1
 
 ### Fixed

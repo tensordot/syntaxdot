@@ -15,7 +15,7 @@ use syntaxdot::model::bert::{BertModel, FreezeLayers};
 use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tokenizers::Tokenize;
-use tch::nn::{self, AdamW};
+use tch::nn::{self};
 use tch::{self, Device, Kind};
 
 use crate::io::Model;
@@ -742,7 +742,7 @@ impl SyntaxDotApp for FinetuneApp {
                     &*model.tokenizer,
                     &model.model,
                     &mut validation_file,
-                    None as Option<&mut GradScaler<nn::Optimizer<AdamW>>>,
+                    None as Option<&mut GradScaler<nn::Optimizer>>,
                     &mut lr_schedules,
                     &mut global_step,
                     epoch,

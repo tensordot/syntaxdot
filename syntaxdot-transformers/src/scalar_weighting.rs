@@ -36,7 +36,7 @@ impl NonLinearWithLayerNorm {
             layer_norm: LayerNorm::new(vs / "layer_norm", vec![out_size], layer_norm_eps, true),
             linear: Linear {
                 ws: vs.var("weight", &[out_size, in_size], Init::KaimingUniform)?,
-                bs: vs.var("bias", &[out_size], Init::Const(0.))?,
+                bs: Some(vs.var("bias", &[out_size], Init::Const(0.))?),
             },
         })
     }
@@ -193,7 +193,7 @@ impl ScalarWeightClassifier {
 
         Ok(ScalarWeightClassifier {
             dropout: Dropout::new(config.dropout_prob),
-            linear: Linear { ws, bs },
+            linear: Linear { ws, bs: Some(bs) },
             non_linear,
             scalar_weight: ScalarWeight::new(
                 vs / "scalar_weight",

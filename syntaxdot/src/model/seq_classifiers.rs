@@ -122,8 +122,14 @@ impl SequenceClassifiers {
                 train,
             )?;
 
-            let loss = loss.f_masked_select(token_mask)?.f_mean(Kind::Float)?;
-            let acc = correct.f_masked_select(token_mask)?.f_mean(Kind::Float)?;
+            let loss = loss
+                .f_masked_select(token_mask)?
+                .f_to_kind(Kind::Float)?
+                .f_mean(Kind::Float)?;
+            let acc = correct
+                .f_masked_select(token_mask)?
+                .f_to_kind(Kind::Float)?
+                .f_mean(Kind::Float)?;
 
             encoder_losses.insert(encoder_name.clone(), loss);
             encoder_accuracies.insert(encoder_name.clone(), acc);
