@@ -237,9 +237,7 @@ impl Encoder for SqueezeAlbertEncoder {
         let mut all_layer_outputs = Vec::with_capacity(self.n_layers as usize + 1);
         all_layer_outputs.push(LayerOutput::Embedding(hidden_states.shallow_clone()));
 
-        let attention_mask = attention_mask
-            .map(|mask| LogitsMask::from_bool_mask(mask))
-            .transpose()?;
+        let attention_mask = attention_mask.map(LogitsMask::from_bool_mask).transpose()?;
 
         let layers_per_group = self.n_layers as usize / self.groups.len();
 

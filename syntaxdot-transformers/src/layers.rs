@@ -123,7 +123,6 @@ impl FallibleModule for Embedding {
 /// Layer that applies layer normalization.
 #[derive(Debug)]
 pub struct LayerNorm {
-    elementwise_affine: bool,
     eps: f64,
     normalized_shape: Vec<i64>,
 
@@ -159,7 +158,6 @@ impl LayerNorm {
         };
 
         LayerNorm {
-            elementwise_affine,
             eps,
             normalized_shape,
             weight,

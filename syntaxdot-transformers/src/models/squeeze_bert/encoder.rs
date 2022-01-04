@@ -56,9 +56,7 @@ impl Encoder for SqueezeBertEncoder {
         attention_mask: Option<&Tensor>,
         train: bool,
     ) -> Result<Vec<LayerOutput>, TransformerError> {
-        let attention_mask = attention_mask
-            .map(|mask| LogitsMask::from_bool_mask(mask))
-            .transpose()?;
+        let attention_mask = attention_mask.map(LogitsMask::from_bool_mask).transpose()?;
 
         // [batch_size, seq_len, hidden_size] -> [batch_size, hidden_size, seq_len]
         let mut hidden_states = input.f_permute(&[0, 2, 1])?;

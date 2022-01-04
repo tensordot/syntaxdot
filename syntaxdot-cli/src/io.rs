@@ -79,7 +79,7 @@ impl Model {
         let biaffine_decoder = config
             .biaffine
             .as_ref()
-            .map(|config| load_biaffine_decoder(config))
+            .map(load_biaffine_decoder)
             .transpose()?;
         let encoders = load_encoders(&config)?;
         let tokenizer = load_tokenizer(&config)?;
