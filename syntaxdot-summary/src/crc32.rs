@@ -39,6 +39,7 @@ use crate::crc32_table::{TABLE, TABLE16};
 /// a safe API.
 #[derive(Clone, Copy, Debug)]
 pub struct CheckSummer {
+    #[cfg(target_arch = "x86_64")]
     sse42: bool,
 }
 
@@ -47,7 +48,7 @@ impl CheckSummer {
     /// bytes.
     #[cfg(not(target_arch = "x86_64"))]
     pub fn new() -> CheckSummer {
-        CheckSummer { sse42: false }
+        CheckSummer {}
     }
 
     /// Create a new checksummer that can compute CRC32C checksums on arbitrary

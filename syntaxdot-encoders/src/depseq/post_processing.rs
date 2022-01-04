@@ -15,6 +15,8 @@ where
     H: 'a + Clone,
     S: AsRef<[EncodingProb<DependencyEncoding<H>>]>,
 {
+    // Collect to avoid immutable + mutable reference.
+    #[allow(clippy::needless_collect)]
     let token_indices: Vec<_> = (0..sentence.len())
         .filter(|&idx| sentence[idx].is_token())
         .collect();
