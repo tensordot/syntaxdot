@@ -106,7 +106,7 @@ environment variables:
 
 ```shell
 $ export LIBTORCH=/path/to/libtorch
-$ LD_LIBRARY_PATH=${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}${LIBTORCH}/lib
+$ export LD_LIBRARY_PATH=${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}${LIBTORCH}/lib
 ```
 
 ## Building SyntaxDot
@@ -114,13 +114,13 @@ $ LD_LIBRARY_PATH=${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}${LIBTORCH}/lib
 You can build SyntaxDot with support for training enabled using:
 
 ```shell
-$ cargo install --path-syntaxdot-cli
+$ cargo install syntaxdot-cli
 ```
 
 To build SyntaxDot without training features, use:
 
 ```shell
-$ cargo install --no-default-features --path syntaxdot-cli
+$ cargo install --no-default-features syntaxdot-cli
 ```
 
 The SyntaxDot binary will then be available in: ```~/.cargo/bin/syntaxdot```
