@@ -33,6 +33,6 @@ syntaxdot-summary = { path = "../syntaxdot-summary", version = "0.4.0" }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.4.0" }
 syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", version = "0.4.0" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.4.0", default-features = false }
-tch = { version = "0.6.1", default-features = false }
+tch = { version = "0.7.0", default-features = false }
 threadpool = "1"
 udgraph = "0.7"
