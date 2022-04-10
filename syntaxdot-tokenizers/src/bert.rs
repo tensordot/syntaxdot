@@ -134,7 +134,7 @@ mod tests {
         let sentence_pieces = tokenizer.tokenize(sentence);
         assert_eq!(
             sentence_pieces.pieces,
-            array![3i64, 133, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2]
+            array![3i64, 133, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 26972]
         );
         assert_eq!(sentence_pieces.token_offsets, &[1, 4, 5, 8, 10]);
     }
