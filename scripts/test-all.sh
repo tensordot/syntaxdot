@@ -14,14 +14,14 @@ fi
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/syntaxdot"
 
 declare -A models=(
-  ["ALBERT_BASE_V2"]="https://s3.tensordot.com/syntaxdot/pretrained/albert-base-v2.pt"
-  ["BERT_BASE_GERMAN_CASED"]="https://s3.tensordot.com/syntaxdot/pretrained/bert-base-german-cased.pt"
-  ["SQUEEZEBERT_UNCASED"]="https://s3.tensordot.com/syntaxdot/pretrained/squeezebert-uncased.pt"
-  ["XLM_ROBERTA_BASE"]="https://s3.tensordot.com/syntaxdot/pretrained/xlm-roberta-base.pt"
+  ["ALBERT_BASE_V2"]="https://f001.backblazeb2.com/file/danieldk-blob/syntaxdot/albert-base-v2.pt"
+  ["BERT_BASE_GERMAN_CASED"]="https://f001.backblazeb2.com/file/danieldk-blob/syntaxdot/bert-base-german-cased.pt"
+  ["SQUEEZEBERT_UNCASED"]="https://f001.backblazeb2.com/file/danieldk-blob/syntaxdot/squeezebert-base-uncased.pt"
+  ["XLM_ROBERTA_BASE"]="https://f001.backblazeb2.com/file/danieldk-blob/syntaxdot/xlm-roberta-base.pt"
 
-  ["ALBERT_BASE_V2_SENTENCEPIECE"]="https://s3.tensordot.com/syntaxdot/pretrained/albert-base-v2-sentencepiece.model"
-  ["BERT_BASE_GERMAN_CASED_VOCAB"]="https://s3.tensordot.com/syntaxdot/pretrained/bert-base-german-cased-vocab.txt"
-  ["XLM_ROBERTA_BASE_SENTENCEPIECE"]="https://s3.tensordot.com/syntaxdot/pretrained/xlm-roberta-base-sentencepiece.bpe.model"
+  ["ALBERT_BASE_V2_SENTENCEPIECE"]="https://huggingface.co/albert-base-v2/resolve/main/spiece.model"
+  ["BERT_BASE_GERMAN_CASED_VOCAB"]="https://huggingface.co/bert-base-german-cased/resolve/main/vocab.txt"
+  ["XLM_ROBERTA_BASE_SENTENCEPIECE"]="https://huggingface.co/xlm-roberta-base/resolve/main/sentencepiece.bpe.model"
 )
 
 if [ ! -d "$cache_dir" ]; then
