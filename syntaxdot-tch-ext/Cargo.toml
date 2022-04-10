@@ -11,4 +11,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 itertools = "0.10"
-tch = { version = "0.6.1", default-features = false }
+tch = { version = "0.7.0", default-features = false }
