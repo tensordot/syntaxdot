@@ -3,11 +3,8 @@ use thiserror::Error;
 mod encoder;
 pub use self::encoder::{BackoffStrategy, EditTreeEncoder};
 
-mod edit_tree;
+pub(crate) mod edit_tree;
 pub use edit_tree::EditTree;
-
-mod tdz;
-pub use tdz::TdzLemmaEncoder;
 
 /// Lemma encoding error.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]

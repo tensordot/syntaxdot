@@ -12,6 +12,8 @@ pub mod depseq;
 
 pub mod layer;
 
+pub mod lang;
+
 pub mod lemma;
 
 /// An encoding with its probability.
