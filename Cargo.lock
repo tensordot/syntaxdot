@@ -178,9 +178,9 @@ dependencies = [
 
 [[package]]
 name = "conllu"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51035ddeddc53089de8cc4b694717f0bc0cb54ced7327d228c359929c5b7a96"
+checksum = "fb103d8de17a098acd48b5b6092e3f3b5467fb95311770f9c6b9fa4e12dea486"
 dependencies = [
  "itertools",
  "thiserror",
@@ -633,9 +633,9 @@ dependencies = [
 
 [[package]]
 name = "ohnomore"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "441e27caad5f55c51ff4480488a68a9746c3c9470a1d4144e649fe24fa0a1725"
+checksum = "5949333985b36da5b69989d66105790deb88bc5f63a1de301948094143918fe7"
 dependencies = [
  "caseless",
  "fst",
@@ -1266,11 +1266,12 @@ dependencies = [
 
 [[package]]
 name = "udgraph"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7031b81c4aa60645b03e708b567fcae6ade407a12b9cbd5d5643c53d81a3787"
+checksum = "0fb24e7a1b81165c47e286d2675bfa32c478ded1928d644c0dae6c241bf40d0a"
 dependencies = [
  "petgraph",
+ "thiserror",
 ]
 
 [[package]]

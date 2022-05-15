@@ -1,7 +1,6 @@
-use std::convert::Infallible;
-
 use serde_derive::{Deserialize, Serialize};
 use udgraph::graph::{DepTriple, Sentence};
+use udgraph::Error;
 
 use super::{
     attach_orphans, break_cycles, find_or_create_root, DecodeError, DependencyEncoding, EncodeError,
@@ -91,7 +90,7 @@ impl SentenceEncoder for RelativePositionEncoder {
 impl SentenceDecoder for RelativePositionEncoder {
     type Encoding = DependencyEncoding<RelativePosition>;
 
-    type Error = Infallible;
+    type Error = Error;
 
     fn decode<S>(&self, labels: &[S], sentence: &mut Sentence) -> Result<(), Self::Error>
     where
@@ -108,7 +107,7 @@ impl SentenceDecoder for RelativePositionEncoder {
                 if let Ok(triple) =
                     RelativePositionEncoder::decode_idx(idx, sentence.len(), encoding.encoding())
                 {
-                    sentence.dep_graph_mut().add_deprel(triple);
+                    sentence.dep_graph_mut().add_deprel(triple)?;
                     break;
                 }
             }
@@ -121,9 +120,9 @@ impl SentenceDecoder for RelativePositionEncoder {
             sentence,
             |idx, encoding| Self::decode_idx(idx, sentence_len, encoding).ok(),
             &self.root_relation,
-        );
-        attach_orphans(labels, sentence, root_idx);
-        break_cycles(sentence, root_idx);
+        )?;
+        attach_orphans(labels, sentence, root_idx)?;
+        break_cycles(sentence, root_idx)?;
 
         Ok(())
     }

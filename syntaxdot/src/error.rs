@@ -16,7 +16,7 @@ pub enum SyntaxDotError {
     BertError(#[from] TransformerError),
 
     #[error(transparent)]
-    ConlluIoError(#[from] conllu::IOError),
+    ConlluError(#[from] conllu::Error),
 
     #[error(transparent)]
     DecoderError(#[from] DecoderError),
@@ -53,4 +53,7 @@ pub enum SyntaxDotError {
 
     #[error(transparent)]
     TokenizerError(#[from] TokenizerError),
+
+    #[error(transparent)]
+    UdgraphError(#[from] udgraph::Error),
 }

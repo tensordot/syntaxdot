@@ -5,12 +5,17 @@ use udgraph::graph::{DepTriple, Sentence};
 use super::DependencyEncoding;
 use crate::EncodingProb;
 use conllu::display::ConlluSentence;
+use udgraph::Error;
 
 /// Attach orphan tokens to `head_idx`.
 ///
 /// This function attaches orphan tokens to `head_idx`, with the
 /// dependency labels of their highest probability encodings.
-pub fn attach_orphans<'a, S, H>(labels: &[S], sentence: &mut Sentence, head_idx: usize)
+pub fn attach_orphans<'a, S, H>(
+    labels: &[S],
+    sentence: &mut Sentence,
+    head_idx: usize,
+) -> Result<(), Error>
 where
     H: 'a + Clone,
     S: AsRef<[EncodingProb<DependencyEncoding<H>>]>,
@@ -26,9 +31,11 @@ where
             let relation = encodings.as_ref()[0].encoding().label().to_owned();
             sentence
                 .dep_graph_mut()
-                .add_deprel(DepTriple::new(head_idx, Some(relation), idx));
+                .add_deprel(DepTriple::new(head_idx, Some(relation), idx))?;
         }
     }
+
+    Ok(())
 }
 
 /// Break cycles in the graph.
@@ -36,7 +43,7 @@ where
 /// Panics when a token does not have a head. To ensure that each
 /// token has a head, apply `attach_orphans` to the dependency graph
 /// before this function.
-pub fn break_cycles(sent: &mut Sentence, root_idx: usize) {
+pub fn break_cycles(sent: &mut Sentence, root_idx: usize) -> Result<(), Error> {
     let mut prev_components = Vec::new();
     loop {
         let components = {
@@ -78,11 +85,13 @@ pub fn break_cycles(sent: &mut Sentence, root_idx: usize) {
                 .map(ToOwned::to_owned);
 
             sent.dep_graph_mut()
-                .add_deprel(DepTriple::new(root_idx, head_rel, first_token));
+                .add_deprel(DepTriple::new(root_idx, head_rel, first_token))?;
         }
 
         prev_components = components;
     }
+
+    Ok(())
 }
 
 /// Find a candidate root token.
@@ -135,7 +144,7 @@ pub fn find_or_create_root<'a, S, H, F>(
     sentence: &mut Sentence,
     decode_fun: F,
     root_relation: &str,
-) -> usize
+) -> Result<usize, Error>
 where
     H: 'a + Clone,
     S: AsRef<[EncodingProb<DependencyEncoding<H>>]>,
@@ -144,7 +153,7 @@ where
     // If the sentence contains a token with root attachment, return
     // it.
     if let Some(root_idx) = first_root(sentence) {
-        return root_idx;
+        return Ok(root_idx);
     }
 
     // Find a suitable root token from the token encodings.  If there
@@ -156,8 +165,8 @@ where
 
     // Attach the new root.
     let dependent = triple.dependent();
-    sentence.dep_graph_mut().add_deprel(triple);
-    dependent
+    sentence.dep_graph_mut().add_deprel(triple)?;
+    Ok(dependent)
 }
 
 /// Get the first root in the sentence.
@@ -196,13 +205,17 @@ mod tests {
         sent.push(TokenBuilder::new("veruntreute").xpos("verb").into());
         sent.push(TokenBuilder::new("Spendengeld").xpos("noun").into());
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(2, Some("det"), 1));
+            .add_deprel(DepTriple::new(2, Some("det"), 1))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(3, Some("subj"), 2));
+            .add_deprel(DepTriple::new(3, Some("subj"), 2))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(0, Some(ROOT_RELATION), 3));
+            .add_deprel(DepTriple::new(0, Some(ROOT_RELATION), 3))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(3, Some("obj"), 4));
+            .add_deprel(DepTriple::new(3, Some("obj"), 4))
+            .unwrap();
 
         sent
     }
@@ -214,13 +227,17 @@ mod tests {
         sent.push(TokenBuilder::new("veruntreute").upos("verb").into());
         sent.push(TokenBuilder::new("Spendengeld").upos("noun").into());
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(2, Some("det"), 1));
+            .add_deprel(DepTriple::new(2, Some("det"), 1))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(1, Some("subj"), 2));
+            .add_deprel(DepTriple::new(1, Some("subj"), 2))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(0, Some(ROOT_RELATION), 3));
+            .add_deprel(DepTriple::new(0, Some(ROOT_RELATION), 3))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(3, Some("obj"), 4));
+            .add_deprel(DepTriple::new(3, Some("obj"), 4))
+            .unwrap();
 
         sent
     }
@@ -232,13 +249,17 @@ mod tests {
         sent.push(TokenBuilder::new("veruntreute").xpos("verb").into());
         sent.push(TokenBuilder::new("Spendengeld").xpos("noun").into());
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(2, Some("det"), 1));
+            .add_deprel(DepTriple::new(2, Some("det"), 1))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(3, Some("subj"), 2));
+            .add_deprel(DepTriple::new(3, Some("subj"), 2))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(4, Some("foo"), 3));
+            .add_deprel(DepTriple::new(4, Some("foo"), 3))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(3, Some("obj"), 4));
+            .add_deprel(DepTriple::new(3, Some("obj"), 4))
+            .unwrap();
 
         sent
     }
@@ -257,9 +278,11 @@ mod tests {
         sent.push(TokenBuilder::new("veruntreute").xpos("verb").into());
         sent.push(TokenBuilder::new("Spendengeld").xpos("noun").into());
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(2, Some("det"), 1));
+            .add_deprel(DepTriple::new(2, Some("det"), 1))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(0, Some(ROOT_RELATION), 3));
+            .add_deprel(DepTriple::new(0, Some(ROOT_RELATION), 3))
+            .unwrap();
 
         let encodings: Vec<_> = RelativePosEncoder::new(PosLayer::XPos, ROOT_RELATION)
             .encode(&test_graph())
@@ -268,7 +291,7 @@ mod tests {
             .map(|e| [EncodingProb::new(e, 1.)])
             .collect();
 
-        attach_orphans(&encodings, &mut sent, 3);
+        attach_orphans(&encodings, &mut sent, 3).unwrap();
 
         assert_eq!(sent, test_graph());
     }
@@ -317,7 +340,8 @@ mod tests {
             &mut sent,
             |idx, encoding| RelativePosEncoder::decode_idx(&pos_table, idx, encoding).ok(),
             ROOT_RELATION,
-        );
+        )
+        .unwrap();
 
         assert_eq!(sent, test_graph());
     }
@@ -329,11 +353,12 @@ mod tests {
         // should be reattached to the head.
         check
             .dep_graph_mut()
-            .add_deprel(DepTriple::new(3, Some("det"), 1));
+            .add_deprel(DepTriple::new(3, Some("det"), 1))
+            .unwrap();
 
         // Detect cycle and break it.
         let mut sent = test_graph_cycle();
-        break_cycles(&mut sent, 3);
+        break_cycles(&mut sent, 3).unwrap();
 
         assert_eq!(sent, check);
     }

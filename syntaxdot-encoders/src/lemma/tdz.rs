@@ -142,7 +142,8 @@ mod tests {
         let mut sent = Sentence::from_iter(tokens);
 
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(2, Some("compound:prt"), 3));
+            .add_deprel(DepTriple::new(2, Some("compound:prt"), 3))
+            .unwrap();
 
         sent
     }

@@ -172,7 +172,7 @@ impl Tagger {
                 sent_head_scores.view().into_dimensionality()?,
                 sent_best_relations.view().into_dimensionality()?,
                 &mut sentence.sentence,
-            );
+            )?;
         }
 
         Ok(())
