@@ -1,0 +1,14 @@
+# Format: form lemma upos xpos transformed [rel head_form head_lemma head_upos head_xpos]
+#   [rel dep_form dep_lemma dep_upos dep_xpos]*
+
+# For applicable tags, the lemma is the lowercase form.
+und _ _ KON und
+Und _ _ KON und
+
+# Foreign words should use the form, retaining case.
+Brasil _ _ FM Brasil
+improve _ _ FM improve
+
+# For other tags, nothing changes.
+Auto Foobar _ NN Foobar
+NBA  Quux   _ NE Quux

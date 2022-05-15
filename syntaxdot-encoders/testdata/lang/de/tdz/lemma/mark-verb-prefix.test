@@ -1,0 +1,26 @@
+# Format: form lemma upos xpos transformed [rel head_form head_lemma head_upos head_xpos]
+#   [rel dep_form dep_lemma dep_upos dep_xpos]*
+
+# Lookup table
+_ abbestellen _ VVFIN ab#bestellen
+
+# Derive from form
+dazugefügt       fügen    _ VVFIN dazu#fügen
+wiederaufgebaut  bauen    _ VVFIN wieder#auf#bauen
+abzuarbeiten     arbeiten _ VVIZU ab#arbeiten
+abgefangen       fangen   _ VVPP  ab#fangen
+abhing           hängen   _ VVFIN ab#hängen
+
+# Multiple prefixes
+mitabgedruckt drucken _ VVFIN mit#ab#drucken
+
+# 'zustande' is a particle, so here we do not want to match the
+# longest common prefix.
+zustanden        stehen   _ VVFIN zu#stehen
+
+# 'hinzu' is a particle, check that we don't analysze as 'hinzu#bewegen'
+hinzubewegen   bewegen _ VVIZU hin#bewegen
+zuzuspitzen    spitzen _ VVIZU zu#spitzen
+hinzuwirken    wirken  _ VVIZU hin#wirken
+hinzuzufügen   fügen   _ VVIZU hinzu#fügen
+mitaufzunehmen nehmen  _ VVIZU mit#auf#nehmen

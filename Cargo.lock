@@ -632,22 +632,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ohnomore"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5949333985b36da5b69989d66105790deb88bc5f63a1de301948094143918fe7"
-dependencies = [
- "caseless",
- "fst",
- "lazy_static",
- "maplit",
- "seqalign",
- "thiserror",
- "udgraph",
- "unicode-normalization",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1076,14 +1060,16 @@ dependencies = [
 name = "syntaxdot-encoders"
 version = "0.4.0"
 dependencies = [
+ "caseless",
  "conllu",
  "criterion",
+ "fst",
  "itertools",
  "lazy_static",
+ "maplit",
  "ndarray",
  "ndarray-rand",
  "numberer",
- "ohnomore",
  "ordered-float",
  "petgraph",
  "rand",
@@ -1093,6 +1079,7 @@ dependencies = [
  "serde_derive",
  "thiserror",
  "udgraph",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -1230,9 +1217,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.5.1"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c1c1d5a42b6245520c249549ec267180beaffcc0615401ac8e31853d4b6d8d2"
+checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 dependencies = [
  "tinyvec_macros",
 ]
