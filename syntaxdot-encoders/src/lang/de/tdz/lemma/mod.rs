@@ -1,15 +1,23 @@
+mod automaton;
+
+mod constants;
+
+mod error;
+
+mod transform;
+
 use lazy_static::lazy_static;
-use ohnomore::transform::delemmatization::{
+use serde::{Deserialize, Serialize};
+use transform::delemmatization::{
     RemoveAlternatives, RemoveReflexiveTag, RemoveSepVerbPrefix, RemoveTruncMarker,
 };
-use ohnomore::transform::lemmatization::{
+use transform::lemmatization::{
     AddReflexiveTag, AddSeparatedVerbPrefix, FormAsLemma, MarkVerbPrefix, RestoreCase,
 };
-use ohnomore::transform::misc::{
+use transform::misc::{
     SimplifyArticleLemma, SimplifyPIAT, SimplifyPIDAT, SimplifyPIS, SimplifyPossesivePronounLemma,
 };
-use ohnomore::transform::Transforms;
-use serde::{Deserialize, Serialize};
+use transform::Transforms;
 use udgraph::graph::Sentence;
 
 use crate::lemma::{BackoffStrategy, EditTreeEncoder};

@@ -1,0 +1,44 @@
+# Format: form lemma upos xpos transformed [rel head_form head_lemma head_upos head_xpos]
+#   [rel dep_form dep_lemma dep_upos dep_xpos]*
+
+# Substituting possesive pronouns
+Ihre     _ _ PPOSS ihr
+ihre     _ _ PPOSS ihr
+meine    _ _ PPOSS mein
+meinen   _ _ PPOSS mein
+deines   _ _ PPOSS dein
+seine    _ _ PPOSS sein
+seinen   _ _ PPOSS sein
+unsere   _ _ PPOSS unser
+unsern   _ _ PPOSS unser
+unsrige  _ _ PPOSS unsrig
+unsrigen _ _ PPOSS unsrig
+
+# Attributive possesive pronouns
+dein    _ _ PPOSAT dein
+deine   _ _ PPOSAT dein
+euer    _ _ PPOSAT euer
+eure    _ _ PPOSAT euer
+euren   _ _ PPOSAT euer
+ihr     _ _ PPOSAT ihr
+ihrem   _ _ PPOSAT ihr
+Ihre    _ _ PPOSAT ihr
+Ihrem   _ _ PPOSAT ihr
+mein    _ _ PPOSAT mein
+meine   _ _ PPOSAT mein
+meinem  _ _ PPOSAT mein
+sein    _ _ PPOSAT sein
+seine   _ _ PPOSAT sein
+seinem  _ _ PPOSAT sein
+seinen  _ _ PPOSAT sein
+unser   _ _ PPOSAT unser
+unsere  _ _ PPOSAT unser
+unserem _ _ PPOSAT unser
+
+# Use the lemma when the prefix is unknown
+unsre unsere _ PPOSAT unsere
+
+# Exclude other tags
+Ihre    foo _ XY foo
+ihre    bar _ XY bar
+unserem baz _ XY baz

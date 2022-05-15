@@ -1,0 +1,34 @@
+# Format: form lemma upos xpos transformed [rel head_form head_lemma head_upos head_xpos]
+#   [rel dep_form dep_lemma dep_upos dep_xpos]*
+
+# Personal pronouns
+ich    _ _ PPER ich
+mir    _ _ PPER ich
+mich   _ _ PPER ich
+meiner _ _ PPER ich
+du     _ _ PPER du
+dir    _ _ PPER du
+dich   _ _ PPER du
+deiner _ _ PPER du
+er     _ _ PPER er
+ihn    _ _ PPER er
+ihm    _ _ PPER er
+seiner _ _ PPER er
+sie    _ _ PPER sie
+ihr    _ _ PPER sie
+ihnen  _ _ PPER sie
+ihrer  _ _ PPER sie
+es     _ _ PPER es
+'s     _ _ PPER es
+wir    _ _ PPER wir
+uns    _ _ PPER wir
+unser  _ _ PPER wir
+euch   _ _ PPER ihr
+
+# Use the lemma when the form is unknown
+ic ich _ PPER ich
+
+# Exclude other tags
+ich  foo _ XY foo
+mir  bar _ XY bar
+mich baz _ XY baz
