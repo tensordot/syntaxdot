@@ -7,8 +7,9 @@ use syntaxdot_encoders::categorical::{ImmutableCategoricalEncoder, MutableCatego
 use syntaxdot_encoders::depseq::{
     DependencyEncoding, RelativePos, RelativePosEncoder, RelativePosition, RelativePositionEncoder,
 };
+use syntaxdot_encoders::lang::de::tdz::TdzLemmaEncoder;
 use syntaxdot_encoders::layer::LayerEncoder;
-use syntaxdot_encoders::lemma::{EditTree, EditTreeEncoder, TdzLemmaEncoder};
+use syntaxdot_encoders::lemma::{EditTree, EditTreeEncoder};
 use syntaxdot_encoders::{EncodingProb, SentenceDecoder, SentenceEncoder};
 use thiserror::Error;
 use udgraph::graph::Sentence;
