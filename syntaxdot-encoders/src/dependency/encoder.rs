@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use udgraph::graph::{DepTriple, Node, Sentence};
 use udgraph::token::Token;
+use udgraph::Error;
 
 use crate::categorical::{ImmutableNumberer, MutableNumberer, Number};
 use crate::dependency::mst::chu_liu_edmonds;
@@ -148,7 +149,7 @@ where
         pairwise_head_scores: ArrayView2<f32>,
         best_pairwise_relations: ArrayView2<i32>,
         sentence: &mut Sentence,
-    ) {
+    ) -> Result<(), Error> {
         let heads = chu_liu_edmonds(pairwise_head_scores.t(), 0);
 
         // Unwrap the heads, skipping the root vertex.
@@ -176,8 +177,10 @@ where
                 .unwrap_or_else(|| panic!("Predicted an unknown relation: {}", relation));
             sentence
                 .dep_graph_mut()
-                .add_deprel::<String>(DepTriple::new(head, Some(relation), dep));
+                .add_deprel::<String>(DepTriple::new(head, Some(relation), dep))?;
         }
+
+        Ok(())
     }
 
     /// Greedily decode a dependency graph from a score matrix.
@@ -194,7 +197,7 @@ where
         pairwise_head_scores: ArrayView2<f32>,
         best_pairwise_relations: ArrayView2<i32>,
         sentence: &mut Sentence,
-    ) {
+    ) -> Result<(), Error> {
         let heads = pairwise_head_scores
             .axis_iter(Axis(0))
             .skip(1)
@@ -224,8 +227,10 @@ where
                 .unwrap_or_else(|| panic!("Predicted an unknown relation: {}", relation));
             sentence
                 .dep_graph_mut()
-                .add_deprel(DepTriple::new(head, Some(relation), dep));
+                .add_deprel(DepTriple::new(head, Some(relation), dep))?;
         }
+
+        Ok(())
     }
 
     pub fn n_relations(&self) -> usize {
@@ -297,13 +302,17 @@ mod tests {
         .collect();
 
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(0, Some("root"), 2));
+            .add_deprel(DepTriple::new(0, Some("root"), 2))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::<&str>::new(2, None, 1));
+            .add_deprel(DepTriple::<&str>::new(2, None, 1))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(2, Some("obj"), 4));
+            .add_deprel(DepTriple::new(2, Some("obj"), 4))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(4, Some("det"), 3));
+            .add_deprel(DepTriple::new(4, Some("det"), 3))
+            .unwrap();
 
         let encoder = MutableDependencyEncoder::new();
 
@@ -325,13 +334,17 @@ mod tests {
         .collect();
 
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(0, Some("root"), 2));
+            .add_deprel(DepTriple::new(0, Some("root"), 2))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(2, Some("nsubj"), 1));
+            .add_deprel(DepTriple::new(2, Some("nsubj"), 1))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(2, Some("obj"), 4));
+            .add_deprel(DepTriple::new(2, Some("obj"), 4))
+            .unwrap();
         sent.dep_graph_mut()
-            .add_deprel(DepTriple::new(4, Some("det"), 3));
+            .add_deprel(DepTriple::new(4, Some("det"), 3))
+            .unwrap();
 
         let encoder = MutableDependencyEncoder::new();
 
@@ -363,19 +376,23 @@ mod tests {
             let mut decoded_sentence = sentence.clone();
 
             // Test MST decoding.
-            encoder.decode(
-                head_scores.view(),
-                best_relations.view(),
-                &mut decoded_sentence,
-            );
+            encoder
+                .decode(
+                    head_scores.view(),
+                    best_relations.view(),
+                    &mut decoded_sentence,
+                )
+                .unwrap();
             assert_eq!(decoded_sentence, sentence);
 
             // Test greedy decoding.
-            encoder.decode_greedy(
-                head_scores.view(),
-                best_relations.view(),
-                &mut decoded_sentence,
-            );
+            encoder
+                .decode_greedy(
+                    head_scores.view(),
+                    best_relations.view(),
+                    &mut decoded_sentence,
+                )
+                .unwrap();
             assert_eq!(decoded_sentence, sentence);
         }
     }

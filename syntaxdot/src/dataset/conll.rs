@@ -52,7 +52,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.sentences.next().map(|s| {
             s.map(|s| self.tokenizer.tokenize(s))
-                .map_err(SyntaxDotError::ConlluIoError)
+                .map_err(SyntaxDotError::ConlluError)
         })
     }
 }

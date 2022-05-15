@@ -6,13 +6,12 @@
 // the position of the token the head POS table while constructing
 // the POS table. This currently does not really seem worth it?
 
-use std::convert::Infallible;
-
 use std::collections::HashMap;
 
 use serde_derive::{Deserialize, Serialize};
 use udgraph::graph::{DepTriple, Node, Sentence};
 use udgraph::token::Token;
+use udgraph::Error;
 
 use super::{
     attach_orphans, break_cycles, find_or_create_root, DecodeError, DependencyEncoding, EncodeError,
@@ -249,7 +248,7 @@ impl SentenceEncoder for RelativePosEncoder {
 impl SentenceDecoder for RelativePosEncoder {
     type Encoding = DependencyEncoding<RelativePos>;
 
-    type Error = Infallible;
+    type Error = Error;
 
     fn decode<S>(&self, labels: &[S], sentence: &mut Sentence) -> Result<(), Self::Error>
     where
@@ -268,7 +267,7 @@ impl SentenceDecoder for RelativePosEncoder {
                 if let Ok(triple) =
                     RelativePosEncoder::decode_idx(&pos_table, idx, encoding.encoding())
                 {
-                    sentence.dep_graph_mut().add_deprel(triple);
+                    sentence.dep_graph_mut().add_deprel(triple)?;
                     break;
                 }
             }
@@ -280,9 +279,9 @@ impl SentenceDecoder for RelativePosEncoder {
             sentence,
             |idx, encoding| Self::decode_idx(&pos_table, idx, encoding).ok(),
             &self.root_relation,
-        );
-        attach_orphans(labels, sentence, root_idx);
-        break_cycles(sentence, root_idx);
+        )?;
+        attach_orphans(labels, sentence, root_idx)?;
+        break_cycles(sentence, root_idx)?;
 
         Ok(())
     }

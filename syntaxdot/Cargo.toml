@@ -10,7 +10,7 @@ documentation = "https://docs.rs/syntaxdot/"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-conllu = "0.7"
+conllu = "0.8"
 ndarray = "0.15"
 numberer = "0.2"
 log = "0.4"
@@ -26,7 +26,7 @@ syntaxdot-transformers = { path = "../syntaxdot-transformers", default-features 
 tch = { version = "0.7.0", default-features = false }
 thiserror = "1"
 toml = "0.5"
-udgraph = "0.7"
+udgraph = "0.8"
 
 [dev-dependencies]
 approx = "0.4"

@@ -10,19 +10,19 @@ documentation = "https://docs.rs/syntaxdot-encoders/"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-conllu = "0.7"
+conllu = "0.8"
 itertools = "0.10"
 numberer = "0.2"
 lazy_static = "1"
 ndarray = "0.15"
-ohnomore = "0.4"
+ohnomore = "0.5"
 ordered-float = "2"
 petgraph = "0.6"
 seqalign = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_derive = "1"
 thiserror = "1"
-udgraph = "0.7"
+udgraph = "0.8"
 
 [dev-dependencies]
 criterion = "0.3"
