@@ -34,7 +34,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.51.0
+          toolchain: 1.60.0
           override: true
           components: clippy
       - uses: tensordot/libtorch-action@v1.11.0
