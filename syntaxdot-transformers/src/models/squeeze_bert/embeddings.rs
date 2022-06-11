@@ -8,6 +8,7 @@ mod tests {
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use crate::activations::Activation;
     use crate::models::bert::{BertConfig, BertEmbeddings};
@@ -40,12 +41,13 @@ mod tests {
         }
     }
 
-    #[test]
-    fn squeeze_bert_embeddings() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn squeeze_bert_embeddings(device: Device) {
         let config = squeezebert_uncased_config();
         let bert_config: BertConfig = (&config).into();
 
-        let mut vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config).unwrap();

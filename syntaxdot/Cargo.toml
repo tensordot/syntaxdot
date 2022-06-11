@@ -28,8 +28,12 @@ thiserror = "1"
 toml = "0.5"
 udgraph = "0.8"
 
+[build-dependencies]
+tch = { version = "0.7.0", default-features = false }
+
 [dev-dependencies]
 approx = "0.4"
 lazy_static = "1"
 maplit = "1"
+test-case = "2"
 wordpieces = "0.5"

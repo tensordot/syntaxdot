@@ -291,6 +291,7 @@ mod tests {
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use super::{ScalarWeightClassifier, ScalarWeightClassifierConfig};
     use crate::models::{HiddenLayer, LayerOutput};
@@ -302,9 +303,10 @@ mod tests {
             .collect::<BTreeSet<_>>()
     }
 
-    #[test]
-    fn scalar_weight_classifier_shapes_forward_works() {
-        let vs = VarStore::new(Device::Cpu);
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn scalar_weight_classifier_shapes_forward_works(device: Device) {
+        let vs = VarStore::new(device);
 
         let classifier = ScalarWeightClassifier::new(
             vs.root_ext(|_| 0),
@@ -321,12 +323,12 @@ mod tests {
         .unwrap();
 
         let layer1 = LayerOutput::EncoderWithAttention(HiddenLayer {
-            attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu)),
-            output: Tensor::zeros(&[1, 3, 8], (Kind::Float, Device::Cpu)),
+            attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, device)),
+            output: Tensor::zeros(&[1, 3, 8], (Kind::Float, device)),
         });
         let layer2 = LayerOutput::EncoderWithAttention(HiddenLayer {
-            attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, Device::Cpu)),
-            output: Tensor::zeros(&[1, 3, 8], (Kind::Float, Device::Cpu)),
+            attention: Tensor::zeros(&[1, 3, 2], (Kind::Float, device)),
+            output: Tensor::zeros(&[1, 3, 8], (Kind::Float, device)),
         });
 
         // Perform a forward pass to check that all shapes align.
@@ -335,9 +337,10 @@ mod tests {
         assert_eq!(results.size(), &[1, 3, 5]);
     }
 
-    #[test]
-    fn scalar_weight_classifier_names() {
-        let vs = VarStore::new(Device::Cpu);
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn scalar_weight_classifier_names(device: Device) {
+        let vs = VarStore::new(device);
 
         let _classifier = ScalarWeightClassifier::new(
             vs.root_ext(|_| 0),

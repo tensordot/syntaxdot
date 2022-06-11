@@ -96,6 +96,7 @@ mod tests {
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use super::SqueezeBertEncoder;
     use crate::activations::Activation;
@@ -151,9 +152,9 @@ mod tests {
         ]
     }
 
-    fn seqlen_to_mask(seq_lens: Tensor, max_len: i64) -> Tensor {
+    fn seqlen_to_mask(device: Device, seq_lens: Tensor, max_len: i64) -> Tensor {
         let batch_size = seq_lens.size()[0];
-        Tensor::arange(max_len, (Kind::Int, Device::Cpu))
+        Tensor::arange(max_len, (Kind::Int, device))
             // Construct a matrix [batch_size, max_len] where each row
             // is 0..(max_len - 1).
             .repeat(&[batch_size])
@@ -169,12 +170,13 @@ mod tests {
             .collect::<BTreeSet<_>>()
     }
 
-    #[test]
-    fn squeeze_bert_encoder() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn squeeze_bert_encoder(device: Device) {
         let config = squeezebert_uncased_config();
         let bert_config: BertConfig = (&config).into();
 
-        let mut vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config).unwrap();
@@ -210,12 +212,13 @@ mod tests {
         );
     }
 
-    #[test]
-    fn squeeze_bert_encoder_attention_mask() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn squeeze_bert_encoder_attention_mask(device: Device) {
         let config = squeezebert_uncased_config();
         let bert_config: BertConfig = (&config).into();
 
-        let mut vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config).unwrap();
@@ -230,7 +233,7 @@ mod tests {
         ])
         .reshape(&[1, 14]);
 
-        let attention_mask = seqlen_to_mask(Tensor::of_slice(&[9]), pieces.size()[1]);
+        let attention_mask = seqlen_to_mask(device, Tensor::of_slice(&[9]), pieces.size()[1]);
 
         let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
@@ -257,12 +260,13 @@ mod tests {
         );
     }
 
-    #[test]
-    fn squeeze_bert_encoder_names_and_shapes() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn squeeze_bert_encoder_names_and_shapes(device: Device) {
         // Verify that the encoders's names and shapes are correct.
         let config = squeezebert_uncased_config();
 
-        let vs = VarStore::new(Device::Cpu);
+        let vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let _encoder = SqueezeBertEncoder::new(root, &config).unwrap();

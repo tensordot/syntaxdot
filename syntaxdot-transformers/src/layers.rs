@@ -344,19 +344,21 @@ impl FallibleModuleT for VariationalDropout {
 mod tests {
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use syntaxdot_tch_ext::RootExt;
 
     use crate::layers::{PairwiseBilinear, PairwiseBilinearConfig};
 
-    #[test]
-    fn bilinear_correct_shapes() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn bilinear_correct_shapes(device: Device) {
         // Apply a bilinear layer to ensure that the shapes are correct.
 
-        let input1 = Tensor::rand(&[64, 10, 200], (Kind::Float, Device::Cpu));
-        let input2 = Tensor::rand(&[64, 10, 200], (Kind::Float, Device::Cpu));
+        let input1 = Tensor::rand(&[64, 10, 200], (Kind::Float, device));
+        let input2 = Tensor::rand(&[64, 10, 200], (Kind::Float, device));
 
-        let vs = VarStore::new(Device::Cpu);
+        let vs = VarStore::new(device);
         let bilinear = PairwiseBilinear::new(
             vs.root_ext(|_| 0),
             &PairwiseBilinearConfig {
@@ -375,12 +377,13 @@ mod tests {
         );
     }
 
-    #[test]
-    fn bilinear_1_output_correct_shapes() {
-        let input1 = Tensor::rand(&[64, 10, 200], (Kind::Float, Device::Cpu));
-        let input2 = Tensor::rand(&[64, 10, 200], (Kind::Float, Device::Cpu));
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn bilinear_1_output_correct_shapes(device: Device) {
+        let input1 = Tensor::rand(&[64, 10, 200], (Kind::Float, device));
+        let input2 = Tensor::rand(&[64, 10, 200], (Kind::Float, device));
 
-        let vs = VarStore::new(Device::Cpu);
+        let vs = VarStore::new(device);
         let bilinear = PairwiseBilinear::new(
             vs.root_ext(|_| 0),
             &PairwiseBilinearConfig {

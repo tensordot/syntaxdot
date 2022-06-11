@@ -89,6 +89,7 @@ mod tests {
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use crate::activations::Activation;
     use crate::models::bert::{BertConfig, BertEncoder};
@@ -115,10 +116,11 @@ mod tests {
         }
     }
 
-    #[test]
-    fn xlm_roberta_embeddings() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn xlm_roberta_embeddings(device: Device) {
         let config = xlm_roberta_config();
-        let mut vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let embeddings = RobertaEmbeddings::new(root.sub("embeddings"), &config).unwrap();
@@ -151,10 +153,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn xlm_roberta_encoder() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn xlm_roberta_encoder(device: Device) {
         let config = xlm_roberta_config();
-        let mut vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let embeddings = RobertaEmbeddings::new(root.sub("embeddings"), &config).unwrap();

@@ -87,6 +87,7 @@ mod tests {
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use crate::activations::Activation;
     use crate::models::bert::{BertConfig, BertEmbeddings, BertEncoder};
@@ -133,9 +134,9 @@ mod tests {
         ]
     }
 
-    fn seqlen_to_mask(seq_lens: Tensor, max_len: i64) -> Tensor {
+    fn seqlen_to_mask(device: Device, seq_lens: Tensor, max_len: i64) -> Tensor {
         let batch_size = seq_lens.size()[0];
-        Tensor::arange(max_len, (Kind::Int, Device::Cpu))
+        Tensor::arange(max_len, (Kind::Int, device))
             // Construct a matrix [batch_size, max_len] where each row
             // is 0..(max_len - 1).
             .repeat(&[batch_size])
@@ -151,11 +152,12 @@ mod tests {
             .collect::<BTreeSet<_>>()
     }
 
-    #[test]
-    fn bert_encoder() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn bert_encoder(device: Device) {
         let config = german_bert_config();
 
-        let mut vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config).unwrap();
@@ -191,11 +193,12 @@ mod tests {
         );
     }
 
-    #[test]
-    fn bert_encoder_attention_mask() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn bert_encoder_attention_mask(device: Device) {
         let config = german_bert_config();
 
-        let mut vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let embeddings = BertEmbeddings::new(root.sub("embeddings"), &config).unwrap();
@@ -210,7 +213,7 @@ mod tests {
         ])
         .reshape(&[1, 15]);
 
-        let attention_mask = seqlen_to_mask(Tensor::of_slice(&[10]), pieces.size()[1]);
+        let attention_mask = seqlen_to_mask(device, Tensor::of_slice(&[10]), pieces.size()[1]);
 
         let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
@@ -238,13 +241,14 @@ mod tests {
         );
     }
 
-    #[test]
-    fn bert_encoder_names() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn bert_encoder_names(device: Device) {
         // Verify that the encoders's names are correct.
         // and newly-constructed models.
         let config = german_bert_config();
 
-        let vs = VarStore::new(Device::Cpu);
+        let vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let _encoder = BertEncoder::new(root, &config).unwrap();

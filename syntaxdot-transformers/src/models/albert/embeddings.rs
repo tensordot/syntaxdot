@@ -98,6 +98,7 @@ mod tests {
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::Device;
+    use test_case::test_case;
 
     use crate::activations::Activation;
     use crate::models::albert::{AlbertConfig, AlbertEmbeddings};
@@ -128,11 +129,12 @@ mod tests {
             .collect::<BTreeSet<_>>()
     }
 
-    #[test]
-    fn albert_embeddings_names() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn albert_embeddings_names(device: Device) {
         let config = albert_config();
 
-        let vs = VarStore::new(Device::Cpu);
+        let vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let _embeddings = AlbertEmbeddings::new(root, &config);

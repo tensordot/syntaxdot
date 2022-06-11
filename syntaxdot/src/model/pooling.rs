@@ -155,18 +155,20 @@ impl EmbeddingsPerToken for TokenSpansWithRoot {
 #[cfg(test)]
 mod tests {
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use crate::model::pooling::{EmbeddingsPerToken, PiecePooler};
     use crate::tensor::{TokenSpans, TokenSpansWithRoot};
 
-    #[test]
-    fn discard_pooler_works_correctly() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn discard_pooler_works_correctly(device: Device) {
         let spans = TokenSpans::new(
             Tensor::of_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
             Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
-        let hidden = Tensor::arange_start_step(36, 0, -1, (Kind::Int64, Device::Cpu))
+        let hidden = Tensor::arange_start_step(36, 0, -1, (Kind::Int64, device))
             .view([2, 9, 2])
             .to_kind(Kind::Float);
 
@@ -186,15 +188,15 @@ mod tests {
         );
     }
 
-    #[test]
-    fn embeddings_are_returned_per_token() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn embeddings_are_returned_per_token(device: Device) {
         let spans = TokenSpansWithRoot::new(
             Tensor::of_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
             Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
-        let hidden =
-            Tensor::arange_start_step(32, 0, -1, (Kind::Int64, Device::Cpu)).view([2, 8, 2]);
+        let hidden = Tensor::arange_start_step(32, 0, -1, (Kind::Int64, device)).view([2, 8, 2]);
 
         let token_embeddings = spans.embeddings_per_token(&hidden).unwrap();
 
@@ -217,14 +219,15 @@ mod tests {
         );
     }
 
-    #[test]
-    fn mean_pooler_works_correctly() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn mean_pooler_works_correctly(device: Device) {
         let spans = TokenSpans::new(
             Tensor::of_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
             Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
-        let hidden = Tensor::arange_start_step(36, 0, -1, (Kind::Int64, Device::Cpu))
+        let hidden = Tensor::arange_start_step(36, 0, -1, (Kind::Int64, device))
             .view([2, 9, 2])
             .to_kind(Kind::Float);
 

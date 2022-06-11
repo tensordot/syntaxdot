@@ -100,6 +100,7 @@ mod tests {
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use crate::activations::Activation;
     use crate::models::bert::BertConfig;
@@ -128,9 +129,10 @@ mod tests {
         }
     }
 
-    #[test]
-    fn sinusoidal_embeddings_are_unchanged_without_norm() {
-        let sums: ArrayD<f32> = get_and_sum_test_embeddings(None);
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn sinusoidal_embeddings_are_unchanged_without_norm(device: Device) {
+        let sums: ArrayD<f32> = get_and_sum_test_embeddings(device, None);
 
         // Verify output against known output (to avoid future breakage).
         assert_abs_diff_eq!(
@@ -144,9 +146,10 @@ mod tests {
         );
     }
 
-    #[test]
-    fn sinusoidal_embeddings_are_unchanged_with_norm() {
-        let sums: ArrayD<f32> = get_and_sum_test_embeddings(Some(2.0));
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn sinusoidal_embeddings_are_unchanged_with_norm(device: Device) {
+        let sums: ArrayD<f32> = get_and_sum_test_embeddings(device, Some(2.0));
 
         // Verify output against known output (to avoid future breakage).
         assert_abs_diff_eq!(
@@ -160,9 +163,9 @@ mod tests {
         );
     }
 
-    fn get_and_sum_test_embeddings(p_norm: Option<f64>) -> ArrayD<f32> {
+    fn get_and_sum_test_embeddings(device: Device, p_norm: Option<f64>) -> ArrayD<f32> {
         let config = german_bert_config();
-        let mut vs = VarStore::new(Device::Cpu);
+        let mut vs = VarStore::new(device);
         let root = vs.root_ext(|_| 0);
 
         let embeddings =

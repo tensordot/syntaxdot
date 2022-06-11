@@ -158,6 +158,7 @@ pub mod tests {
     use approx::assert_abs_diff_eq;
     use ndarray::{array, ArrayD};
     use tch::{Device, Kind, Tensor};
+    use test_case::test_case;
 
     use crate::util::{LogitsMask, SinusoidalPositions};
 
@@ -181,18 +182,19 @@ pub mod tests {
         );
     }
 
-    #[test]
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
     #[should_panic]
-    fn positions_dimensionality_must_be_even() {
+    fn positions_dimensionality_must_be_even(device: Device) {
         let _positions: Tensor =
-            SinusoidalPositions::sinusoidal_positions(5, 9, None, (Kind::Float, Device::Cpu))
-                .unwrap();
+            SinusoidalPositions::sinusoidal_positions(5, 9, None, (Kind::Float, device)).unwrap();
     }
 
-    #[test]
-    fn positions_are_l1_normalized() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn positions_are_l1_normalized(device: Device) {
         let positions: Tensor =
-            SinusoidalPositions::sinusoidal_positions(5, 8, Some(1.), (Kind::Float, Device::Cpu))
+            SinusoidalPositions::sinusoidal_positions(5, 8, Some(1.), (Kind::Float, device))
                 .unwrap();
         let norms: ArrayD<f32> = (&positions.abs().sum_dim_intlist(&[-1], false, Kind::Float))
             .try_into()
@@ -200,10 +202,11 @@ pub mod tests {
         assert_abs_diff_eq!(norms, array![1., 1., 1., 1., 1.].into_dyn(), epsilon = 1e-4);
     }
 
-    #[test]
-    fn positions_are_l2_normalized() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn positions_are_l2_normalized(device: Device) {
         let positions: Tensor =
-            SinusoidalPositions::sinusoidal_positions(5, 8, Some(2.), (Kind::Float, Device::Cpu))
+            SinusoidalPositions::sinusoidal_positions(5, 8, Some(2.), (Kind::Float, device))
                 .unwrap();
         let norms: ArrayD<f32> = (&positions.norm_scalaropt_dim(2., &[-1], false))
             .try_into()
@@ -211,11 +214,11 @@ pub mod tests {
         assert_abs_diff_eq!(norms, array![1., 1., 1., 1., 1.].into_dyn(), epsilon = 1e-4);
     }
 
-    #[test]
-    fn positions_are_sinusoidal() {
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
+    fn positions_are_sinusoidal(device: Device) {
         let positions: Tensor =
-            SinusoidalPositions::sinusoidal_positions(5, 8, None, (Kind::Float, Device::Cpu))
-                .unwrap();
+            SinusoidalPositions::sinusoidal_positions(5, 8, None, (Kind::Float, device)).unwrap();
 
         let positions: ArrayD<f32> = (&positions).try_into().unwrap();
 
@@ -266,10 +269,11 @@ pub mod tests {
         );
     }
 
-    #[test]
+    #[test_case(Device::Cpu)]
+    #[cfg_attr(cuda_test, test_case(Device::Cuda(0)))]
     #[should_panic]
-    fn positions_tensor_must_be_matrix() {
-        let mut positions = Tensor::empty(&[8, 8, 8], (Kind::Float, Device::Cpu));
+    fn positions_tensor_must_be_matrix(device: Device) {
+        let mut positions = Tensor::empty(&[8, 8, 8], (Kind::Float, device));
         positions.sinusoidal_positions_(None).unwrap();
     }
 }

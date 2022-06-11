@@ -15,10 +15,14 @@ syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.4.0" }
 tch = { version = "0.7.0", default-features = false }
 thiserror = "1"
 
+[build-dependencies]
+tch = { version = "0.7.0", default-features = false }
+
 [dev-dependencies]
 approx = "0.4"
 maplit = "1"
 ndarray = { version = "0.15", features = ["approx"] }
+test-case = "2"
 
 [features]
 model-tests = []
