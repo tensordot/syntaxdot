@@ -60,7 +60,7 @@ impl FallibleModule for Activation {
 
     fn forward(&self, input: &Tensor) -> Result<Tensor, Self::Error> {
         match self {
-            Self::Gelu => Ok(input.f_gelu()?),
+            Self::Gelu => Ok(input.f_gelu("none")?),
             Self::GeluNew => Ok(0.5
                 * input
                 * (1.0
