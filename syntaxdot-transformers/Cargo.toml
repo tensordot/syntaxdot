@@ -22,3 +22,7 @@ ndarray = { version = "0.15", features = ["approx"] }
 
 [features]
 model-tests = []
+doc-only = ["syntaxdot-tch-ext/doc-only", "tch/doc-only"]
+
+[package.metadata.docs.rs]
+features = [ "doc-only" ]

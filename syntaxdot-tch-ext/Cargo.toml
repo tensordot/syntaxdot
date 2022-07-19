@@ -12,3 +12,9 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 itertools = "0.10"
 tch = { version = "0.8", default-features = false }
+
+[features]
+doc-only = ["tch/doc-only"]
+
+[package.metadata.docs.rs]
+features = [ "doc-only" ]
