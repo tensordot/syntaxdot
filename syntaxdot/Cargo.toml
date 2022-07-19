@@ -33,3 +33,10 @@ approx = "0.4"
 lazy_static = "1"
 maplit = "1"
 wordpieces = "0.5"
+
+[features]
+model-tests = []
+doc-only = ["syntaxdot-tch-ext/doc-only", "syntaxdot-transformers/doc-only", "tch/doc-only"]
+
+[package.metadata.docs.rs]
+features = [ "doc-only" ]
