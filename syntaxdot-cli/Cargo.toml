@@ -1,6 +1,6 @@
 [package]
 name = "syntaxdot-cli"
-version = "0.4.1"
+version = "0.5.0-beta.0"
 edition = "2018"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
 description = "Neural sequence labeler"
@@ -27,11 +27,11 @@ ordered-float = { version = "2", features = ["serde"] }
 rayon = "1"
 serde_yaml = "0.8"
 stdinout = "0.4"
-syntaxdot = { path = "../syntaxdot", version = "0.4.1", default-features = false }
-syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.4.0" }
-syntaxdot-summary = { path = "../syntaxdot-summary", version = "0.4.0" }
-syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.4.0" }
-syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", version = "0.4.0" }
-syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.4.0", default-features = false }
+syntaxdot = { path = "../syntaxdot", version = "0.5.0-beta.0", default-features = false }
+syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.5.0-beta.0" }
+syntaxdot-summary = { path = "../syntaxdot-summary", version = "0.5.0-beta.0" }
+syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.5.0-beta.0" }
+syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", version = "0.5.0-beta.0" }
+syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.5.0-beta.0", default-features = false }
 tch = { version = "0.8", default-features = false }
 udgraph = "0.8"
