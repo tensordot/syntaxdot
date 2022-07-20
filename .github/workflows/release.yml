@@ -23,7 +23,7 @@ jobs:
         echo "699a31cf52211cf5ad6e35a8801eb637bc7f3c43117140426400d67b7babd792  patchelf-0.12.tar.bz2" | sha256sum -c -
         tar jxf patchelf-0.12.tar.bz2
         ( cd patchelf-0.12.20200827.8d3a16e && ./configure && make -j4 )
-    - uses: tensordot/libtorch-action@v1.10.0
+    - uses: tensordot/libtorch-action@v1.12.0
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
