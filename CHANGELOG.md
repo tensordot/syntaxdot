@@ -6,6 +6,10 @@
   1.10.0](https://github.com/pytorch/pytorch/releases/tag/v1.10.0) and
   [tch 0.6.1](https://github.com/LaurentMazare/tch-rs).
 
+### Fixed
+
+- Use the correct ID for unknown pieces in `XlmRobertaTokenizer`.
+
 ## 0.4.1
 
 ### Fixed
