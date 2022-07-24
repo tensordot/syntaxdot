@@ -9,6 +9,7 @@ use crate::TokenizerError;
 const FAIRSEQ_BOS_ID: i64 = 0;
 const FAIRSEQ_EOS_ID: i64 = 2;
 const FAIRSEQ_OFFSET: i64 = 1;
+const FAIRSEQ_UNK: i64 = 3;
 
 /// Tokenizer for Roberta models.
 ///
@@ -59,11 +60,14 @@ impl Tokenize for XlmRobertaTokenizer {
                 .expect("The sentencepiece tokenizer failed");
 
             if !token_pieces.is_empty() {
-                pieces.extend(
-                    token_pieces
-                        .into_iter()
-                        .map(|piece| piece.id as i64 + FAIRSEQ_OFFSET),
-                );
+                pieces.extend(token_pieces.into_iter().map(|piece| {
+                    let piece_id = piece.id as i64;
+                    if piece_id == self.spp.unknown_id() as i64 {
+                        FAIRSEQ_UNK
+                    } else {
+                        piece_id + FAIRSEQ_OFFSET
+                    }
+                }));
             } else {
                 // Use the unknown token id if sentencepiece does not
                 // give an output for the token. This should not
