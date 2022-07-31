@@ -210,21 +210,15 @@ impl DistillApp {
         let head_soft_loss =
             (&teacher_head_probs.f_mul(&student_head_logprobs)?.f_neg()?).f_mean(Kind::Float)?;
 
-        let teacher_head_predictions = teacher_logits.head_score_logits.argmax(-1, false);
-
         // Get teacher relation probabilities for the heads predicted by the teacher.
-        let teacher_relation_probs = Self::select_relations_for_predicted_heads(
-            &teacher_logits.relation_score_logits,
-            &teacher_head_predictions,
-        )?
-        .f_softmax(-1, Kind::Float)?;
+        let teacher_relation_probs = teacher_logits
+            .relation_score_logits
+            .f_softmax(-1, Kind::Float)?;
 
         // Get student relation log probabilities for the heads predicted by the teacher.
-        let student_relation_log_probs = Self::select_relations_for_predicted_heads(
-            &student_logits.relation_score_logits,
-            &teacher_head_predictions,
-        )?
-        .f_log_softmax(-1, Kind::Float)?;
+        let student_relation_log_probs = student_logits
+            .relation_score_logits
+            .f_log_softmax(-1, Kind::Float)?;
 
         let relation_soft_loss = teacher_relation_probs
             .f_neg()?
@@ -274,27 +268,6 @@ impl DistillApp {
             .transpose()?;
 
         Ok(AuxiliaryParameters { hidden_mappings })
-    }
-
-    fn select_relations_for_predicted_heads(
-        logits: &Tensor,
-        head_predictions: &Tensor,
-    ) -> Result<Tensor, SyntaxDotError> {
-        let (batch_size, seq_len, _heads_len, n_relations) = logits.size4()?;
-
-        Ok(logits
-            .f_gather(
-                2,
-                &head_predictions
-                    // -1 is used for non-token elements, we do not really care
-                    // what is selected in these cases, since they won't be used
-                    // in the loss.
-                    .f_view([batch_size, seq_len, 1, 1])?
-                    .f_expand(&[-1, -1, 1, n_relations], true)?,
-                false,
-            )?
-            .f_squeeze_dim(2)?
-            .f_view_(&[-1, n_relations])?)
     }
 
     #[allow(clippy::too_many_arguments)]

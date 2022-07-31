@@ -2,6 +2,9 @@
 
 ### Changed
 
+- Change parser dependency relation prediction to use a biaffine layer rather
+  than a pairwise biaffine layer. This simplified some code and can be slightly
+  faster.
 - Update to [libtorch
   1.10.0](https://github.com/pytorch/pytorch/releases/tag/v1.10.0) and
   [tch 0.6.1](https://github.com/LaurentMazare/tch-rs).

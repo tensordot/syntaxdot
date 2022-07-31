@@ -119,7 +119,7 @@ where
 {
     fn backward_step(&mut self, loss: &Tensor) -> Result<(), SyntaxDotError> {
         self.optimizer.trainable_variables().zero_grad();
-        self.scale(loss)?.backward();
+        self.scale(loss)?.f_backward()?;
         tch::no_grad(|| self.step());
         self.update();
         Ok(())
