@@ -138,9 +138,6 @@ impl Tagger {
     where
         S: BorrowMut<SentenceWithPieces>,
     {
-        let head_score_logits: ArrayD<f32> =
-            (&biaffine_score_logits.head_score_logits).try_into()?;
-
         // For dependency relations, we only care about the best-scoring relations.
         // This changes the shape from [batch_size, seq_len, seq_len, n_relations] to
         // [batch_size, seq_len, seq_len].
@@ -149,27 +146,20 @@ impl Tagger {
             .argmax(-1, false);
         let best_relations: ArrayD<i32> = (&best_relations).try_into()?;
 
+        let heads_cpu: ArrayD<i64> = (&biaffine_score_logits.heads).try_into()?;
+        let heads_cpu = heads_cpu.into_dimensionality()?;
         for (idx, sentence) in sentences.iter_mut().enumerate() {
             let sentence = sentence.borrow_mut();
 
-            let sent_head_scores = head_score_logits
-                .index_axis(Axis(0), idx)
-                .slice(s![
-                    ..sentence.token_offsets.len() + 1,
-                    ..sentence.token_offsets.len() + 1
-                ])
-                .to_owned();
-
             let sent_best_relations = best_relations
                 .index_axis(Axis(0), idx)
-                .slice(s![
-                    ..sentence.token_offsets.len() + 1,
-                    ..sentence.token_offsets.len() + 1
-                ])
+                .slice(s![..sentence.token_offsets.len() + 1,])
                 .to_owned();
 
+            let sent_heads = heads_cpu.row(idx);
+
             decoder.decode(
-                sent_head_scores.view().into_dimensionality()?,
+                sent_heads,
                 sent_best_relations.view().into_dimensionality()?,
                 &mut sentence.sentence,
             )?;

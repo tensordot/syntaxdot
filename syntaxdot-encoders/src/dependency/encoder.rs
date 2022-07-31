@@ -1,9 +1,8 @@
 use std::fmt;
 
-use itertools::{multizip, Itertools};
-use ndarray::{ArrayView2, Axis};
+use itertools::multizip;
+use ndarray::{s, ArrayView1};
 use numberer::Numberer;
-use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use udgraph::graph::{DepTriple, Node, Sentence};
@@ -11,7 +10,6 @@ use udgraph::token::Token;
 use udgraph::Error;
 
 use crate::categorical::{ImmutableNumberer, MutableNumberer, Number};
-use crate::dependency::mst::chu_liu_edmonds;
 
 /// Dependency encoding.
 #[derive(Debug, Eq, PartialEq)]
@@ -146,27 +144,20 @@ where
     /// * `sentence`: the sentence in which to store the dependency relations.
     pub fn decode(
         &self,
-        pairwise_head_scores: ArrayView2<f32>,
-        best_pairwise_relations: ArrayView2<i32>,
+        sent_heads: ArrayView1<i64>,
+        best_pairwise_relations: ArrayView1<i32>,
         sentence: &mut Sentence,
     ) -> Result<(), Error> {
-        let heads = chu_liu_edmonds(pairwise_head_scores.t(), 0);
-
         // Unwrap the heads, skipping the root vertex.
-        let heads = heads
+        let heads = sent_heads.slice(s![1..]);
+
+        let relations = best_pairwise_relations
             .into_iter()
             .skip(1)
-            .collect::<Option<Vec<usize>>>()
-            // This should never happen.
-            .expect("Non-root head without a parent?");
-
-        let relations = heads
-            .iter()
-            .enumerate()
-            .map(|(dep, &head)| best_pairwise_relations[(dep + 1, head)])
+            .cloned()
             .collect::<Vec<_>>();
 
-        for (dep, head, relation) in multizip((1..sentence.len(), heads, relations)) {
+        for (dep, &head, relation) in multizip((1..sentence.len(), heads, relations)) {
             let relation = self
                 .relations
                 .value(relation as usize)
@@ -177,57 +168,7 @@ where
                 .unwrap_or_else(|| panic!("Predicted an unknown relation: {}", relation));
             sentence
                 .dep_graph_mut()
-                .add_deprel::<String>(DepTriple::new(head, Some(relation), dep))?;
-        }
-
-        Ok(())
-    }
-
-    /// Greedily decode a dependency graph from a score matrix.
-    ///
-    /// The following arguments must be provided:
-    ///
-    /// * `pairwise_head_score`: edge (arc) score matrix, `pairwise_head_score[dependent][head]`
-    ///   is the score for attaching `dependent` to `head`.
-    /// * `best_pairwise_relations`: represents per dependent the best dependency relation
-    ///   given a head (`best_pairwise_relations[dependent, head]`).
-    /// * `sentence`: the sentence in which to store the dependency relations.
-    pub fn decode_greedy(
-        &self,
-        pairwise_head_scores: ArrayView2<f32>,
-        best_pairwise_relations: ArrayView2<i32>,
-        sentence: &mut Sentence,
-    ) -> Result<(), Error> {
-        let heads = pairwise_head_scores
-            .axis_iter(Axis(0))
-            .skip(1)
-            .map(|heads| {
-                heads
-                    .iter()
-                    .map(|&v| NotNan::new(v).expect("Head score matrix contains NaN"))
-                    .position_max()
-                    .unwrap()
-            })
-            .collect::<Vec<_>>();
-
-        let relations = heads
-            .iter()
-            .zip(best_pairwise_relations.axis_iter(Axis(0)).skip(1))
-            .map(|(&head, best_relations)| best_relations[head])
-            .collect::<Vec<_>>();
-
-        for (dep, head, relation) in multizip((1..sentence.len(), heads, relations)) {
-            let relation = self
-                .relations
-                .value(relation as usize)
-                // We should never predict an unknown relation, that would mean that
-                // the model does not correspond to the label inventory. This cannot
-                // happen, because the model's shape is based on the number of relations
-                // reported by instances of this type.
-                .unwrap_or_else(|| panic!("Predicted an unknown relation: {}", relation));
-            sentence
-                .dep_graph_mut()
-                .add_deprel(DepTriple::new(head, Some(relation), dep))?;
+                .add_deprel::<String>(DepTriple::new(head as usize, Some(relation), dep))?;
         }
 
         Ok(())
@@ -261,13 +202,14 @@ impl MutableDependencyEncoder {
 mod tests {
     use std::fs::File;
     use std::io::BufReader;
+    use std::iter::once;
 
     use conllu::io::Reader;
     use udgraph::graph::{DepTriple, Sentence};
     use udgraph::token::Token;
 
     use crate::dependency::{DependencyEncoding, EncodeError, MutableDependencyEncoder};
-    use ndarray::Array2;
+    use ndarray::Array1;
 
     static NON_PROJECTIVE_DATA: &str = "testdata/lassy-small-dev.conllu";
 
@@ -370,60 +312,20 @@ mod tests {
             let sentence = sentence.unwrap();
             let encoding = encoder.encode(&sentence).unwrap();
 
-            let head_scores = heads_to_scores(&encoding.heads);
-            let best_relations = relations_to_matrix(&encoding.heads, &encoding.relations);
+            let heads = once(0)
+                .chain(encoding.heads.into_iter().map(|v| v as i64))
+                .collect::<Array1<_>>();
+            let best_relations = once(-1)
+                .chain(encoding.relations.into_iter().map(|v| v as i32))
+                .collect::<Array1<_>>();
 
             let mut decoded_sentence = sentence.clone();
 
             // Test MST decoding.
             encoder
-                .decode(
-                    head_scores.view(),
-                    best_relations.view(),
-                    &mut decoded_sentence,
-                )
-                .unwrap();
-            assert_eq!(decoded_sentence, sentence);
-
-            // Test greedy decoding.
-            encoder
-                .decode_greedy(
-                    head_scores.view(),
-                    best_relations.view(),
-                    &mut decoded_sentence,
-                )
+                .decode(heads.view(), best_relations.view(), &mut decoded_sentence)
                 .unwrap();
             assert_eq!(decoded_sentence, sentence);
         }
-    }
-
-    fn heads_to_scores(heads: &[usize]) -> Array2<f32> {
-        // Number of tokens, including root.
-        let n_tokens = heads.len() + 1;
-
-        Array2::from_shape_fn((n_tokens, n_tokens), |(dep, head)| {
-            if dep == 0 {
-                0.0
-            } else if heads[dep - 1] == head {
-                1.0
-            } else {
-                0.0
-            }
-        })
-    }
-
-    fn relations_to_matrix(heads: &[usize], relations: &[usize]) -> Array2<i32> {
-        // Number of tokens, including root.
-        let n_tokens = heads.len() + 1;
-
-        Array2::from_shape_fn((n_tokens, n_tokens), |(dep, head)| {
-            if dep == 0 {
-                -1
-            } else if heads[dep - 1] == head {
-                relations[dep - 1] as i32
-            } else {
-                -1
-            }
-        })
     }
 }

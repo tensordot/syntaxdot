@@ -1,5 +1,8 @@
 use std::borrow::Borrow;
+use std::convert::{TryFrom, TryInto};
 
+use ndarray::{s, Array2, ArrayD, Axis};
+use syntaxdot_encoders::dependency::mst::chu_liu_edmonds;
 use syntaxdot_tch_ext::PathExt;
 use syntaxdot_transformers::activations::Activation;
 use syntaxdot_transformers::layers::{
@@ -58,6 +61,9 @@ pub struct BiaffineScoreLogits {
     /// dependency relation logits. For instance, if in sentence  *s*, *h* is the head
     /// of *d*, then `[s, d, h]` is the a of the corresponding relation logits.
     pub relation_score_logits: Tensor,
+
+    /// Tensor of shape `[batch_size, seq_len]` with heads found after MST decoding.
+    pub heads: Tensor,
 }
 
 /// Biaffine layer for dependency parsing.
@@ -138,6 +144,7 @@ impl BiaffineDependencyLayer {
                 initializer_range: bert_config.initializer_range,
                 in_features: biaffine_config.head.dims as i64,
                 out_features: 1,
+                pairwise: true,
             },
         )?;
 
@@ -149,6 +156,7 @@ impl BiaffineDependencyLayer {
                 initializer_range: bert_config.initializer_range,
                 in_features: biaffine_config.relation.dims as i64,
                 out_features: n_relations,
+                pairwise: false,
             },
         )?;
 
@@ -240,6 +248,8 @@ impl BiaffineDependencyLayer {
             // Mask padding logits.
             .f_add_(&logits_mask.f_unsqueeze(1)?)?;
 
+        let heads = Self::decode_mst(&head_score_logits)?;
+
         // Compute dependent/head label representations of each token.
         let label_dependent = self.dropout.forward_t(
             &self
@@ -252,24 +262,63 @@ impl BiaffineDependencyLayer {
             train,
         )?;
 
+        // Select predicted heads for every token.
+        let (batch_size, n_tokens, label_hidden_size) = label_head.size3()?;
+        let label_head = label_head.f_gather(
+            1,
+            &heads
+                .f_unsqueeze(-1)?
+                .f_expand(&[batch_size, n_tokens, label_hidden_size], true)?,
+            false,
+        )?;
+
         // From from these representations, compute the label score matrix.
-        let relation_score_logits = self
-            .bilinear_label
-            .forward(&label_head, &label_dependent)?
-            // Mask padding logits.
-            .f_add_(&logits_mask.f_unsqueeze(1)?.f_unsqueeze(-1)?)?;
+        let relation_score_logits = self.bilinear_label.forward(&label_head, &label_dependent)?;
 
         if remove_root {
             Ok(BiaffineScoreLogits {
+                heads: heads.f_slice(1, 1, i64::MAX, 1)?,
                 head_score_logits: head_score_logits.f_slice(1, 1, i64::MAX, 1)?,
                 relation_score_logits: relation_score_logits.f_slice(1, 1, i64::MAX, 1)?,
             })
         } else {
             Ok(BiaffineScoreLogits {
+                heads,
                 head_score_logits,
                 relation_score_logits,
             })
         }
+    }
+
+    fn decode_mst(head_score_logits: &Tensor) -> Result<Tensor, SyntaxDotError> {
+        // Find minimum spanning tree.
+        let pairwise_head_scores: ArrayD<f32> = (head_score_logits).try_into()?;
+
+        let mut batch_heads = Vec::new();
+        for idx in 0..pairwise_head_scores.len_of(Axis(0)) {
+            // FIXME: error if the a non-root token has `None` as their head. Since this
+            //        cannot happen, chu_liu_edmonds should probably be changed.
+            batch_heads.extend(
+                chu_liu_edmonds(
+                    pairwise_head_scores
+                        .index_axis(Axis(0), idx)
+                        .slice(s![.., ..])
+                        .t(),
+                    0,
+                )
+                .into_iter()
+                .map(|v| v.unwrap_or(0)),
+            );
+        }
+        let heads_cpu = Array2::from_shape_vec(
+            (
+                pairwise_head_scores.len_of(Axis(0)),
+                pairwise_head_scores.len_of(Axis(1)),
+            ),
+            batch_heads,
+        )?;
+
+        Ok(Tensor::try_from(&heads_cpu.map(|&v| v as i64))?.to_device(head_score_logits.device()))
     }
 
     /// Compute the biaffine layer loss
@@ -313,7 +362,7 @@ impl BiaffineDependencyLayer {
 
         let biaffine_logits = self.forward(layers, token_mask, true, train)?;
 
-        let (batch_size, seq_len) = targets.heads.size2()?;
+        let (_, seq_len) = targets.heads.size2()?;
 
         let token_mask_with_root = token_mask.with_root()?;
 
@@ -340,20 +389,7 @@ impl BiaffineDependencyLayer {
         // Get the logits for the correct heads.
         let label_score_logits = biaffine_logits
             .relation_score_logits
-            .f_gather(
-                2,
-                &targets
-                    .heads
-                    // -1 is used for non-token elements, we do not really care
-                    // what is selected in these cases, since they won't be used
-                    // in the loss.
-                    .f_abs()?
-                    .f_view([batch_size, seq_len, 1, 1])?
-                    .f_expand(&[-1, -1, 1, self.n_relations], true)?,
-                false,
-            )?
-            .f_squeeze_dim(2)?
-            .f_view_(&[-1, self.n_relations])?;
+            .f_reshape(&[-1, self.n_relations])?;
 
         let relation_targets = targets.relations.f_view_(&[-1])?;
         let relation_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean).forward(
@@ -363,8 +399,7 @@ impl BiaffineDependencyLayer {
         )?;
 
         // Compute greedy decoding accuracy.
-        let acc =
-            tch::no_grad(|| Self::greedy_decode_accuracy(&biaffine_logits, targets, token_mask))?;
+        let acc = tch::no_grad(|| Self::compute_accuracy(&biaffine_logits, targets, token_mask))?;
 
         Ok(BiaffineLoss {
             acc,
@@ -374,23 +409,18 @@ impl BiaffineDependencyLayer {
     }
 
     /// Greedily decode the head/relation score tensors and return the LAS/UAS.
-    fn greedy_decode_accuracy(
+    fn compute_accuracy(
         biaffine_score_logits: &BiaffineScoreLogits,
         targets: &BiaffineTensors<Tensor>,
         token_mask: &TokenMask,
     ) -> Result<BiaffineAccuracy, SyntaxDotError> {
         let (batch_size, seq_len) = token_mask.size2()?;
 
-        let head_predicted = biaffine_score_logits
-            .head_score_logits
-            .f_argmax(-1, false)?;
-        let head_correct = head_predicted.f_eq_tensor(&targets.heads)?;
+        let head_correct = biaffine_score_logits.heads.f_eq_tensor(&targets.heads)?;
 
         let relations_predicted = biaffine_score_logits
             .relation_score_logits
-            .f_argmax(-1, false)?
-            .f_gather(2, &head_predicted.f_unsqueeze(-1)?, false)?
-            .f_squeeze()?;
+            .f_argmax(-1, false)?;
         let relations_correct = relations_predicted
             .f_eq_tensor(&targets.relations)?
             .f_view_(&[batch_size, seq_len])?;

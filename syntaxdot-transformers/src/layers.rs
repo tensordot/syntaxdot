@@ -197,6 +197,8 @@ pub struct PairwiseBilinearConfig {
     pub bias_u: bool,
 
     pub bias_v: bool,
+
+    pub pairwise: bool,
 }
 
 /// Pairwise bilinear forms.
@@ -208,6 +210,7 @@ pub struct PairwiseBilinear {
     weight: Tensor,
     bias_u: bool,
     bias_v: bool,
+    pairwise: bool,
 }
 
 impl PairwiseBilinear {
@@ -256,6 +259,7 @@ impl PairwiseBilinear {
             bias_u: config.bias_u,
             bias_v: config.bias_v,
             weight,
+            pairwise: config.pairwise,
         })
     }
 
@@ -296,14 +300,21 @@ impl PairwiseBilinear {
             v.shallow_clone()
         };
 
-        // [batch_size, max_seq_len, out_features, v features].
-        let intermediate = Tensor::f_einsum("blu,uov->blov", &[&u, &self.weight])?;
+        if self.pairwise {
+            // [batch_size, max_seq_len, out_features, v features].
+            let intermediate = Tensor::f_einsum("blu,uov->blov", &[&u, &self.weight])?;
 
-        // We perform a matrix multiplication to get the output with
-        // the shape [batch_size, seq_len, seq_len, out_features].
-        let bilinear = Tensor::f_einsum("bmv,blov->bmlo", &[&v, &intermediate])?;
+            // We perform a matrix multiplication to get the output with
+            // the shape [batch_size, seq_len, seq_len, out_features].
+            let bilinear = Tensor::f_einsum("bmv,blov->bmlo", &[&v, &intermediate])?;
 
-        Ok(bilinear.f_squeeze_dim(-1)?)
+            Ok(bilinear.f_squeeze_dim(-1)?)
+        } else {
+            Ok(Tensor::f_einsum(
+                "blu,uov,blv->blo",
+                &[&u, &self.weight, &v],
+            )?)
+        }
     }
 }
 
@@ -365,6 +376,7 @@ mod tests {
                 in_features: 200,
                 out_features: 5,
                 initializer_range: 0.02,
+                pairwise: true,
             },
         )
         .unwrap();
@@ -389,6 +401,7 @@ mod tests {
                 in_features: 200,
                 out_features: 1,
                 initializer_range: 0.02,
+                pairwise: true,
             },
         )
         .unwrap();
