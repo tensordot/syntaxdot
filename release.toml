@@ -1,0 +1,6 @@
+consolidate-commits = true
+consolidate-pushes = true
+pre-release-commit-message = "Bump version to {{version}}"
+post-release-commit-message = "Start next development iteration {{next_version}}"
+tag-message = ""
+tag-prefix = ""
