@@ -1159,7 +1159,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot"
-version = "0.5.0-beta.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "approx",
  "conllu",
@@ -1186,7 +1186,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-cli"
-version = "0.5.0-beta.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "anyhow",
  "bytecount",
@@ -1213,7 +1213,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-encoders"
-version = "0.5.0-beta.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "caseless",
  "conllu",
@@ -1239,7 +1239,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-summary"
-version = "0.5.0-beta.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "hostname",
  "prost",
@@ -1247,7 +1247,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-tch-ext"
-version = "0.5.0-beta.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "itertools",
  "tch",
@@ -1255,7 +1255,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-tokenizers"
-version = "0.5.0-beta.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "ndarray",
  "sentencepiece",
@@ -1266,7 +1266,7 @@ dependencies = [
 
 [[package]]
 name = "syntaxdot-transformers"
-version = "0.5.0-beta.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "approx",
  "maplit",
