@@ -15,55 +15,17 @@ Additionally, compiling a SyntaxDot with training functionality requires:
 
 * CUDA
 
-## Nix/NixOS
-
-### Nix with flake support
-
-The SyntaxDot repository is a Nix flake. You can open a shell with SyntaxDot
-as follows:
-
-```shell
-# SyntaxDot without CUDA support:
-$ nix shell github:tensordot/syntaxdot
-
-# SyntaxDot with CUDA support:
-$ nix shell github:tensordot/syntaxdot#syntaxdotWithCuda 
-
-# SyntaxDot is then available in the shell:
-$ syntaxdot --version 
-syntaxdot 0.3.0
-```
-
-You can also install a SyntaxDot package in your user profile:
-
-```shell
-# SyntaxDot without CUDA support:
-$ nix profile install github:tensordot/syntaxdot
-
-# SyntaxDot with CUDA support:
-$ nix profile install github:tensordot/syntaxdot#syntaxdotWithCuda
-```
-
-### Nix without flake support
-
-You can install SyntaxDot into your profile as follows:
-
-```shell
-
-# SyntaxDot without CUDA support:
-$ nix-env \
-  -f https://github.com/tensordot/syntaxdot/archive/main.tar.gz \
-  -iA packages.x86_64-linux.syntaxdot
-
-# SyntaxDot with CUDA support:
-$ nix-env \
-  -f https://github.com/tensordot/syntaxdot/archive/main.tar.gz \
-  -iA packages.x86_64-linux.syntaxdotWithCuda
-```
-
-## Linux (other)
+## Linux/macOS
 
 ### Dependencies
+
+#### macOS
+
+Install `cmake`, for instance through Homebrew:
+
+```shell
+brew install cmake
+```
 
 #### Fedora
 
@@ -106,7 +68,19 @@ environment variables:
 
 ```shell
 $ export LIBTORCH=/path/to/libtorch
+# Linux:
 $ export LD_LIBRARY_PATH=${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}${LIBTORCH}/lib
+# macOS
+$ export DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH:+$DYLD_LIBRARY_PATH:}${LIBTORCH}/lib
+```
+
+There are currently no libtorch releases available for macOS ARM64. However,
+you can use libtorch from the `torch` Python package:
+
+```shell
+$ pip install torch
+$ export LIBTORCH=$(python -c 'import torch; from pathlib import Path; print(Path(torch.__file__).parent)')
+$ export DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH:+$DYLD_LIBRARY_PATH:}${LIBTORCH}/lib
 ```
 
 ## Building SyntaxDot
