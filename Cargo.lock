@@ -1023,9 +1023,9 @@ checksum = "a41d061efea015927ac527063765e73601444cdc344ba855bc7bd44578b25e1c"
 
 [[package]]
 name = "sentencepiece"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "786af4746059c2daec40e0274f53c80d25118f4b62020d9c39066b2433c37bd7"
+checksum = "1945339493a109da875890ff817b4aaad985bb16a981f3fcc8fc632782fc319b"
 dependencies = [
  "libc",
  "num-derive",
@@ -1038,9 +1038,9 @@ dependencies = [
 
 [[package]]
 name = "sentencepiece-sys"
-version = "0.7.1"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7681a618de1b9aad7f73e5c0923d878fb037de3ddbf2901ca8190c28ac9eead4"
+checksum = "c5cc7a8e91c33b63fe497a59963872477e3bae710ac2e5a990938069de296290"
 dependencies = [
  "cc",
  "cmake",
