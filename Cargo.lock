@@ -733,9 +733,9 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "numberer"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8e3416e21d8ca067495679aa32ed86d8e5be2a0a31ba2347ce2dce682e42629"
+checksum = "5126a0d3b8d2d0e69898b8ccac9c362b41103b5b9bf54090de5ba3f29e46a282"
 dependencies = [
  "serde",
  "serde_derive",
