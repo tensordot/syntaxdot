@@ -1,7 +1,8 @@
 use std::io::stdout;
 
 use anyhow::Result;
-use clap::{crate_version, App, AppSettings, Arg, Shell, SubCommand};
+use clap::{builder::EnumValueParser, crate_version, App, AppSettings, Arg, SubCommand};
+use clap_complete::{generate, Shell};
 
 pub mod io;
 
@@ -47,7 +48,7 @@ fn main() -> Result<()> {
             SubCommand::with_name("completions")
                 .about("Generate completion scripts for your shell")
                 .setting(AppSettings::ArgRequiredElseHelp)
-                .arg(Arg::with_name("shell").possible_values(&Shell::variants())),
+                .arg(Arg::with_name("shell").value_parser(EnumValueParser::<Shell>::new())),
         );
     let matches = cli.clone().get_matches();
 
@@ -59,9 +60,9 @@ fn main() -> Result<()> {
             let shell = matches
                 .subcommand_matches("completions")
                 .unwrap()
-                .value_of("shell")
+                .get_one::<Shell>("shell")
                 .unwrap();
-            write_completion_script(cli, shell.parse::<Shell>().unwrap());
+            write_completion_script(cli, *shell);
             Ok(())
         }
         "distill" => {
@@ -82,5 +83,5 @@ fn main() -> Result<()> {
 }
 
 fn write_completion_script(mut cli: App, shell: Shell) {
-    cli.gen_completions_to("syntaxdot", shell, &mut stdout());
+    generate(shell, &mut cli, "syntaxdot", &mut stdout());
 }

@@ -50,7 +50,7 @@ impl PrepareApp {
 }
 
 impl SyntaxDotApp for PrepareApp {
-    fn app() -> App<'static, 'static> {
+    fn app() -> App<'static> {
         App::new("prepare")
             .settings(DEFAULT_CLAP_SETTINGS)
             .about("Prepare shape and label files for training")

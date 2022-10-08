@@ -21,7 +21,7 @@ pub struct FilterLenApp {
 }
 
 impl SyntaxDotApp for FilterLenApp {
-    fn app() -> App<'static, 'static> {
+    fn app() -> App<'static> {
         App::new("filter-len")
             .settings(DEFAULT_CLAP_SETTINGS)
             .about("Filter corpus by the sentence length in pieces")

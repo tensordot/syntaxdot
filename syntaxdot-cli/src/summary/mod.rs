@@ -19,7 +19,7 @@ pub struct SummaryOption;
 impl SyntaxDotOption for SummaryOption {
     type Value = Box<dyn ScalarWriter>;
 
-    fn add_to_app(app: App<'static, 'static>) -> App<'static, 'static> {
+    fn add_to_app(app: App<'static>) -> App<'static> {
         app.arg(
             Arg::with_name(LOG_PREFIX)
                 .long("log-prefix")

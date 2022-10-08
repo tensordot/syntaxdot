@@ -76,7 +76,7 @@ impl AnnotateApp {
 }
 
 impl SyntaxDotApp for AnnotateApp {
-    fn app() -> App<'static, 'static> {
+    fn app() -> App<'static> {
         App::new("annotate")
             .settings(DEFAULT_CLAP_SETTINGS)
             .about("Annotate a corpus")

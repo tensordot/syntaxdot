@@ -19,7 +19,7 @@ pub trait SyntaxDotApp
 where
     Self: Sized,
 {
-    fn app() -> App<'static, 'static>;
+    fn app() -> App<'static>;
 
     fn parse(matches: &ArgMatches) -> Result<Self>;
 
@@ -63,7 +63,7 @@ pub trait SyntaxDotTrainApp: SyntaxDotApp {
 pub trait SyntaxDotOption {
     type Value;
 
-    fn add_to_app(app: App<'static, 'static>) -> App<'static, 'static>;
+    fn add_to_app(app: App<'static>) -> App<'static>;
 
     fn parse(matches: &ArgMatches) -> Result<Self::Value>;
 }
