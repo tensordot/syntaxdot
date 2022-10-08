@@ -409,10 +409,9 @@ impl FinetuneApp {
 }
 
 impl SyntaxDotApp for FinetuneApp {
-    fn app() -> Command<'static> {
+    fn app() -> Command {
         let app = Command::new("finetune")
             .arg_required_else_help(true)
-            .dont_collapse_args_in_usage(true)
             .about("Finetune a model")
             .arg(
                 Arg::new(CONFIG)
@@ -446,7 +445,7 @@ impl SyntaxDotApp for FinetuneApp {
             .arg(
                 Arg::new(BATCH_SIZE)
                     .long("batch-size")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Batch size")
                     .default_value("32"),
             )
@@ -458,7 +457,7 @@ impl SyntaxDotApp for FinetuneApp {
             .arg(
                 Arg::new(GPU)
                     .long("gpu")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
@@ -485,7 +484,7 @@ impl SyntaxDotApp for FinetuneApp {
                 Arg::new(LABEL_SMOOTHING)
                     .long("label-smoothing")
                     .value_name("PROB")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Distribute the given probability to non-target labels"),
             )
             .arg(
@@ -497,7 +496,7 @@ impl SyntaxDotApp for FinetuneApp {
                 Arg::new(MAX_LEN)
                     .long("maxlen")
                     .value_name("N")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Ignore sentences longer than N tokens"),
             )
             .arg(

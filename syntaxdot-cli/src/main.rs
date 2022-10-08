@@ -35,7 +35,6 @@ fn main() -> Result<()> {
 
     let cli = Command::new("syntaxdot")
         .arg_required_else_help(true)
-        .dont_collapse_args_in_usage(true)
         .about("A neural sequence labeler")
         .version(crate_version!())
         .subcommands(apps)

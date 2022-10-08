@@ -50,10 +50,9 @@ impl PrepareApp {
 }
 
 impl SyntaxDotApp for PrepareApp {
-    fn app() -> Command<'static> {
+    fn app() -> Command {
         Command::new("prepare")
             .arg_required_else_help(true)
-            .dont_collapse_args_in_usage(true)
             .about("Prepare shape and label files for training")
             .arg(
                 Arg::new(CONFIG)

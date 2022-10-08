@@ -76,10 +76,9 @@ impl AnnotateApp {
 }
 
 impl SyntaxDotApp for AnnotateApp {
-    fn app() -> Command<'static> {
+    fn app() -> Command {
         Command::new("annotate")
             .arg_required_else_help(true)
-            .dont_collapse_args_in_usage(true)
             .about("Annotate a corpus")
             .arg(
                 Arg::new(CONFIG)
@@ -88,22 +87,17 @@ impl SyntaxDotApp for AnnotateApp {
                     .required(true),
             )
             .arg(Arg::new(INPUT).help("Input data").index(2))
-            .arg(
-                Arg::new(OUTPUT)
-                    .help("Output data")
-                    .index(3)
-                    .takes_value(true),
-            )
+            .arg(Arg::new(OUTPUT).help("Output data").index(3).num_args(1))
             .arg(
                 Arg::new(GPU)
                     .long("gpu")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
                 Arg::new(MAX_BATCH_PIECES)
                     .long("max-batch-pieces")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Maximum number of pieces per batch")
                     .default_value("1000"),
             )
@@ -132,7 +126,7 @@ impl SyntaxDotApp for AnnotateApp {
                 Arg::new(MAX_LEN)
                     .long("maxlen")
                     .value_name("N")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Ignore sentences longer than N tokens"),
             )
             .arg(
