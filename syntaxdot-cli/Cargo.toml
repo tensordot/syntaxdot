@@ -16,7 +16,8 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 bytecount = "0.6"
-clap = "2"
+clap = { version = "3", features = ["cargo"] }
+clap_complete = "3"
 conllu = "0.8"
 env_logger = "0.9"
 indicatif = "0.16"

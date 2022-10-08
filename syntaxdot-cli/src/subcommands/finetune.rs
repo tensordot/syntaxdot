@@ -411,7 +411,7 @@ impl FinetuneApp {
 }
 
 impl SyntaxDotApp for FinetuneApp {
-    fn app() -> App<'static, 'static> {
+    fn app() -> App<'static> {
         let app = App::new("finetune")
             .settings(DEFAULT_CLAP_SETTINGS)
             .about("Finetune a model")

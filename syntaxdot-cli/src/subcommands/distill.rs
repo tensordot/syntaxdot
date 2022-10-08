@@ -962,7 +962,7 @@ impl DistillApp {
 }
 
 impl SyntaxDotApp for DistillApp {
-    fn app() -> App<'static, 'static> {
+    fn app() -> App<'static> {
         let app = App::new("distill")
             .settings(DEFAULT_CLAP_SETTINGS)
             .about("Distill a model")
