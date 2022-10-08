@@ -1,12 +1,12 @@
 use std::io::BufWriter;
 
 use anyhow::{Context, Result};
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use conllu::io::{ReadSentence, Reader, WriteSentence, Writer};
 use stdinout::{Input, Output};
 
 use crate::io::{load_config, load_tokenizer};
-use crate::traits::{SyntaxDotApp, DEFAULT_CLAP_SETTINGS};
+use crate::traits::SyntaxDotApp;
 
 const CONFIG: &str = "CONFIG";
 const MAX_LEN: &str = "MAX_LEN";
@@ -21,35 +21,36 @@ pub struct FilterLenApp {
 }
 
 impl SyntaxDotApp for FilterLenApp {
-    fn app() -> App<'static> {
-        App::new("filter-len")
-            .settings(DEFAULT_CLAP_SETTINGS)
+    fn app() -> Command<'static> {
+        Command::new("filter-len")
+            .arg_required_else_help(true)
+            .dont_collapse_args_in_usage(true)
             .about("Filter corpus by the sentence length in pieces")
             .arg(
-                Arg::with_name(CONFIG)
+                Arg::new(CONFIG)
                     .help("SyntaxDot configuration file")
                     .index(1)
                     .required(true),
             )
             .arg(
-                Arg::with_name(MAX_LEN)
+                Arg::new(MAX_LEN)
                     .help("Maximum sentence length")
                     .index(2)
                     .required(true),
             )
-            .arg(Arg::with_name(INPUT).help("Input corpus").index(3))
-            .arg(Arg::with_name(OUTPUT).help("Output corpus").index(4))
+            .arg(Arg::new(INPUT).help("Input corpus").index(3))
+            .arg(Arg::new(OUTPUT).help("Output corpus").index(4))
     }
 
     fn parse(matches: &ArgMatches) -> Result<Self> {
-        let config = matches.value_of(CONFIG).unwrap().into();
+        let config = matches.get_one::<String>(CONFIG).unwrap().into();
         let max_len = matches
-            .value_of(MAX_LEN)
+            .get_one::<String>(MAX_LEN)
             .unwrap()
             .parse()
             .context("Cannot parse maximum sentence length")?;
-        let input = matches.value_of(INPUT).map(ToOwned::to_owned);
-        let output = matches.value_of(OUTPUT).map(ToOwned::to_owned);
+        let input = matches.get_one::<String>(INPUT).map(ToOwned::to_owned);
+        let output = matches.get_one::<String>(OUTPUT).map(ToOwned::to_owned);
 
         Ok(FilterLenApp {
             config,

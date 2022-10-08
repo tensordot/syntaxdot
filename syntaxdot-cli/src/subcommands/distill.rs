@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Seek};
 
 use anyhow::{anyhow, bail, Context, Result};
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use ordered_float::NotNan;
@@ -30,9 +30,7 @@ use tch::{self, Device, Kind, Reduction, Tensor};
 use crate::io::{load_config, load_pretrain_config, load_tokenizer, Model};
 use crate::progress::ReadProgress;
 use crate::summary::{ScalarWriter, SummaryOption};
-use crate::traits::{
-    ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
-};
+use crate::traits::{ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp};
 use crate::util::{autocast_or_preserve, count_sentences};
 
 const ATTENTION_LOSS: &str = "ATTENTION_LOSS";
@@ -962,48 +960,49 @@ impl DistillApp {
 }
 
 impl SyntaxDotApp for DistillApp {
-    fn app() -> App<'static> {
-        let app = App::new("distill")
-            .settings(DEFAULT_CLAP_SETTINGS)
+    fn app() -> Command<'static> {
+        let app = Command::new("distill")
+            .arg_required_else_help(true)
+            .dont_collapse_args_in_usage(true)
             .about("Distill a model")
             .arg(
-                Arg::with_name(TEACHER_CONFIG)
+                Arg::new(TEACHER_CONFIG)
                     .help("Teacher configuration file")
                     .index(1)
                     .required(true),
             )
             .arg(
-                Arg::with_name(STUDENT_CONFIG)
+                Arg::new(STUDENT_CONFIG)
                     .help("Student configuration file")
                     .index(2)
                     .required(true),
             )
             .arg(
-                Arg::with_name(TRAIN_DATA)
+                Arg::new(TRAIN_DATA)
                     .help("Training data")
                     .index(3)
                     .required(true),
             )
             .arg(
-                Arg::with_name(VALIDATION_DATA)
+                Arg::new(VALIDATION_DATA)
                     .help("Validation data")
                     .index(4)
                     .required(true),
             )
             .arg(
-                Arg::with_name(ATTENTION_LOSS)
+                Arg::new(ATTENTION_LOSS)
                     .long("attention-loss")
                     .help("Add attention score loss"),
             )
             .arg(
-                Arg::with_name(BATCH_SIZE)
+                Arg::new(BATCH_SIZE)
                     .long("batch-size")
                     .takes_value(true)
                     .help("Batch size")
                     .default_value("32"),
             )
             .arg(
-                Arg::with_name(EPOCHS)
+                Arg::new(EPOCHS)
                     .long("epochs")
                     .takes_value(true)
                     .value_name("N")
@@ -1011,7 +1010,7 @@ impl SyntaxDotApp for DistillApp {
                     .default_value("2"),
             )
             .arg(
-                Arg::with_name(EVAL_STEPS)
+                Arg::new(EVAL_STEPS)
                     .long("eval-steps")
                     .takes_value(true)
                     .value_name("N")
@@ -1019,66 +1018,66 @@ impl SyntaxDotApp for DistillApp {
                     .default_value("1000"),
             )
             .arg(
-                Arg::with_name(GPU)
+                Arg::new(GPU)
                     .long("gpu")
                     .takes_value(true)
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
-                Arg::with_name(HIDDEN_LOSS)
+                Arg::new(HIDDEN_LOSS)
                     .long("hidden-loss")
                     .value_name("MAPPING")
                     .takes_value(true)
                     .help("Add hidden representations MSE loss"),
             )
             .arg(
-                Arg::with_name(INITIAL_LR_CLASSIFIER)
+                Arg::new(INITIAL_LR_CLASSIFIER)
                     .long("lr-classifier")
                     .value_name("LR")
                     .help("Initial classifier learning rate")
                     .default_value("5e-5"),
             )
             .arg(
-                Arg::with_name(INITIAL_LR_ENCODER)
+                Arg::new(INITIAL_LR_ENCODER)
                     .long("lr-encoder")
                     .value_name("LR")
                     .help("Initial encoder learning rate")
                     .default_value("5e-5"),
             )
             .arg(
-                Arg::with_name(KEEP_BEST_STEPS)
+                Arg::new(KEEP_BEST_STEPS)
                     .long("keep-best")
                     .value_name("N")
                     .help("Only keep the N best steps"),
             )
             .arg(
-                Arg::with_name(MIXED_PRECISION)
+                Arg::new(MIXED_PRECISION)
                     .long("mixed-precision")
                     .help("Enable automatic mixed-precision"),
             )
             .arg(
-                Arg::with_name(LR_DECAY_RATE)
+                Arg::new(LR_DECAY_RATE)
                     .long("lr-decay-rate")
                     .value_name("N")
                     .help("Exponential decay rate")
                     .default_value("0.99998"),
             )
             .arg(
-                Arg::with_name(LR_DECAY_STEPS)
+                Arg::new(LR_DECAY_STEPS)
                     .long("lr-decay-steps")
                     .value_name("N")
                     .help("Exponential decay rate")
                     .default_value("10"),
             )
             .arg(
-                Arg::with_name(MAX_LEN)
+                Arg::new(MAX_LEN)
                     .long("maxlen")
                     .value_name("N")
                     .takes_value(true)
                     .help("Ignore sentences longer than N tokens"),
             )
             .arg(
-                Arg::with_name(STEPS)
+                Arg::new(STEPS)
                     .long("steps")
                     .value_name("N")
                     .help("Train for N steps")
@@ -1086,7 +1085,7 @@ impl SyntaxDotApp for DistillApp {
                     .overrides_with(EPOCHS),
             )
             .arg(
-                Arg::with_name(WARMUP)
+                Arg::new(WARMUP)
                     .long("warmup")
                     .value_name("N")
                     .help(
@@ -1095,7 +1094,7 @@ impl SyntaxDotApp for DistillApp {
                     .default_value("10000"),
             )
             .arg(
-                Arg::with_name(WEIGHT_DECAY)
+                Arg::new(WEIGHT_DECAY)
                     .long("weight-decay")
                     .value_name("D")
                     .help("Weight decay (L2 penalty).")
@@ -1106,20 +1105,23 @@ impl SyntaxDotApp for DistillApp {
     }
 
     fn parse(matches: &ArgMatches) -> Result<Self> {
-        let teacher_config = matches.value_of(TEACHER_CONFIG).unwrap().into();
-        let student_config = matches.value_of(STUDENT_CONFIG).unwrap().into();
-        let train_data = matches.value_of(TRAIN_DATA).map(ToOwned::to_owned).unwrap();
-        let validation_data = matches
-            .value_of(VALIDATION_DATA)
+        let teacher_config = matches.get_one::<String>(TEACHER_CONFIG).unwrap().into();
+        let student_config = matches.get_one::<String>(STUDENT_CONFIG).unwrap().into();
+        let train_data = matches
+            .get_one::<String>(TRAIN_DATA)
             .map(ToOwned::to_owned)
             .unwrap();
-        let attention_loss = matches.is_present(ATTENTION_LOSS);
+        let validation_data = matches
+            .get_one::<String>(VALIDATION_DATA)
+            .map(ToOwned::to_owned)
+            .unwrap();
+        let attention_loss = matches.contains_id(ATTENTION_LOSS);
         let batch_size = matches
-            .value_of(BATCH_SIZE)
+            .get_one::<String>(BATCH_SIZE)
             .unwrap()
             .parse()
             .context("Cannot parse batch size")?;
-        let device = match matches.value_of("GPU") {
+        let device = match matches.get_one::<String>("GPU") {
             Some(gpu) => Device::Cuda(
                 gpu.parse()
                     .context(format!("Cannot parse GPU number ({})", gpu))?,
@@ -1127,28 +1129,28 @@ impl SyntaxDotApp for DistillApp {
             None => Device::Cpu,
         };
         let eval_steps = matches
-            .value_of(EVAL_STEPS)
+            .get_one::<String>(EVAL_STEPS)
             .unwrap()
             .parse()
             .context("Cannot parse number of batches after which to save")?;
         let hidden_loss = matches
-            .value_of(HIDDEN_LOSS)
-            .map(Self::parse_layer_mappings)
+            .get_one::<String>(HIDDEN_LOSS)
+            .map(|s| Self::parse_layer_mappings(s.as_str()))
             .transpose()?;
         let initial_lr_classifier = matches
-            .value_of(INITIAL_LR_CLASSIFIER)
+            .get_one::<String>(INITIAL_LR_CLASSIFIER)
             .unwrap()
             .parse()
             .context("Cannot parse initial classifier learning rate")?;
         let initial_lr_encoder = matches
-            .value_of(INITIAL_LR_ENCODER)
+            .get_one::<String>(INITIAL_LR_ENCODER)
             .unwrap()
             .parse()
             .context("Cannot parse initial encoder learning rate")?;
         let summary_writer = SummaryOption::parse(matches)?;
 
         let keep_best_steps = matches
-            .value_of(KEEP_BEST_STEPS)
+            .get_one::<String>(KEEP_BEST_STEPS)
             .map(|n| {
                 n.parse()
                     .context("Cannot parse number of best steps to keep")
@@ -1159,42 +1161,42 @@ impl SyntaxDotApp for DistillApp {
         }
 
         let lr_decay_rate = matches
-            .value_of(LR_DECAY_RATE)
+            .get_one::<String>(LR_DECAY_RATE)
             .unwrap()
             .parse()
             .context("Cannot parse exponential decay rate")?;
         let lr_decay_steps = matches
-            .value_of(LR_DECAY_STEPS)
+            .get_one::<String>(LR_DECAY_STEPS)
             .unwrap()
             .parse()
             .context("Cannot parse exponential decay steps")?;
         let max_len = matches
-            .value_of(MAX_LEN)
+            .get_one::<String>(MAX_LEN)
             .map(|v| v.parse().context("Cannot parse maximum sentence length"))
             .transpose()?
             .map(SequenceLength::Tokens)
             .unwrap_or(SequenceLength::Unbounded);
-        let mixed_precision = matches.is_present(MIXED_PRECISION);
+        let mixed_precision = matches.contains_id(MIXED_PRECISION);
         let warmup_steps = matches
-            .value_of(WARMUP)
+            .get_one::<String>(WARMUP)
             .unwrap()
             .parse()
             .context("Cannot parse warmup")?;
         let weight_decay = matches
-            .value_of(WEIGHT_DECAY)
+            .get_one::<String>(WEIGHT_DECAY)
             .unwrap()
             .parse()
             .context("Cannot parse weight decay")?;
 
         // If steps is present, it overrides epochs.
-        let train_duration = if let Some(steps) = matches.value_of(STEPS) {
+        let train_duration = if let Some(steps) = matches.get_one::<String>(STEPS) {
             let steps = steps
                 .parse()
                 .context("Cannot parse the number of training steps")?;
             TrainDuration::Steps(steps)
         } else {
             let epochs = matches
-                .value_of(EPOCHS)
+                .get_one::<String>(EPOCHS)
                 .unwrap()
                 .parse()
                 .context("Cannot parse number of training epochs")?;

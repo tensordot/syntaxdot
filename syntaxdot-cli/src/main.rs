@@ -1,7 +1,7 @@
 use std::io::stdout;
 
 use anyhow::Result;
-use clap::{builder::EnumValueParser, crate_version, App, AppSettings, Arg, SubCommand};
+use clap::{builder::EnumValueParser, crate_version, Arg, Command};
 use clap_complete::{generate, Shell};
 
 pub mod io;
@@ -21,12 +21,6 @@ use traits::SyntaxDotApp;
 
 pub mod util;
 
-static DEFAULT_CLAP_SETTINGS: &[AppSettings] = &[
-    AppSettings::DontCollapseArgsInUsage,
-    AppSettings::UnifiedHelpMessage,
-    AppSettings::SubcommandRequiredElseHelp,
-];
-
 fn main() -> Result<()> {
     // Known subapplications.
     let apps = vec![
@@ -39,16 +33,17 @@ fn main() -> Result<()> {
 
     env_logger::init();
 
-    let cli = App::new("syntaxdot")
-        .settings(DEFAULT_CLAP_SETTINGS)
+    let cli = Command::new("syntaxdot")
+        .arg_required_else_help(true)
+        .dont_collapse_args_in_usage(true)
         .about("A neural sequence labeler")
         .version(crate_version!())
         .subcommands(apps)
         .subcommand(
-            SubCommand::with_name("completions")
+            Command::new("completions")
                 .about("Generate completion scripts for your shell")
-                .setting(AppSettings::ArgRequiredElseHelp)
-                .arg(Arg::with_name("shell").value_parser(EnumValueParser::<Shell>::new())),
+                .arg_required_else_help(true)
+                .arg(Arg::new("shell").value_parser(EnumValueParser::<Shell>::new())),
         );
     let matches = cli.clone().get_matches();
 
@@ -82,6 +77,6 @@ fn main() -> Result<()> {
     }
 }
 
-fn write_completion_script(mut cli: App, shell: Shell) {
+fn write_completion_script(mut cli: Command, shell: Shell) {
     generate(shell, &mut cli, "syntaxdot", &mut stdout());
 }

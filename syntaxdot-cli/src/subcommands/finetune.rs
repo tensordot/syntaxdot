@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::BufReader;
 
 use anyhow::{bail, Context, Result};
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use indicatif::ProgressStyle;
 use ordered_float::NotNan;
 use syntaxdot::dataset::{
@@ -22,9 +22,7 @@ use crate::io::Model;
 use crate::progress::ReadProgress;
 use crate::save::{BestEpochSaver, CompletedUnit, Save};
 use crate::summary::{ScalarWriter, SummaryOption};
-use crate::traits::{
-    ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp, DEFAULT_CLAP_SETTINGS,
-};
+use crate::traits::{ParameterGroup, SyntaxDotApp, SyntaxDotOption, SyntaxDotTrainApp};
 use crate::util::autocast_or_preserve;
 
 const BATCH_SIZE: &str = "BATCH_SIZE";
@@ -411,126 +409,127 @@ impl FinetuneApp {
 }
 
 impl SyntaxDotApp for FinetuneApp {
-    fn app() -> App<'static> {
-        let app = App::new("finetune")
-            .settings(DEFAULT_CLAP_SETTINGS)
+    fn app() -> Command<'static> {
+        let app = Command::new("finetune")
+            .arg_required_else_help(true)
+            .dont_collapse_args_in_usage(true)
             .about("Finetune a model")
             .arg(
-                Arg::with_name(CONFIG)
+                Arg::new(CONFIG)
                     .help("SyntaxDot configuration file")
                     .index(1)
                     .required(true),
             )
             .arg(
-                Arg::with_name(CONTINUE)
+                Arg::new(CONTINUE)
                     .long("continue")
                     .help("Continue training a SyntaxDot model"),
             )
             .arg(
-                Arg::with_name(PRETRAINED_MODEL)
+                Arg::new(PRETRAINED_MODEL)
                     .help("Pretrained model in Torch format")
                     .index(2)
                     .required(true),
             )
             .arg(
-                Arg::with_name(TRAIN_DATA)
+                Arg::new(TRAIN_DATA)
                     .help("Training data")
                     .index(3)
                     .required(true),
             )
             .arg(
-                Arg::with_name(VALIDATION_DATA)
+                Arg::new(VALIDATION_DATA)
                     .help("Validation data")
                     .index(4)
                     .required(true),
             )
             .arg(
-                Arg::with_name(BATCH_SIZE)
+                Arg::new(BATCH_SIZE)
                     .long("batch-size")
                     .takes_value(true)
                     .help("Batch size")
                     .default_value("32"),
             )
             .arg(
-                Arg::with_name(FINETUNE_EMBEDS)
+                Arg::new(FINETUNE_EMBEDS)
                     .long("finetune-embeds")
                     .help("Finetune embeddings"),
             )
             .arg(
-                Arg::with_name(GPU)
+                Arg::new(GPU)
                     .long("gpu")
                     .takes_value(true)
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
-                Arg::with_name(INITIAL_LR_CLASSIFIER)
+                Arg::new(INITIAL_LR_CLASSIFIER)
                     .long("lr-classifier")
                     .value_name("LR")
                     .help("Initial classifier learning rate")
                     .default_value("1e-3"),
             )
             .arg(
-                Arg::with_name(INITIAL_LR_ENCODER)
+                Arg::new(INITIAL_LR_ENCODER)
                     .long("lr-encoder")
                     .value_name("LR")
                     .help("Initial encoder learning rate")
                     .default_value("5e-5"),
             )
             .arg(
-                Arg::with_name(KEEP_BEST_EPOCHS)
+                Arg::new(KEEP_BEST_EPOCHS)
                     .long("keep-best")
                     .value_name("N")
                     .help("Only keep the N best epochs"),
             )
             .arg(
-                Arg::with_name(LABEL_SMOOTHING)
+                Arg::new(LABEL_SMOOTHING)
                     .long("label-smoothing")
                     .value_name("PROB")
                     .takes_value(true)
                     .help("Distribute the given probability to non-target labels"),
             )
             .arg(
-                Arg::with_name(MIXED_PRECISION)
+                Arg::new(MIXED_PRECISION)
                     .long("mixed-precision")
                     .help("Enable automatic mixed-precision"),
             )
             .arg(
-                Arg::with_name(MAX_LEN)
+                Arg::new(MAX_LEN)
                     .long("maxlen")
                     .value_name("N")
                     .takes_value(true)
                     .help("Ignore sentences longer than N tokens"),
             )
             .arg(
-                Arg::with_name(LR_DECAY_RATE)
+                Arg::new(LR_DECAY_RATE)
                     .long("lr-decay-rate")
                     .value_name("N")
                     .help("Exponential decay rate")
                     .default_value("0.99998"),
             )
             .arg(
-                Arg::with_name(LR_PATIENCE)
+                Arg::new(LR_PATIENCE)
                     .long("lr-patience")
                     .value_name("N")
                     .help("Scale learning rate after N epochs without improvement")
                     .default_value("2"),
             )
             .arg(
-                Arg::with_name(LR_SCALE)
+                Arg::new(LR_SCALE)
                     .long("lr-scale")
                     .value_name("SCALE")
                     .help("Value to scale the learning rate by")
                     .default_value("0.9"),
             )
             .arg(
-                Arg::with_name(PATIENCE)
+                Arg::new(PATIENCE)
                     .long("patience")
                     .value_name("N")
                     .help("Maximum number of epochs without improvement")
                     .default_value("15"),
             )
             .arg(
-                Arg::with_name(WARMUP)
+                Arg::new(WARMUP)
                     .long("warmup")
                     .value_name("N")
                     .help(
@@ -539,7 +538,7 @@ impl SyntaxDotApp for FinetuneApp {
                     .default_value("10000"),
             )
             .arg(
-                Arg::with_name(WEIGHT_DECAY)
+                Arg::new(WEIGHT_DECAY)
                     .long("weight-decay")
                     .value_name("D")
                     .help("Weight decay (L2 penalty).")
@@ -550,51 +549,54 @@ impl SyntaxDotApp for FinetuneApp {
     }
 
     fn parse(matches: &ArgMatches) -> Result<Self> {
-        let config = matches.value_of(CONFIG).unwrap().into();
+        let config = matches.get_one::<String>(CONFIG).unwrap().into();
         let pretrained_model = matches
-            .value_of(PRETRAINED_MODEL)
+            .get_one::<String>(PRETRAINED_MODEL)
             .map(ToOwned::to_owned)
             .unwrap();
-        let train_data = matches.value_of(TRAIN_DATA).map(ToOwned::to_owned).unwrap();
+        let train_data = matches
+            .get_one::<String>(TRAIN_DATA)
+            .map(ToOwned::to_owned)
+            .unwrap();
         let validation_data = matches
-            .value_of(VALIDATION_DATA)
+            .get_one::<String>(VALIDATION_DATA)
             .map(ToOwned::to_owned)
             .unwrap();
         let batch_size = matches
-            .value_of(BATCH_SIZE)
+            .get_one::<String>(BATCH_SIZE)
             .unwrap()
             .parse()
             .context("Cannot parse batch size")?;
-        let continue_finetune = matches.is_present(CONTINUE);
-        let device = match matches.value_of("GPU") {
+        let continue_finetune = matches.contains_id(CONTINUE);
+        let device = match matches.get_one::<String>("GPU") {
             Some(gpu) => Device::Cuda(
                 gpu.parse()
                     .context(format!("Cannot parse GPU number ({})", gpu))?,
             ),
             None => Device::Cpu,
         };
-        let finetune_embeds = matches.is_present(FINETUNE_EMBEDS);
+        let finetune_embeds = matches.contains_id(FINETUNE_EMBEDS);
         let initial_lr_classifier = matches
-            .value_of(INITIAL_LR_CLASSIFIER)
+            .get_one::<String>(INITIAL_LR_CLASSIFIER)
             .unwrap()
             .parse()
             .context("Cannot parse initial classifier learning rate")?;
         let initial_lr_encoder = matches
-            .value_of(INITIAL_LR_ENCODER)
+            .get_one::<String>(INITIAL_LR_ENCODER)
             .unwrap()
             .parse()
             .context("Cannot parse initial encoder learning rate")?;
         let label_smoothing = matches
-            .value_of(LABEL_SMOOTHING)
+            .get_one::<String>(LABEL_SMOOTHING)
             .map(|v| {
                 v.parse()
                     .context(format!("Cannot parse label smoothing probability: {}", v))
             })
             .transpose()?;
-        let mixed_precision = matches.is_present(MIXED_PRECISION);
+        let mixed_precision = matches.contains_id(MIXED_PRECISION);
         let summary_writer = SummaryOption::parse(matches)?;
         let max_len = matches
-            .value_of(MAX_LEN)
+            .get_one::<String>(MAX_LEN)
             .map(|v| {
                 v.parse()
                     .context(format!("Cannot parse maximum sentence length: {}", v))
@@ -604,7 +606,7 @@ impl SyntaxDotApp for FinetuneApp {
             .unwrap_or(SequenceLength::Unbounded);
 
         let keep_best_epochs = matches
-            .value_of(KEEP_BEST_EPOCHS)
+            .get_one::<String>(KEEP_BEST_EPOCHS)
             .map(|n| {
                 n.parse()
                     .context("Cannot parse number of best steps to keep")
@@ -615,33 +617,33 @@ impl SyntaxDotApp for FinetuneApp {
         }
 
         let lr_decay_rate = matches
-            .value_of(LR_DECAY_RATE)
+            .get_one::<String>(LR_DECAY_RATE)
             .unwrap()
             .parse()
             .context("Cannot parse exponential decay rate")?;
         let lr_patience = matches
-            .value_of(LR_PATIENCE)
+            .get_one::<String>(LR_PATIENCE)
             .unwrap()
             .parse()
             .context("Cannot parse learning rate patience")?;
         let lr_scale = matches
-            .value_of(LR_SCALE)
+            .get_one::<String>(LR_SCALE)
             .unwrap()
             .parse()
             .context("Cannot parse learning rate scale")?;
         let patience = matches
-            .value_of(PATIENCE)
+            .get_one::<String>(PATIENCE)
             .unwrap()
             .parse()
             .context("Cannot parse patience")?;
         let saver = BestEpochSaver::new("", keep_best_epochs);
         let warmup_steps = matches
-            .value_of(WARMUP)
+            .get_one::<String>(WARMUP)
             .unwrap()
             .parse()
             .context("Cannot parse warmup")?;
         let weight_decay = matches
-            .value_of(WEIGHT_DECAY)
+            .get_one::<String>(WEIGHT_DECAY)
             .unwrap()
             .parse()
             .context("Cannot parse weight decay")?;
