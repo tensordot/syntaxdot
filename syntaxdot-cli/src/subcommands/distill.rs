@@ -960,10 +960,9 @@ impl DistillApp {
 }
 
 impl SyntaxDotApp for DistillApp {
-    fn app() -> Command<'static> {
+    fn app() -> Command {
         let app = Command::new("distill")
             .arg_required_else_help(true)
-            .dont_collapse_args_in_usage(true)
             .about("Distill a model")
             .arg(
                 Arg::new(TEACHER_CONFIG)
@@ -997,14 +996,14 @@ impl SyntaxDotApp for DistillApp {
             .arg(
                 Arg::new(BATCH_SIZE)
                     .long("batch-size")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Batch size")
                     .default_value("32"),
             )
             .arg(
                 Arg::new(EPOCHS)
                     .long("epochs")
-                    .takes_value(true)
+                    .num_args(1)
                     .value_name("N")
                     .help("Train for N epochs")
                     .default_value("2"),
@@ -1012,7 +1011,7 @@ impl SyntaxDotApp for DistillApp {
             .arg(
                 Arg::new(EVAL_STEPS)
                     .long("eval-steps")
-                    .takes_value(true)
+                    .num_args(1)
                     .value_name("N")
                     .help("Evaluate after N steps, save the model on improvement")
                     .default_value("1000"),
@@ -1020,14 +1019,14 @@ impl SyntaxDotApp for DistillApp {
             .arg(
                 Arg::new(GPU)
                     .long("gpu")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
                 Arg::new(HIDDEN_LOSS)
                     .long("hidden-loss")
                     .value_name("MAPPING")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Add hidden representations MSE loss"),
             )
             .arg(
@@ -1073,7 +1072,7 @@ impl SyntaxDotApp for DistillApp {
                 Arg::new(MAX_LEN)
                     .long("maxlen")
                     .value_name("N")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("Ignore sentences longer than N tokens"),
             )
             .arg(
@@ -1081,7 +1080,7 @@ impl SyntaxDotApp for DistillApp {
                     .long("steps")
                     .value_name("N")
                     .help("Train for N steps")
-                    .takes_value(true)
+                    .num_args(1)
                     .overrides_with(EPOCHS),
             )
             .arg(

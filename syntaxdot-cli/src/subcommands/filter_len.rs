@@ -21,10 +21,9 @@ pub struct FilterLenApp {
 }
 
 impl SyntaxDotApp for FilterLenApp {
-    fn app() -> Command<'static> {
+    fn app() -> Command {
         Command::new("filter-len")
             .arg_required_else_help(true)
-            .dont_collapse_args_in_usage(true)
             .about("Filter corpus by the sentence length in pieces")
             .arg(
                 Arg::new(CONFIG)

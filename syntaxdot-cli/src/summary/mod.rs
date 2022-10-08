@@ -19,12 +19,12 @@ pub struct SummaryOption;
 impl SyntaxDotOption for SummaryOption {
     type Value = Box<dyn ScalarWriter>;
 
-    fn add_to_app(app: Command<'static>) -> Command<'static> {
+    fn add_to_app(app: Command) -> Command {
         app.arg(
             Arg::new(LOG_PREFIX)
                 .long("log-prefix")
                 .value_name("PREFIX")
-                .takes_value(true)
+                .num_args(1)
                 .help("Prefix for Tensorboard logs"),
         )
     }
