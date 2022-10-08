@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufReader, Write};
 
 use anyhow::{Context, Result};
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use conllu::io::{ReadSentence, Reader};
 use indicatif::ProgressStyle;
 use syntaxdot::config::{BiaffineParserConfig, Config};
@@ -11,7 +11,7 @@ use syntaxdot_encoders::SentenceEncoder;
 
 use crate::io::load_config;
 use crate::progress::ReadProgress;
-use crate::traits::{SyntaxDotApp, DEFAULT_CLAP_SETTINGS};
+use crate::traits::SyntaxDotApp;
 use syntaxdot_encoders::dependency::MutableDependencyEncoder;
 
 const CONFIG: &str = "CONFIG";
@@ -50,18 +50,19 @@ impl PrepareApp {
 }
 
 impl SyntaxDotApp for PrepareApp {
-    fn app() -> App<'static> {
-        App::new("prepare")
-            .settings(DEFAULT_CLAP_SETTINGS)
+    fn app() -> Command<'static> {
+        Command::new("prepare")
+            .arg_required_else_help(true)
+            .dont_collapse_args_in_usage(true)
             .about("Prepare shape and label files for training")
             .arg(
-                Arg::with_name(CONFIG)
+                Arg::new(CONFIG)
                     .help("SyntaxDot configuration file")
                     .index(1)
                     .required(true),
             )
             .arg(
-                Arg::with_name(TRAIN_DATA)
+                Arg::new(TRAIN_DATA)
                     .help("Training data")
                     .index(2)
                     .required(true),
@@ -69,8 +70,8 @@ impl SyntaxDotApp for PrepareApp {
     }
 
     fn parse(matches: &ArgMatches) -> Result<Self> {
-        let config = matches.value_of(CONFIG).unwrap().into();
-        let train_data = matches.value_of(TRAIN_DATA).unwrap().into();
+        let config = matches.get_one::<String>(CONFIG).unwrap().into();
+        let train_data = matches.get_one::<String>(TRAIN_DATA).unwrap().into();
 
         Ok(PrepareApp { config, train_data })
     }

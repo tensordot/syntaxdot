@@ -1,12 +1,7 @@
 use anyhow::Result;
-use clap::{App, AppSettings, ArgMatches};
+use clap::{ArgMatches, Command};
 use syntaxdot::optimizers::{GradScaler, Optimizer};
 use tch::nn::{adamw, Optimizer as TchOptimizer, OptimizerConfig, VarStore};
-
-pub static DEFAULT_CLAP_SETTINGS: &[AppSettings] = &[
-    AppSettings::DontCollapseArgsInUsage,
-    AppSettings::UnifiedHelpMessage,
-];
 
 pub enum ParameterGroup {
     Encoder = 0,
@@ -19,7 +14,7 @@ pub trait SyntaxDotApp
 where
     Self: Sized,
 {
-    fn app() -> App<'static>;
+    fn app() -> Command<'static>;
 
     fn parse(matches: &ArgMatches) -> Result<Self>;
 
@@ -63,7 +58,7 @@ pub trait SyntaxDotTrainApp: SyntaxDotApp {
 pub trait SyntaxDotOption {
     type Value;
 
-    fn add_to_app(app: App<'static>) -> App<'static>;
+    fn add_to_app(app: Command<'static>) -> Command<'static>;
 
     fn parse(matches: &ArgMatches) -> Result<Self::Value>;
 }

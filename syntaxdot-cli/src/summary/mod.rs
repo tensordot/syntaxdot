@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 
 use crate::traits::SyntaxDotOption;
 
@@ -19,9 +19,9 @@ pub struct SummaryOption;
 impl SyntaxDotOption for SummaryOption {
     type Value = Box<dyn ScalarWriter>;
 
-    fn add_to_app(app: App<'static>) -> App<'static> {
+    fn add_to_app(app: Command<'static>) -> Command<'static> {
         app.arg(
-            Arg::with_name(LOG_PREFIX)
+            Arg::new(LOG_PREFIX)
                 .long("log-prefix")
                 .value_name("PREFIX")
                 .takes_value(true)
@@ -30,7 +30,7 @@ impl SyntaxDotOption for SummaryOption {
     }
 
     fn parse(matches: &ArgMatches) -> Result<Self::Value> {
-        Ok(match matches.value_of(LOG_PREFIX) {
+        Ok(match matches.get_one::<String>(LOG_PREFIX) {
             Some(prefix) => {
                 Box::new(tensorboard::TensorBoardWriter::new(prefix)?) as Box<dyn ScalarWriter>
             }

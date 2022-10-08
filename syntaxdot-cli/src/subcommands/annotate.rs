@@ -1,7 +1,7 @@
 use std::io::BufWriter;
 
 use anyhow::{Context, Result};
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use conllu::io::{ReadSentence, Reader, WriteSentence, Writer};
 use stdinout::{Input, Output};
 use syntaxdot::tagger::Tagger;
@@ -11,7 +11,7 @@ use tch::{self, Device};
 use crate::io::Model;
 use crate::progress::TaggerSpeed;
 use crate::sent_proc::SentProcessor;
-use crate::traits::{SyntaxDotApp, DEFAULT_CLAP_SETTINGS};
+use crate::traits::SyntaxDotApp;
 
 const CONFIG: &str = "CONFIG";
 const GPU: &str = "GPU";
@@ -76,66 +76,67 @@ impl AnnotateApp {
 }
 
 impl SyntaxDotApp for AnnotateApp {
-    fn app() -> App<'static> {
-        App::new("annotate")
-            .settings(DEFAULT_CLAP_SETTINGS)
+    fn app() -> Command<'static> {
+        Command::new("annotate")
+            .arg_required_else_help(true)
+            .dont_collapse_args_in_usage(true)
             .about("Annotate a corpus")
             .arg(
-                Arg::with_name(CONFIG)
+                Arg::new(CONFIG)
                     .help("SyntaxDot configuration file")
                     .index(1)
                     .required(true),
             )
-            .arg(Arg::with_name(INPUT).help("Input data").index(2))
+            .arg(Arg::new(INPUT).help("Input data").index(2))
             .arg(
-                Arg::with_name(OUTPUT)
+                Arg::new(OUTPUT)
                     .help("Output data")
                     .index(3)
                     .takes_value(true),
             )
             .arg(
-                Arg::with_name(GPU)
+                Arg::new(GPU)
                     .long("gpu")
                     .takes_value(true)
                     .help("Use the GPU with the given identifier"),
             )
             .arg(
-                Arg::with_name(MAX_BATCH_PIECES)
+                Arg::new(MAX_BATCH_PIECES)
                     .long("max-batch-pieces")
                     .takes_value(true)
                     .help("Maximum number of pieces per batch")
                     .default_value("1000"),
             )
             .arg(
-                Arg::with_name(NUM_ANNOTATION_THREADS)
+                Arg::new(NUM_ANNOTATION_THREADS)
                     .help("Annotation threads")
                     .long("annotation-threads")
                     .value_name("N")
                     .default_value("4"),
             )
             .arg(
-                Arg::with_name(NUM_INTEROP_THREADS)
+                Arg::new(NUM_INTEROP_THREADS)
                     .help("Inter op parallelism threads")
                     .long("interop-threads")
                     .value_name("N")
                     .default_value("1"),
             )
             .arg(
-                Arg::with_name(NUM_INTRAOP_THREADS)
+                Arg::new(NUM_INTRAOP_THREADS)
                     .help("Intra op parallelism threads")
                     .long("intraop-threads")
                     .value_name("N")
                     .default_value("1"),
             )
             .arg(
-                Arg::with_name(MAX_LEN)
+                Arg::new(MAX_LEN)
                     .long("maxlen")
                     .value_name("N")
                     .takes_value(true)
                     .help("Ignore sentences longer than N tokens"),
             )
             .arg(
-                Arg::with_name(READ_AHEAD)
+                Arg::new(READ_AHEAD)
                     .help("Readahead (number of sentences)")
                     .long("readahead")
                     .default_value("5000"),
@@ -143,42 +144,42 @@ impl SyntaxDotApp for AnnotateApp {
     }
 
     fn parse(matches: &ArgMatches) -> Result<Self> {
-        let config = matches.value_of(CONFIG).unwrap().into();
-        let device = match matches.value_of("GPU") {
+        let config = matches.get_one::<String>(CONFIG).unwrap().into();
+        let device = match matches.get_one::<String>("GPU") {
             Some(gpu) => Device::Cuda(
                 gpu.parse()
                     .context(format!("Cannot parse GPU number ({})", gpu))?,
             ),
             None => Device::Cpu,
         };
-        let input = matches.value_of(INPUT).map(ToOwned::to_owned);
+        let input = matches.get_one::<String>(INPUT).map(ToOwned::to_owned);
         let max_batch_pieces = matches
-            .value_of(MAX_BATCH_PIECES)
+            .get_one::<String>(MAX_BATCH_PIECES)
             .unwrap()
             .parse()
             .context("Cannot parse maximum number of batch pieces")?;
         let num_annotation_threads = matches
-            .value_of(NUM_ANNOTATION_THREADS)
+            .get_one::<String>(NUM_ANNOTATION_THREADS)
             .unwrap()
             .parse()
             .context("Cannot number of inter op threads")?;
         let num_interop_threads = matches
-            .value_of(NUM_INTEROP_THREADS)
+            .get_one::<String>(NUM_INTEROP_THREADS)
             .unwrap()
             .parse()
             .context("Cannot number of inter op threads")?;
         let num_intraop_threads = matches
-            .value_of(NUM_INTRAOP_THREADS)
+            .get_one::<String>(NUM_INTRAOP_THREADS)
             .unwrap()
             .parse()
             .context("Cannot number of intra op threads")?;
         let max_len = matches
-            .value_of(MAX_LEN)
+            .get_one::<String>(MAX_LEN)
             .map(|v| v.parse().context("Cannot parse maximum sentence length"))
             .transpose()?;
-        let output = matches.value_of(OUTPUT).map(ToOwned::to_owned);
+        let output = matches.get_one::<String>(OUTPUT).map(ToOwned::to_owned);
         let read_ahead = matches
-            .value_of(READ_AHEAD)
+            .get_one::<String>(READ_AHEAD)
             .unwrap()
             .parse()
             .context("Cannot parse number of sentences to read ahead")?;
