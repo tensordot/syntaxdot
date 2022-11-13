@@ -84,6 +84,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
+    use syntaxdot_tch_ext::tensor::SumDim;
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
@@ -176,7 +177,7 @@ mod tests {
                 .last()
                 .unwrap()
                 .output()
-                .sum_dim_intlist(&[-1], false, Kind::Float);
+                .sum_dim(-1, false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();
 
@@ -223,7 +224,7 @@ mod tests {
             .unwrap()
             .output()
             .slice(-2, 0, 10, 1)
-            .sum_dim_intlist(&[-1], false, Kind::Float);
+            .sum_dim(-1, false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_last_hidden).try_into().unwrap();
 
