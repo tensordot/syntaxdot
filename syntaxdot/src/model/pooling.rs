@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use syntaxdot_tch_ext::tensor::SumDim;
 use syntaxdot_transformers::models::LayerOutput;
 use syntaxdot_transformers::TransformerError;
 use tch::{Kind, Tensor};
@@ -82,11 +83,11 @@ impl PiecePooler {
     fn pool_mean(token_embeddings: &TokenEmbeddings) -> Result<Tensor, TransformerError> {
         let pieces_per_token = token_embeddings
             .mask
-            .f_sum_dim_intlist(&[2], false, Kind::Float)?
+            .f_sum_dim(2, false, Kind::Float)?
             .f_clamp_min(1)?;
         Ok(token_embeddings
             .embeddings
-            .f_sum_dim_intlist(&[2], false, Kind::Float)?
+            .f_sum_dim(2, false, Kind::Float)?
             .f_div(&pieces_per_token.f_unsqueeze(-1)?)?)
     }
 }

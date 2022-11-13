@@ -2,6 +2,7 @@
 
 use std::borrow::Borrow;
 
+use syntaxdot_tch_ext::tensor::SumDim;
 use syntaxdot_tch_ext::PathExt;
 use tch::nn::{Init, Linear, Module};
 use tch::{Kind, Reduction, Tensor};
@@ -138,7 +139,7 @@ impl ScalarWeight {
 
         // Sum across all layers and scale.
         Ok(weighted_layers
-            .f_sum_dim_intlist(&[-2], false, Kind::Float)?
+            .f_sum_dim(-2, false, Kind::Float)?
             .f_mul(&self.scale)?)
     }
 }

@@ -3,10 +3,11 @@ use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
 
 use ndarray::{s, Array1, Array2, ArrayView1};
+use syntaxdot_tch_ext::tensor::SumDim;
+use syntaxdot_transformers::TransformerError;
 use tch::{Device, Kind, Tensor};
 
 use crate::error::SyntaxDotError;
-use syntaxdot_transformers::TransformerError;
 
 /// Tensors for biaffine encodings.
 #[derive(Debug, PartialEq)]
@@ -393,7 +394,7 @@ impl TokenSpans {
     pub fn seq_lens(&self) -> Result<Tensor, SyntaxDotError> {
         Ok(self
             .token_mask()?
-            .f_sum_dim_intlist(&[-1], false, self.offsets().kind())?)
+            .f_sum_dim(-1, false, self.offsets().kind())?)
     }
 
     /// Get the token spans with the ROOT depedency token prepended.

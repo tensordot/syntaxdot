@@ -1,3 +1,4 @@
+use syntaxdot_tch_ext::tensor::SumDim;
 use tch::{Kind, Reduction, Tensor};
 
 use crate::TransformerError;
@@ -83,7 +84,7 @@ impl CrossEntropyLoss {
                     Some(target_mask) => {
                         let batch_probs = label_smoothing
                             / target_mask
-                                .f_sum_dim_intlist(&[-1], false, Kind::Float)?
+                                .f_sum_dim(-1, false, Kind::Float)?
                                 .f_sub_scalar(1)?;
                         Tensor::f_zeros_like(&log_probs)?
                             // Set label probabilities to batch smoothing probability.
@@ -98,8 +99,8 @@ impl CrossEntropyLoss {
                             )
                     }
                 })?;
-                let losses = (smoothed_targets.f_neg()?.f_mul(&log_probs)?).f_sum_dim_intlist(
-                    &[-1],
+                let losses = (smoothed_targets.f_neg()?.f_mul(&log_probs)?).f_sum_dim(
+                    -1,
                     false,
                     log_probs.kind(),
                 )?;

@@ -2,8 +2,9 @@
 
 use std::ops::Deref;
 
-use crate::TransformerError;
 use tch::{Device, Kind, Tensor};
+
+use crate::TransformerError;
 
 /// Mask of logit values
 ///
@@ -157,6 +158,7 @@ pub mod tests {
 
     use approx::assert_abs_diff_eq;
     use ndarray::{array, ArrayD};
+    use syntaxdot_tch_ext::tensor::SumDim;
     use tch::{Device, Kind, Tensor};
 
     use crate::util::{LogitsMask, SinusoidalPositions};
@@ -194,7 +196,7 @@ pub mod tests {
         let positions: Tensor =
             SinusoidalPositions::sinusoidal_positions(5, 8, Some(1.), (Kind::Float, Device::Cpu))
                 .unwrap();
-        let norms: ArrayD<f32> = (&positions.abs().sum_dim_intlist(&[-1], false, Kind::Float))
+        let norms: ArrayD<f32> = (&positions.abs().sum_dim(-1, false, Kind::Float))
             .try_into()
             .unwrap();
         assert_abs_diff_eq!(norms, array![1., 1., 1., 1., 1.].into_dyn(), epsilon = 1e-4);

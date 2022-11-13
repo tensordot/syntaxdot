@@ -5,6 +5,8 @@ use itertools::Itertools;
 use tch::nn::{Init, Path, VarStore};
 use tch::{TchError, Tensor};
 
+pub mod tensor;
+
 /// Trait that provides the root of a variable store.
 pub trait RootExt {
     /// Get the root of a variable store.

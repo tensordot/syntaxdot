@@ -21,6 +21,7 @@ use syntaxdot::model::biaffine_dependency_layer::BiaffineScoreLogits;
 use syntaxdot::optimizers::{GradScaler, Optimizer};
 use syntaxdot::tensor::{Tensors, TokenMask};
 use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
+use syntaxdot_tch_ext::tensor::SumDim;
 use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
 use syntaxdot_transformers::models::LayerOutput;
@@ -478,7 +479,7 @@ impl DistillApp {
             let soft_losses = teacher_probs.f_mul(&student_logprobs)?.f_neg()?;
             let _ = loss.f_add_(
                 &soft_losses
-                    .f_sum_dim_intlist(&[-1], false, Kind::Float)?
+                    .f_sum_dim(-1, false, Kind::Float)?
                     .f_mean(Kind::Float)?,
             )?;
         }

@@ -149,6 +149,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use maplit::btreeset;
     use ndarray::{array, ArrayD};
+    use syntaxdot_tch_ext::tensor::SumDim;
     use syntaxdot_tch_ext::RootExt;
     use tch::nn::VarStore;
     use tch::{Device, Kind, Tensor};
@@ -197,10 +198,11 @@ mod tests {
         let pieces = Tensor::of_slice(&[133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2])
             .reshape(&[1, 10]);
 
-        let summed_embeddings = embeddings
-            .forward_t(&pieces, false)
-            .unwrap()
-            .sum_dim_intlist(&[-1], false, Kind::Float);
+        let summed_embeddings =
+            embeddings
+                .forward_t(&pieces, false)
+                .unwrap()
+                .sum_dim(-1, false, Kind::Float);
 
         let sums: ArrayD<f32> = (&summed_embeddings).try_into().unwrap();
 
