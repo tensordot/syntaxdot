@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::BufReader;
 
 use anyhow::{bail, Context, Result};
-use clap::{Arg, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use indicatif::ProgressStyle;
 use ordered_float::NotNan;
 use syntaxdot::dataset::{
@@ -422,6 +422,7 @@ impl SyntaxDotApp for FinetuneApp {
             .arg(
                 Arg::new(CONTINUE)
                     .long("continue")
+                    .action(ArgAction::SetTrue)
                     .help("Continue training a SyntaxDot model"),
             )
             .arg(
@@ -452,6 +453,7 @@ impl SyntaxDotApp for FinetuneApp {
             .arg(
                 Arg::new(FINETUNE_EMBEDS)
                     .long("finetune-embeds")
+                    .action(ArgAction::SetTrue)
                     .help("Finetune embeddings"),
             )
             .arg(
@@ -490,6 +492,7 @@ impl SyntaxDotApp for FinetuneApp {
             .arg(
                 Arg::new(MIXED_PRECISION)
                     .long("mixed-precision")
+                    .action(ArgAction::SetTrue)
                     .help("Enable automatic mixed-precision"),
             )
             .arg(
@@ -566,7 +569,7 @@ impl SyntaxDotApp for FinetuneApp {
             .unwrap()
             .parse()
             .context("Cannot parse batch size")?;
-        let continue_finetune = matches.contains_id(CONTINUE);
+        let continue_finetune = matches.get_flag(CONTINUE);
         let device = match matches.get_one::<String>("GPU") {
             Some(gpu) => Device::Cuda(
                 gpu.parse()
@@ -574,7 +577,7 @@ impl SyntaxDotApp for FinetuneApp {
             ),
             None => Device::Cpu,
         };
-        let finetune_embeds = matches.contains_id(FINETUNE_EMBEDS);
+        let finetune_embeds = matches.get_flag(FINETUNE_EMBEDS);
         let initial_lr_classifier = matches
             .get_one::<String>(INITIAL_LR_CLASSIFIER)
             .unwrap()
@@ -592,7 +595,7 @@ impl SyntaxDotApp for FinetuneApp {
                     .context(format!("Cannot parse label smoothing probability: {}", v))
             })
             .transpose()?;
-        let mixed_precision = matches.contains_id(MIXED_PRECISION);
+        let mixed_precision = matches.get_flag(MIXED_PRECISION);
         let summary_writer = SummaryOption::parse(matches)?;
         let max_len = matches
             .get_one::<String>(MAX_LEN)

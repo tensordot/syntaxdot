@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Seek};
 
 use anyhow::{anyhow, bail, Context, Result};
-use clap::{Arg, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use ordered_float::NotNan;
@@ -992,6 +992,7 @@ impl SyntaxDotApp for DistillApp {
             .arg(
                 Arg::new(ATTENTION_LOSS)
                     .long("attention-loss")
+                    .action(ArgAction::SetTrue)
                     .help("Add attention score loss"),
             )
             .arg(
@@ -1053,6 +1054,7 @@ impl SyntaxDotApp for DistillApp {
             .arg(
                 Arg::new(MIXED_PRECISION)
                     .long("mixed-precision")
+                    .action(ArgAction::SetTrue)
                     .help("Enable automatic mixed-precision"),
             )
             .arg(
@@ -1115,7 +1117,7 @@ impl SyntaxDotApp for DistillApp {
             .get_one::<String>(VALIDATION_DATA)
             .map(ToOwned::to_owned)
             .unwrap();
-        let attention_loss = matches.contains_id(ATTENTION_LOSS);
+        let attention_loss = matches.get_flag(ATTENTION_LOSS);
         let batch_size = matches
             .get_one::<String>(BATCH_SIZE)
             .unwrap()
@@ -1176,7 +1178,7 @@ impl SyntaxDotApp for DistillApp {
             .transpose()?
             .map(SequenceLength::Tokens)
             .unwrap_or(SequenceLength::Unbounded);
-        let mixed_precision = matches.contains_id(MIXED_PRECISION);
+        let mixed_precision = matches.get_flag(MIXED_PRECISION);
         let warmup_steps = matches
             .get_one::<String>(WARMUP)
             .unwrap()
