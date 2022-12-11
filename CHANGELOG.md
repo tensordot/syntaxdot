@@ -1,17 +1,22 @@
 # Changelog
 
+## 0.5.0
+
 ### Changed
 
 - Change parser dependency relation prediction to use a biaffine layer rather
   than a pairwise biaffine layer. This simplified some code and can be slightly
   faster.
 - Update to [libtorch
-  1.10.0](https://github.com/pytorch/pytorch/releases/tag/v1.10.0) and
-  [tch 0.6.1](https://github.com/LaurentMazare/tch-rs).
+  1.13.0](https://github.com/pytorch/pytorch/releases/tag/v1.13.0) and
+  [tch 0.9.0](https://github.com/LaurentMazare/tch-rs).
+- Update to clap 4.
+- Absorb `ohnomore` into SyntaxDot.
 
 ### Fixed
 
 - Use the correct ID for unknown pieces in `XlmRobertaTokenizer`.
+- Linux AArch64 builds.
 
 ## 0.4.1
 
