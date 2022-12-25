@@ -117,6 +117,55 @@ impl CrossEntropyLoss {
     }
 }
 
+/// Mean squared error loss normalization.
+pub enum MSELossNormalization {
+    /// Take the mean of all losses.
+    Mean,
+
+    /// Normalize by squared L2 norm of columns.
+    ///
+    /// The resulting losses are averaged.
+    SquaredL2Norm,
+}
+
+/// Mean squared error loss.
+pub struct MSELoss {
+    normalization: MSELossNormalization,
+}
+
+impl MSELoss {
+    /// Construct mean squared error loss.
+    pub fn new(normalization: MSELossNormalization) -> Self {
+        MSELoss { normalization }
+    }
+
+    /// Compute the mean squared error loss.
+    ///
+    /// Computes the loss of `prediction` given `target`. The tensor
+    /// must be two-dimensional and have the same shape. The loss is
+    /// returned as a scalar.
+    pub fn forward(&self, prediction: &Tensor, target: &Tensor) -> Result<Tensor, tch::TchError> {
+        let reduction = match self.normalization {
+            MSELossNormalization::Mean => Reduction::Mean,
+            MSELossNormalization::SquaredL2Norm => Reduction::None,
+        };
+
+        let loss = prediction.f_mse_loss(target, reduction);
+
+        match self.normalization {
+            MSELossNormalization::Mean => loss,
+            MSELossNormalization::SquaredL2Norm => {
+                let norm = target.f_frobenius_norm_dim(&[1], true)?.f_square()?;
+                let (batch_size, _) = target.size2()?;
+                loss?
+                    .f_div(&norm)?
+                    .f_sum(Kind::Float)?
+                    .f_div_scalar(batch_size)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::convert::TryInto;
@@ -126,6 +175,8 @@ mod tests {
     use tch::{Reduction, Tensor};
 
     use crate::loss::CrossEntropyLoss;
+
+    use super::MSELoss;
 
     #[test]
     fn cross_entropy_loss_without_label_smoothing() {
@@ -162,5 +213,23 @@ mod tests {
             .try_into()
             .unwrap();
         assert_abs_diff_eq!(loss, array![0.632653].into_dyn(), epsilon = 1e-6);
+    }
+
+    #[test]
+    fn mse_loss_with_averaging() {
+        let prediction = Tensor::of_slice(&[-0.5, -0.5, 0.0, 1.0]).view([1, 4]);
+        let target = Tensor::of_slice(&[-1.0, 0.0, 1.0, 1.0]).view([1, 4]);
+        let mse_loss = MSELoss::new(super::MSELossNormalization::Mean);
+        let loss = &mse_loss.forward(&prediction, &target).unwrap();
+        assert_abs_diff_eq!(f32::from(loss), 0.375f32, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn mse_loss_with_squared_l2_norm() {
+        let prediction = Tensor::of_slice(&[-0.5, -0.5, 0.0, 1.0]).view([2, 2]);
+        let target = Tensor::of_slice(&[-1.0, 0.0, 1.0, 1.0]).view([2, 2]);
+        let mse_loss = MSELoss::new(super::MSELossNormalization::SquaredL2Norm);
+        let loss = mse_loss.forward(&prediction, &target).unwrap();
+        assert_abs_diff_eq!(f32::from(loss), 0.5, epsilon = 1e-6);
     }
 }
