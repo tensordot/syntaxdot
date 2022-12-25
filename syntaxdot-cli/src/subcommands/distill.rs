@@ -24,6 +24,7 @@ use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
 use syntaxdot_tch_ext::tensor::SumDim;
 use syntaxdot_tch_ext::RootExt;
 use syntaxdot_tokenizers::Tokenize;
+use syntaxdot_transformers::loss::{MSELoss, MSELossNormalization};
 use syntaxdot_transformers::models::LayerOutput;
 use tch::nn::{Init, VarStore};
 use tch::{self, Device, Kind, Reduction, Tensor};
@@ -400,7 +401,12 @@ impl DistillApp {
     ) -> Result<Tensor> {
         let token_mask = token_mask.with_root()?;
 
+        let mse_loss = MSELoss::new(MSELossNormalization::SquaredL2Norm);
         let mut loss = Tensor::zeros(&[], (Kind::Float, self.device));
+
+        let (batch_size, _) = token_mask
+            .size2()
+            .map_err(|e| anyhow!("Cannot get token mask shape: {}", e))?;
 
         for mapping in mappings {
             let teacher_output = teacher_layer_outputs
@@ -418,7 +424,10 @@ impl DistillApp {
                 .f_matmul(&mapping.mapping)?
                 .f_masked_select(&token_mask.f_unsqueeze(-1)?)?;
 
-            let _ = loss.f_add_(&student_hidden.f_mse_loss(&teacher_hidden, Reduction::Mean)?)?;
+            let teacher_hidden = teacher_hidden.f_reshape(&[batch_size, -1])?;
+            let student_hidden = student_hidden.f_reshape(&[batch_size, -1])?;
+
+            let _ = loss.f_add_(&mse_loss.forward(&student_hidden, &teacher_hidden)?);
         }
 
         Ok(loss)
