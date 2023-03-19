@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 ndarray = "0.15"
-sentencepiece = "0.8"
+sentencepiece = "0.11"
 thiserror = "1"
 udgraph = "0.8"
 wordpieces = "0.5"

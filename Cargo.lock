@@ -869,7 +869,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "444879275cb4fd84958b1a1d5420d15e6fcf7c235fe47f053c9c2a80aceb6001"
 dependencies = [
  "bytes",
- "prost-derive",
+ "prost-derive 0.9.0",
+]
+
+[[package]]
+name = "prost"
+version = "0.11.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e48e50df39172a3e7eb17e14642445da64996989bc212b583015435d39a58537"
+dependencies = [
+ "bytes",
+ "prost-derive 0.11.8",
 ]
 
 [[package]]
@@ -877,6 +887,19 @@ name = "prost-derive"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9cc1a3263e07e0bf68e96268f37665207b49560d98739662cdfaae215c720fe"
+dependencies = [
+ "anyhow",
+ "itertools",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "prost-derive"
+version = "0.11.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ea9b0f8cbe5e15a8a042d030bd96668db28ecb567ec37d691971ff5731d2b1b"
 dependencies = [
  "anyhow",
  "itertools",
@@ -1019,24 +1042,24 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "sentencepiece"
-version = "0.8.2"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1945339493a109da875890ff817b4aaad985bb16a981f3fcc8fc632782fc319b"
+checksum = "2ac0fe0a058087435ba81eb68b39d19315a1128deac20302d3a6cef2d2f5e706"
 dependencies = [
  "libc",
  "num-derive",
  "num-traits",
- "prost",
- "prost-derive",
+ "prost 0.11.8",
+ "prost-derive 0.11.8",
  "sentencepiece-sys",
  "thiserror",
 ]
 
 [[package]]
 name = "sentencepiece-sys"
-version = "0.8.3"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5cc7a8e91c33b63fe497a59963872477e3bae710ac2e5a990938069de296290"
+checksum = "48fee38c1c891928e4c84cd6d3f717c3a9f5508770a0d2532e01c599ade6795c"
 dependencies = [
  "cc",
  "cmake",
@@ -1239,7 +1262,7 @@ name = "syntaxdot-summary"
 version = "0.5.0-beta.2"
 dependencies = [
  "hostname",
- "prost",
+ "prost 0.9.0",
 ]
 
 [[package]]

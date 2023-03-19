@@ -62,7 +62,7 @@ impl Tokenize for XlmRobertaTokenizer {
             if !token_pieces.is_empty() {
                 pieces.extend(token_pieces.into_iter().map(|piece| {
                     let piece_id = piece.id as i64;
-                    if piece_id == self.spp.unknown_id() as i64 {
+                    if piece_id == self.spp.unk_id() as i64 {
                         FAIRSEQ_UNK
                     } else {
                         piece_id + FAIRSEQ_OFFSET
@@ -76,7 +76,7 @@ impl Tokenize for XlmRobertaTokenizer {
                 // tokens. However, the input may be corrupt and use
                 // some form of non-tab whitespace as a form, for which
                 // sentencepiece does not return any identifier.
-                pieces.push(self.spp.unknown_id() as i64 + FAIRSEQ_OFFSET);
+                pieces.push(self.spp.unk_id() as i64 + FAIRSEQ_OFFSET);
             }
         }
 

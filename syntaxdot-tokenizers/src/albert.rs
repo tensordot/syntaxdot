@@ -69,7 +69,7 @@ impl Tokenize for AlbertTokenizer {
                 // tokens. However, the input may be corrupt and use
                 // some form of non-tab whitespace as a form, for which
                 // sentencepiece does not return any identifier.
-                pieces.push(self.spp.unknown_id() as i64);
+                pieces.push(self.spp.unk_id() as i64);
             }
         }
 
