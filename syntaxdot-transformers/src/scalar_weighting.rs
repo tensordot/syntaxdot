@@ -4,6 +4,7 @@ use std::borrow::Borrow;
 
 use syntaxdot_tch_ext::tensor::SumDim;
 use syntaxdot_tch_ext::PathExt;
+use tch::nn::init::DEFAULT_KAIMING_UNIFORM;
 use tch::nn::{Init, Linear, Module};
 use tch::{Kind, Reduction, Tensor};
 
@@ -36,7 +37,7 @@ impl NonLinearWithLayerNorm {
             dropout: Dropout::new(dropout),
             layer_norm: LayerNorm::new(vs / "layer_norm", vec![out_size], layer_norm_eps, true),
             linear: Linear {
-                ws: vs.var("weight", &[out_size, in_size], Init::KaimingUniform)?,
+                ws: vs.var("weight", &[out_size, in_size], DEFAULT_KAIMING_UNIFORM)?,
                 bs: Some(vs.var("bias", &[out_size], Init::Const(0.))?),
             },
         })
@@ -180,7 +181,7 @@ impl ScalarWeightClassifier {
         let ws = vs.var(
             "weight",
             &[config.n_labels, config.hidden_size],
-            Init::KaimingUniform,
+            DEFAULT_KAIMING_UNIFORM,
         )?;
         let bs = vs.var("bias", &[config.n_labels], Init::Const(0.))?;
 
