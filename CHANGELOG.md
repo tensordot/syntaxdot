@@ -7,10 +7,12 @@
 - Change parser dependency relation prediction to use a biaffine layer rather
   than a pairwise biaffine layer. This simplified some code and can be slightly
   faster.
+- Normalize distillation hidden layer loss using squared l2 norm.
 - Update to [libtorch
-  1.13.0](https://github.com/pytorch/pytorch/releases/tag/v1.13.0) and
-  [tch 0.9.0](https://github.com/LaurentMazare/tch-rs).
+  2.0.0](https://github.com/pytorch/pytorch/releases/tag/v2.0.0) and
+  [tch 0.11.0](https://github.com/LaurentMazare/tch-rs).
 - Update to clap 4.
+- Update to sentencepiece 0.11.
 - Absorb `ohnomore` into SyntaxDot.
 
 ### Fixed
