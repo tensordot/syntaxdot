@@ -34,5 +34,5 @@ syntaxdot-summary = { path = "../syntaxdot-summary", version = "0.5.0-beta.2" }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.5.0-beta.2" }
 syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", version = "0.5.0-beta.2" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", version = "0.5.0-beta.2", default-features = false }
-tch = { version = "0.9", default-features = false }
+tch = { version = "0.11", default-features = false }
 udgraph = "0.8"

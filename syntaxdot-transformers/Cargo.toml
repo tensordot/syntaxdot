@@ -12,7 +12,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.5.0-beta.2" }
-tch = { version = "0.9", default-features = false }
+tch = { version = "0.11", default-features = false }
 thiserror = "1"
 
 [dev-dependencies]
