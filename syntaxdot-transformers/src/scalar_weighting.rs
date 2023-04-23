@@ -298,10 +298,7 @@ mod tests {
     use crate::models::{HiddenLayer, LayerOutput};
 
     fn varstore_variables(vs: &VarStore) -> BTreeSet<String> {
-        vs.variables()
-            .into_iter()
-            .map(|(k, _)| k)
-            .collect::<BTreeSet<_>>()
+        vs.variables().into_keys().collect::<BTreeSet<_>>()
     }
 
     #[test]

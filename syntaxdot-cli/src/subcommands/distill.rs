@@ -207,8 +207,10 @@ impl DistillApp {
             .f_log_softmax(-1, Kind::Float)?;
         let student_head_logprobs = student_head_logprobs.masked_select(&probs_mask);
 
-        let head_soft_loss =
-            (&teacher_head_probs.f_mul(&student_head_logprobs)?.f_neg()?).f_mean(Kind::Float)?;
+        let head_soft_loss = teacher_head_probs
+            .f_mul(&student_head_logprobs)?
+            .f_neg()?
+            .f_mean(Kind::Float)?;
 
         // Get teacher relation probabilities for the heads predicted by the teacher.
         let teacher_relation_probs = teacher_logits

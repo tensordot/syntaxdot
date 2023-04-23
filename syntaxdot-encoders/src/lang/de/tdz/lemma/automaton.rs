@@ -78,9 +78,7 @@ mod tests {
 
     fn test_set() -> Set<Vec<u8>> {
         let mut builder = SetBuilder::memory();
-        builder
-            .extend_iter(&["p", "pre", "pref", "prefix"])
-            .unwrap();
+        builder.extend_iter(["p", "pre", "pref", "prefix"]).unwrap();
         let bytes = builder.into_inner().unwrap();
         Set::new(bytes).unwrap()
     }
