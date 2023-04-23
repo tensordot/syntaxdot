@@ -194,7 +194,7 @@ impl Transform for MarkVerbPrefix {
         // Case 2: there are no prefixes in the lemma, try to find prefixes
         // in the form.
         let form_lc = token.form().to_lowercase();
-        let mut lemma_parts = longest_prefixes(&self.prefixes, &form_lc, &lemma_lc, token.xpos());
+        let mut lemma_parts = longest_prefixes(&self.prefixes, form_lc, &lemma_lc, token.xpos());
         if !lemma_parts.is_empty() {
             lemma_parts.push(lemma_lc);
             return lemma_parts.join("#");

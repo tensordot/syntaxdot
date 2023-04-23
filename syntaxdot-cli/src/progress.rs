@@ -41,7 +41,7 @@ where
 {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let n_read = self.inner.read(buf)?;
-        let pos = self.inner.seek(SeekFrom::Current(0))?;
+        let pos = self.inner.stream_position()?;
         self.progress_bar.set_position(pos);
         Ok(n_read)
     }

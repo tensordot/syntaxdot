@@ -209,7 +209,7 @@ impl SqueezeBertSelfAttention {
         let _ = attention_scores.f_div_scalar_((self.attention_head_size as f64).sqrt());
 
         if let Some(mask) = attention_mask {
-            let _ = attention_scores.f_add_(&**mask)?;
+            let _ = attention_scores.f_add_(mask)?;
         }
 
         // Convert the raw attention scores into a probability distribution.

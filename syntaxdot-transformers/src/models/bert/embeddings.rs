@@ -121,8 +121,8 @@ impl BertEmbeddings {
         };
 
         let input_embeddings = self.word_embeddings.forward(input_ids)?;
-        let position_embeddings = self.position_embeddings.forward(&*position_ids)?;
-        let token_type_embeddings = self.token_type_embeddings.forward(&*token_type_ids)?;
+        let position_embeddings = self.position_embeddings.forward(&position_ids)?;
+        let token_type_embeddings = self.token_type_embeddings.forward(&token_type_ids)?;
 
         let embeddings = input_embeddings
             .f_add(&position_embeddings)?

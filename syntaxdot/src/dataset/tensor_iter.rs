@@ -194,9 +194,9 @@ where
 
             let token_lens: Array1<i32> = Array1::from_shape_fn((token_offsets.len(),), |idx| {
                 if idx + 1 < token_offsets.len() {
-                    token_offsets[idx + 1] as i32 - token_offsets[idx] as i32
+                    token_offsets[idx + 1] - token_offsets[idx]
                 } else {
-                    input.len() as i32 - token_offsets[idx] as i32
+                    input.len() as i32 - token_offsets[idx]
                 }
             });
 
