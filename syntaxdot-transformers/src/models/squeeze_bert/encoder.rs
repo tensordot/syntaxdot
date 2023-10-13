@@ -182,6 +182,7 @@ mod tests {
         let encoder = SqueezeBertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(SQUEEZEBERT_UNCASED).unwrap();
+        vs.float();
 
         // Word pieces of: Did the AWO embezzle donations ?
         let pieces =
@@ -223,6 +224,7 @@ mod tests {
         let encoder = SqueezeBertEncoder::new(root.sub("encoder"), &config).unwrap();
 
         vs.load(SQUEEZEBERT_UNCASED).unwrap();
+        vs.float();
 
         // Word pieces of: Did the AWO embezzle donations ?
         // Add some padding to simulate inactive time steps.
