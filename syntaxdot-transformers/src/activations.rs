@@ -88,7 +88,7 @@ mod tests {
     fn gelu_new_returns_correct_values() {
         let gelu_new = Activation::GeluNew;
         let activations: ArrayD<f32> = (&gelu_new
-            .forward(&Tensor::of_slice(&[-1., -0.5, 0., 0.5, 1.]))
+            .forward(&Tensor::from_slice(&[-1., -0.5, 0., 0.5, 1.]))
             .unwrap())
             .try_into()
             .unwrap();

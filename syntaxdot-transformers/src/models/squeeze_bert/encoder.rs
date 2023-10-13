@@ -185,7 +185,7 @@ mod tests {
 
         // Word pieces of: Did the AWO embezzle donations ?
         let pieces =
-            Tensor::of_slice(&[2106i64, 1996, 22091, 2080, 7861, 4783, 17644, 11440, 1029])
+            Tensor::from_slice(&[2106i64, 1996, 22091, 2080, 7861, 4783, 17644, 11440, 1029])
                 .reshape(&[1, 9]);
 
         let embeddings = embeddings.forward_t(&pieces, false).unwrap();
@@ -226,12 +226,12 @@ mod tests {
 
         // Word pieces of: Did the AWO embezzle donations ?
         // Add some padding to simulate inactive time steps.
-        let pieces = Tensor::of_slice(&[
+        let pieces = Tensor::from_slice(&[
             2106i64, 1996, 22091, 2080, 7861, 4783, 17644, 11440, 1029, 0, 0, 0, 0, 0,
         ])
         .reshape(&[1, 14]);
 
-        let attention_mask = seqlen_to_mask(Tensor::of_slice(&[9]), pieces.size()[1]);
+        let attention_mask = seqlen_to_mask(Tensor::from_slice(&[9]), pieces.size()[1]);
 
         let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 

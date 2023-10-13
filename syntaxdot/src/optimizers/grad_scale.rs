@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use tch::{Kind, Tensor};
 
 use super::{Optimizer, ZeroGrad};
@@ -72,7 +74,7 @@ where
 
     /// Get the current scale.
     pub fn current_scale(&self) -> f32 {
-        Vec::<f32>::from(&self.scale)[0]
+        Vec::<f32>::try_from(&self.scale).expect("Tensor cannot be conversted to Vec")[0]
     }
 
     /// Get a reference to the wrapped optimizer.
@@ -150,7 +152,11 @@ where
                 .internal_amp_non_finite_check_and_unscale(&mut self.found_inf, &inv_scale);
         }
 
-        let found_inf = (f32::from(&self.found_inf) - 1.0).abs() < f32::EPSILON;
+        let found_inf = (f32::try_from(&self.found_inf)
+            .expect("Cannot convert boolean for infinity detection to f32")
+            - 1.0)
+            .abs()
+            < f32::EPSILON;
 
         // Only step when there are no infinite gradients.
         if !found_inf {

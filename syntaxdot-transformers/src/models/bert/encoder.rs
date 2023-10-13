@@ -165,8 +165,9 @@ mod tests {
         vs.load(BERT_BASE_GERMAN_CASED).unwrap();
 
         // Word pieces of: Veruntreute die AWO spendengeld ?
-        let pieces = Tensor::of_slice(&[133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2])
-            .reshape(&[1, 10]);
+        let pieces =
+            Tensor::from_slice(&[133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2])
+                .reshape(&[1, 10]);
 
         let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
@@ -206,12 +207,12 @@ mod tests {
 
         // Word pieces of: Veruntreute die AWO spendengeld ?
         // Add some padding to simulate inactive time steps.
-        let pieces = Tensor::of_slice(&[
+        let pieces = Tensor::from_slice(&[
             133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2, 0, 0, 0, 0, 0,
         ])
         .reshape(&[1, 15]);
 
-        let attention_mask = seqlen_to_mask(Tensor::of_slice(&[10]), pieces.size()[1]);
+        let attention_mask = seqlen_to_mask(Tensor::from_slice(&[10]), pieces.size()[1]);
 
         let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 

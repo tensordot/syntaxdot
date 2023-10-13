@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use syntaxdot_tch_ext::tensor::SumDim;
 use syntaxdot_transformers::models::LayerOutput;
 use syntaxdot_transformers::TransformerError;
@@ -126,7 +127,7 @@ impl EmbeddingsPerToken for TokenSpansWithRoot {
         let (batch_size, _pieces_len, embed_size) = embeddings.size3()?;
         let (_batch_size, tokens_len) = self.offsets().size2()?;
 
-        let max_token_len = i64::from(self.lens().max());
+        let max_token_len = i64::try_from(&self.lens().max())?;
 
         let piece_range = Tensor::f_arange(max_token_len, (Kind::Int64, self.lens().device()))?
             .f_view([1, 1, max_token_len])?;
@@ -163,8 +164,8 @@ mod tests {
     #[test]
     fn discard_pooler_works_correctly() {
         let spans = TokenSpans::new(
-            Tensor::of_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
-            Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
+            Tensor::from_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
+            Tensor::from_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
         let hidden = Tensor::arange_start_step(36, 0, -1, (Kind::Int64, Device::Cpu))
@@ -179,7 +180,7 @@ mod tests {
 
         assert_eq!(
             token_embeddings,
-            Tensor::of_slice2(&[
+            Tensor::from_slice2(&[
                 &[36, 35, 34, 33, 30, 29, 28, 27, 0, 0, 0, 0],
                 &[18, 17, 16, 15, 12, 11, 10, 9, 6, 5, 4, 3]
             ])
@@ -190,8 +191,8 @@ mod tests {
     #[test]
     fn embeddings_are_returned_per_token() {
         let spans = TokenSpansWithRoot::new(
-            Tensor::of_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
-            Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
+            Tensor::from_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
+            Tensor::from_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
         let hidden =
@@ -201,7 +202,7 @@ mod tests {
 
         assert_eq!(
             token_embeddings.embeddings,
-            Tensor::of_slice(&[
+            Tensor::from_slice(&[
                 30, 29, 28, 27, 26, 25, 0, 0, 24, 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 13, 12, 11,
                 10, 9, 0, 0, 8, 7, 6, 5, 4, 3, 0, 0, 2, 1, 0, 0
             ])
@@ -210,7 +211,7 @@ mod tests {
 
         assert_eq!(
             token_embeddings.mask,
-            Tensor::of_slice(&[
+            Tensor::from_slice(&[
                 true, true, true, false, true, false, false, false, false, false, true, true, true,
                 false, true, true, true, false, true, false
             ])
@@ -221,8 +222,8 @@ mod tests {
     #[test]
     fn mean_pooler_works_correctly() {
         let spans = TokenSpans::new(
-            Tensor::of_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
-            Tensor::of_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
+            Tensor::from_slice2(&[[1, 3, 4, -1, -1], [1, 3, 4, 6, 7]]),
+            Tensor::from_slice2(&[[2, 1, 1, -1, -1], [2, 1, 2, 1, 1]]),
         );
 
         let hidden = Tensor::arange_start_step(36, 0, -1, (Kind::Int64, Device::Cpu))
@@ -237,7 +238,7 @@ mod tests {
 
         assert_eq!(
             token_embeddings,
-            Tensor::of_slice2(&[
+            Tensor::from_slice2(&[
                 &[36, 35, 33, 32, 30, 29, 28, 27, 0, 0, 0, 0,],
                 &[18, 17, 15, 14, 12, 11, 9, 8, 6, 5, 4, 3]
             ])

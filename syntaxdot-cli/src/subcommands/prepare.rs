@@ -86,10 +86,10 @@ impl SyntaxDotApp for PrepareApp {
             .context(format!("Cannot open train data file: {}", self.train_data))?;
         let read_progress = ReadProgress::new(train_file).context("Cannot create progress bar")?;
         let progress_bar = read_progress.progress_bar().clone();
-        progress_bar.set_style(
-            ProgressStyle::default_bar()
-                .template("[Time: {elapsed_precise}, ETA: {eta_precise}] {bar} {percent}% {msg}"),
-        );
+        progress_bar
+            .set_style(ProgressStyle::default_bar().template(
+                "[Time: {elapsed_precise}, ETA: {eta_precise}] {bar} {percent}% {msg}",
+            )?);
 
         let treebank_reader = Reader::new(BufReader::new(read_progress));
 

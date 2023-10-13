@@ -21,8 +21,11 @@ where
         let len = read.seek(SeekFrom::End(0))? + 1;
         read.seek(SeekFrom::Start(0))?;
         let progress_bar = ProgressBar::new(len);
-        progress_bar
-            .set_style(ProgressStyle::default_bar().template("{bar} {bytes}/{total_bytes}"));
+        progress_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("{bar} {bytes}/{total_bytes}")
+                .expect("Invalid progress style"),
+        );
 
         Ok(ReadProgress {
             inner: read,

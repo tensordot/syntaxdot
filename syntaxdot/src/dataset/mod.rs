@@ -31,8 +31,7 @@ pub trait DataSet<'a> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::convert::TryFrom;
-    use std::io::{BufRead, BufReader, Cursor};
+    use std::io::{BufReader, Cursor};
 
     use lazy_static::lazy_static;
     use ndarray::{array, Array1};
@@ -77,7 +76,7 @@ nu"#;
     }
 
     pub fn wordpiece_tokenizer() -> BertTokenizer {
-        let pieces = WordPieces::try_from(BufReader::new(Cursor::new(PIECES)).lines()).unwrap();
+        let pieces = WordPieces::from_buf_read(BufReader::new(Cursor::new(PIECES))).unwrap();
         BertTokenizer::new(pieces, "[UNK]")
     }
 }

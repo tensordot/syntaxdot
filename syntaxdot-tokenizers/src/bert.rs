@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -56,7 +55,7 @@ impl BertTokenizer {
     where
         R: BufRead,
     {
-        let word_pieces = WordPieces::try_from(buf_read.lines())?;
+        let word_pieces = WordPieces::from_buf_read(buf_read)?;
         Ok(Self::new(word_pieces, unknown_piece))
     }
 }
@@ -103,9 +102,8 @@ impl Tokenize for BertTokenizer {
 #[cfg(feature = "model-tests")]
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
     use std::fs::File;
-    use std::io::{BufRead, BufReader};
+    use std::io::BufReader;
     use std::iter::FromIterator;
 
     use ndarray::array;
@@ -118,7 +116,7 @@ mod tests {
 
     fn read_pieces() -> WordPieces {
         let f = File::open(env!("BERT_BASE_GERMAN_CASED_VOCAB")).unwrap();
-        WordPieces::try_from(BufReader::new(f).lines()).unwrap()
+        WordPieces::from_buf_read(BufReader::new(f)).unwrap()
     }
 
     fn sentence_from_forms(forms: &[&str]) -> Sentence {

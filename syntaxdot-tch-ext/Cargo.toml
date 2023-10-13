@@ -10,8 +10,8 @@ documentation = "https://docs.rs/syntaxdot-tch-ext/"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-itertools = "0.10"
-tch = { version = "0.11", default-features = false }
+itertools = "0.11"
+tch = { version = "0.14", default-features = false }
 
 [features]
 doc-only = ["tch/doc-only"]

@@ -166,19 +166,19 @@ pub mod tests {
     #[test]
     #[should_panic]
     fn mask_dimensionality_should_be_correct_for_logits_mask() {
-        LogitsMask::from_bool_mask(&Tensor::of_slice(&[false])).unwrap();
+        LogitsMask::from_bool_mask(&Tensor::from_slice(&[false])).unwrap();
     }
 
     #[test]
     fn logits_mask_is_constructed_correctly() {
         let mask = LogitsMask::from_bool_mask(
-            &Tensor::of_slice(&[true, false, true, false, true, true, false, false]).view((2, 4)),
+            &Tensor::from_slice(&[true, false, true, false, true, true, false, false]).view((2, 4)),
         )
         .unwrap();
 
         assert_eq!(
             mask.inner,
-            Tensor::of_slice(&[0i64, -10_000, 0, -10_000, 0, 0, -10_000, -10_000])
+            Tensor::from_slice(&[0i64, -10_000, 0, -10_000, 0, 0, -10_000, -10_000])
                 .view((2, 1, 1, 4))
         );
     }

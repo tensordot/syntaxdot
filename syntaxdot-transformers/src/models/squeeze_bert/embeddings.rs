@@ -55,7 +55,7 @@ mod tests {
 
         // Word pieces of: Did the AWO embezzle donations ?
         let pieces =
-            Tensor::of_slice(&[2106i64, 1996, 22091, 2080, 7861, 4783, 17644, 11440, 1029])
+            Tensor::from_slice(&[2106i64, 1996, 22091, 2080, 7861, 4783, 17644, 11440, 1029])
                 .reshape(&[1, 9]);
 
         let summed_embeddings =

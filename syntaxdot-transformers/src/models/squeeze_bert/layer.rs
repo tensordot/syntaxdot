@@ -112,7 +112,7 @@ impl ConvActivation {
         let vs = vs.borrow();
 
         Ok(ConvActivation {
-            conv1d: Conv1D::new(vs.borrow() / "conv1d", cin, cout, 1, groups)?,
+            conv1d: Conv1D::new(vs / "conv1d", cin, cout, 1, groups)?,
             activation,
         })
     }

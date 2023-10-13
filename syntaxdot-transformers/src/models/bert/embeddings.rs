@@ -195,8 +195,9 @@ mod tests {
         vs.load(BERT_BASE_GERMAN_CASED).unwrap();
 
         // Word pieces of: Veruntreute die AWO spendengeld ?
-        let pieces = Tensor::of_slice(&[133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2])
-            .reshape(&[1, 10]);
+        let pieces =
+            Tensor::from_slice(&[133i64, 1937, 14010, 30, 32, 26939, 26962, 12558, 2739, 2])
+                .reshape(&[1, 10]);
 
         let summed_embeddings =
             embeddings

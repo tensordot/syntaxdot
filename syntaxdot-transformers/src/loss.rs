@@ -168,6 +168,7 @@ impl MSELoss {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
     use std::convert::TryInto;
 
     use approx::assert_abs_diff_eq;
@@ -180,8 +181,8 @@ mod tests {
 
     #[test]
     fn cross_entropy_loss_without_label_smoothing() {
-        let logits = Tensor::of_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
-        let targets = Tensor::of_slice(&[2i64]).view([1]);
+        let logits = Tensor::from_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
+        let targets = Tensor::from_slice(&[2i64]).view([1]);
         let cross_entropy_loss = CrossEntropyLoss::new(-1, None, Reduction::None);
         let loss: ArrayD<f32> = (&cross_entropy_loss.forward(&logits, &targets, None).unwrap())
             .try_into()
@@ -192,8 +193,8 @@ mod tests {
 
     #[test]
     fn cross_entropy_with_label_smoothing() {
-        let logits = Tensor::of_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
-        let targets = Tensor::of_slice(&[2i64]).view([1]);
+        let logits = Tensor::from_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
+        let targets = Tensor::from_slice(&[2i64]).view([1]);
         let cross_entropy_loss = CrossEntropyLoss::new(-1, Some(0.1), Reduction::None);
         let loss: ArrayD<f32> = (&cross_entropy_loss.forward(&logits, &targets, None).unwrap())
             .try_into()
@@ -203,9 +204,9 @@ mod tests {
 
     #[test]
     fn cross_entropy_with_label_smoothing_and_mask() {
-        let logits = Tensor::of_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
-        let target_mask = Tensor::of_slice(&[true, false, true, false, true]).view([1, 5]);
-        let targets = Tensor::of_slice(&[2i64]).view([1]);
+        let logits = Tensor::from_slice(&[-1., -1., 1., -1., -1.]).view([1, 5]);
+        let target_mask = Tensor::from_slice(&[true, false, true, false, true]).view([1, 5]);
+        let targets = Tensor::from_slice(&[2i64]).view([1]);
         let cross_entropy_loss = CrossEntropyLoss::new(-1, Some(0.1), Reduction::None);
         let loss: ArrayD<f32> = (&cross_entropy_loss
             .forward(&logits, &targets, Some(&target_mask))
@@ -217,19 +218,19 @@ mod tests {
 
     #[test]
     fn mse_loss_with_averaging() {
-        let prediction = Tensor::of_slice(&[-0.5, -0.5, 0.0, 1.0]).view([1, 4]);
-        let target = Tensor::of_slice(&[-1.0, 0.0, 1.0, 1.0]).view([1, 4]);
+        let prediction = Tensor::from_slice(&[-0.5, -0.5, 0.0, 1.0]).view([1, 4]);
+        let target = Tensor::from_slice(&[-1.0, 0.0, 1.0, 1.0]).view([1, 4]);
         let mse_loss = MSELoss::new(super::MSELossNormalization::Mean);
         let loss = &mse_loss.forward(&prediction, &target).unwrap();
-        assert_abs_diff_eq!(f32::from(loss), 0.375f32, epsilon = 1e-6);
+        assert_abs_diff_eq!(f32::try_from(loss).unwrap(), 0.375f32, epsilon = 1e-6);
     }
 
     #[test]
     fn mse_loss_with_squared_l2_norm() {
-        let prediction = Tensor::of_slice(&[-0.5, -0.5, 0.0, 1.0]).view([2, 2]);
-        let target = Tensor::of_slice(&[-1.0, 0.0, 1.0, 1.0]).view([2, 2]);
+        let prediction = Tensor::from_slice(&[-0.5, -0.5, 0.0, 1.0]).view([2, 2]);
+        let target = Tensor::from_slice(&[-1.0, 0.0, 1.0, 1.0]).view([2, 2]);
         let mse_loss = MSELoss::new(super::MSELossNormalization::SquaredL2Norm);
         let loss = mse_loss.forward(&prediction, &target).unwrap();
-        assert_abs_diff_eq!(f32::from(loss), 0.5, epsilon = 1e-6);
+        assert_abs_diff_eq!(f32::try_from(&loss).unwrap(), 0.5, epsilon = 1e-6);
     }
 }
