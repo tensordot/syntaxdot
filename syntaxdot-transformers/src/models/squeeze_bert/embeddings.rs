@@ -52,6 +52,7 @@ mod tests {
         let embeddings = BertEmbeddings::new(root.sub("embeddings"), &bert_config).unwrap();
 
         vs.load(SQUEEZEBERT_UNCASED).unwrap();
+        vs.float();
 
         // Word pieces of: Did the AWO embezzle donations ?
         let pieces =
