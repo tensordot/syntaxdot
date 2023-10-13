@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::convert::{TryFrom, TryInto};
 use std::fs::File;
 use std::io::BufReader;
 
@@ -248,7 +249,7 @@ impl FinetuneApp {
         progress_bar.set_style(ProgressStyle::default_bar().template(&format!(
             "[Time: {{elapsed_precise}}, ETA: {{eta_precise}}] {{bar}} {{percent}}% {} {{msg}}",
             epoch_type
-        )));
+        ))?);
 
         let mut dataset = ConlluDataSet::new(BufReader::new(read_progress));
 
@@ -287,7 +288,8 @@ impl FinetuneApp {
 
             let attention_mask = batch.seq_lens.attention_mask()?;
 
-            let n_batch_tokens = i64::from(batch.token_spans.token_mask()?.f_sum(Kind::Int64)?);
+            let n_batch_tokens =
+                i64::try_from(batch.token_spans.token_mask()?.f_sum(Kind::Int64)?)?;
 
             let model_loss = autocast_or_preserve(self.mixed_precision, || {
                 model.loss(
@@ -319,7 +321,7 @@ impl FinetuneApp {
                 .seq_classifiers
                 .summed_loss
                 .f_sum(Kind::Float)?
-                .into();
+                .try_into()?;
 
             if let Some(scaler) = &mut grad_scaler {
                 let optimizer = scaler.optimizer_mut();
@@ -361,19 +363,19 @@ impl FinetuneApp {
 
             for (encoder_name, loss) in model_loss.seq_classifiers.encoder_losses {
                 *encoder_accuracy.entry(encoder_name.clone()).or_insert(0f32) +=
-                    f32::from(&model_loss.seq_classifiers.encoder_accuracies[&encoder_name])
+                    f32::try_from(&model_loss.seq_classifiers.encoder_accuracies[&encoder_name])?
                         * n_batch_tokens as f32;
                 *encoder_loss.entry(encoder_name).or_insert(0f32) +=
-                    f32::from(loss) * n_batch_tokens as f32;
+                    f32::try_from(loss)? * n_batch_tokens as f32;
             }
 
             if let Some(biaffine_loss) = model_loss.biaffine.as_ref() {
-                let head_loss = f32::from(&biaffine_loss.head_loss);
-                let relation_loss = f32::from(&biaffine_loss.relation_loss);
+                let head_loss = f32::try_from(&biaffine_loss.head_loss)?;
+                let relation_loss = f32::try_from(&biaffine_loss.relation_loss)?;
 
-                biaffine_las += f32::from(&biaffine_loss.acc.las) * n_batch_tokens as f32;
-                biaffine_ls += f32::from(&biaffine_loss.acc.ls) * n_batch_tokens as f32;
-                biaffine_uas += f32::from(&biaffine_loss.acc.uas) * n_batch_tokens as f32;
+                biaffine_las += f32::try_from(&biaffine_loss.acc.las)? * n_batch_tokens as f32;
+                biaffine_ls += f32::try_from(&biaffine_loss.acc.ls)? * n_batch_tokens as f32;
+                biaffine_uas += f32::try_from(&biaffine_loss.acc.uas)? * n_batch_tokens as f32;
                 biaffine_head_loss += head_loss * n_batch_tokens as f32;
                 biaffine_relation_loss += relation_loss * n_batch_tokens as f32;
 

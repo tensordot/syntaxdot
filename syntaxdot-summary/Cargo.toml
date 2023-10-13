@@ -12,4 +12,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 hostname = "0.3"
-prost = { version = "0.9", features = ["prost-derive"] }
+prost = { version = "0.12", features = ["prost-derive"] }

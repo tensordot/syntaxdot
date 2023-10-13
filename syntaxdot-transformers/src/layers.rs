@@ -302,18 +302,18 @@ impl PairwiseBilinear {
 
         if self.pairwise {
             // [batch_size, max_seq_len, out_features, v features].
-            let intermediate = Tensor::f_einsum("blu,uov->blov", &[&u, &self.weight], None)?;
+            let intermediate = Tensor::f_einsum("blu,uov->blov", &[&u, &self.weight], None::<i64>)?;
 
             // We perform a matrix multiplication to get the output with
             // the shape [batch_size, seq_len, seq_len, out_features].
-            let bilinear = Tensor::f_einsum("bmv,blov->bmlo", &[&v, &intermediate], None)?;
+            let bilinear = Tensor::f_einsum("bmv,blov->bmlo", &[&v, &intermediate], None::<i64>)?;
 
             Ok(bilinear.f_squeeze_dim(-1)?)
         } else {
             Ok(Tensor::f_einsum(
                 "blu,uov,blv->blo",
                 &[&u, &self.weight, &v],
-                None,
+                None::<i64>,
             )?)
         }
     }

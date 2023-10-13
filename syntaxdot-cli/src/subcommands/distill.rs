@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::btree_map::{BTreeMap, Entry};
 use std::collections::{HashMap, VecDeque};
+use std::convert::{TryFrom, TryInto};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Seek};
 
@@ -298,7 +299,7 @@ impl DistillApp {
         let train_progress = ProgressBar::new(n_steps as u64);
         train_progress.set_style(ProgressStyle::default_bar().template(
             "[Time: {elapsed_precise}, ETA: {eta_precise}] {bar} {percent}% train {msg}",
-        ));
+        )?);
 
         while global_step < n_steps - 1 {
             let mut teacher_train_dataset = Self::open_dataset(teacher_train_file)?;
@@ -664,9 +665,9 @@ impl DistillApp {
                 global_step,
                 lr_encoder,
                 lr_classifier,
-                f32::from(distill_loss.soft_loss),
-                f32::from(distill_loss.attention_loss),
-                f32::from(distill_loss.hidden_loss)
+                f32::try_from(distill_loss.soft_loss)?,
+                f32::try_from(distill_loss.attention_loss)?,
+                f32::try_from(distill_loss.hidden_loss)?
             ));
             progress.inc(1);
 
@@ -847,7 +848,7 @@ impl DistillApp {
         let progress_bar = read_progress.progress_bar().clone();
         progress_bar.set_style(ProgressStyle::default_bar().template(
             "[Time: {elapsed_precise}, ETA: {eta_precise}] {bar} {percent}% validation {msg}",
-        ));
+        )?);
 
         let mut dataset = ConlluDataSet::new(BufReader::new(read_progress));
 
@@ -868,7 +869,8 @@ impl DistillApp {
         {
             let batch = batch?;
 
-            let n_batch_tokens = i64::from(batch.token_spans.token_mask()?.f_sum(Kind::Int64)?);
+            let n_batch_tokens =
+                i64::try_from(batch.token_spans.token_mask()?.f_sum(Kind::Int64)?)?;
 
             let attention_mask = batch.seq_lens.attention_mask()?;
 
@@ -902,41 +904,41 @@ impl DistillApp {
                 .seq_classifiers
                 .summed_loss
                 .f_sum(Kind::Float)?
-                .into();
+                .try_into()?;
 
             for (encoder_name, loss) in model_loss.seq_classifiers.encoder_losses {
                 match encoder_accuracy.entry(encoder_name.clone()) {
                     Entry::Vacant(entry) => {
                         entry.insert(
-                            f32::from(
+                            f32::try_from(
                                 &model_loss.seq_classifiers.encoder_accuracies[&encoder_name],
-                            ) * n_batch_tokens as f32,
+                            )? * n_batch_tokens as f32,
                         );
                     }
                     Entry::Occupied(mut entry) => {
-                        *entry.get_mut() += f32::from(
+                        *entry.get_mut() += f32::try_from(
                             &model_loss.seq_classifiers.encoder_accuracies[&encoder_name],
-                        ) * n_batch_tokens as f32;
+                        )? * n_batch_tokens as f32;
                     }
                 };
 
                 match encoder_loss.entry(encoder_name) {
                     Entry::Vacant(entry) => {
-                        entry.insert(f32::from(loss) * n_batch_tokens as f32);
+                        entry.insert(f32::try_from(loss)? * n_batch_tokens as f32);
                     }
                     Entry::Occupied(mut entry) => {
-                        *entry.get_mut() += f32::from(loss) * n_batch_tokens as f32
+                        *entry.get_mut() += f32::try_from(loss)? * n_batch_tokens as f32
                     }
                 };
             }
 
             if let Some(biaffine_loss) = model_loss.biaffine.as_ref() {
-                let head_loss = f32::from(&biaffine_loss.head_loss);
-                let relation_loss = f32::from(&biaffine_loss.relation_loss);
+                let head_loss = f32::try_from(&biaffine_loss.head_loss)?;
+                let relation_loss = f32::try_from(&biaffine_loss.relation_loss)?;
 
-                biaffine_las += f32::from(&biaffine_loss.acc.las) * n_batch_tokens as f32;
-                biaffine_ls += f32::from(&biaffine_loss.acc.ls) * n_batch_tokens as f32;
-                biaffine_uas += f32::from(&biaffine_loss.acc.uas) * n_batch_tokens as f32;
+                biaffine_las += f32::try_from(&biaffine_loss.acc.las)? * n_batch_tokens as f32;
+                biaffine_ls += f32::try_from(&biaffine_loss.acc.ls)? * n_batch_tokens as f32;
+                biaffine_uas += f32::try_from(&biaffine_loss.acc.uas)? * n_batch_tokens as f32;
                 biaffine_head_loss += head_loss * n_batch_tokens as f32;
                 biaffine_relation_loss += relation_loss * n_batch_tokens as f32;
 
@@ -1306,10 +1308,11 @@ impl TrainDuration {
                     ReadProgress::new(train_file.try_clone()?).context("Cannot open train file")?;
 
                 let progress_bar = read_progress.progress_bar().clone();
-                progress_bar
-                    .set_style(ProgressStyle::default_bar().template(
+                progress_bar.set_style(
+                    ProgressStyle::default_bar().template(
                         "[Time: {elapsed_precise}, ETA: {eta_precise}] {bar} {percent}%",
-                    ));
+                    )?,
+                );
 
                 let n_sentences = count_sentences(BufReader::new(read_progress))?;
 

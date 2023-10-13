@@ -328,7 +328,7 @@ impl SequenceLengths {
 
     /// Convert sequence lengths to masks.
     pub fn attention_mask(&self) -> Result<Tensor, SyntaxDotError> {
-        let max_len = i64::from(self.inner.max());
+        let max_len = i64::try_from(self.inner.max())?;
         let batch_size = self.inner.size()[0];
         Ok(Tensor::f_arange(max_len, (Kind::Int, self.inner.device()))?
             // Construct a matrix [batch_size, max_len] where each row
@@ -509,10 +509,10 @@ mod tests {
 
     #[test]
     fn attention_masking_is_correct() {
-        let seq_lens = SequenceLengths::new(Tensor::of_slice(&[3, 5, 1]));
+        let seq_lens = SequenceLengths::new(Tensor::from_slice(&[3, 5, 1]));
         assert_eq!(
             seq_lens.attention_mask().unwrap(),
-            Tensor::of_slice(&[
+            Tensor::from_slice(&[
                 true, true, true, false, false, // Sequence 0
                 true, true, true, true, true, // Sequence 1
                 true, false, false, false, false, // Sequence 2
@@ -542,10 +542,10 @@ mod tests {
         // No labels.
         assert_eq!(tensors.labels, None);
 
-        assert_eq!(*tensors.seq_lens, Tensor::of_slice(&[2, 3]));
+        assert_eq!(*tensors.seq_lens, Tensor::from_slice(&[2, 3]));
         assert_eq!(
             tensors.inputs,
-            Tensor::of_slice(&[1, 2, 0, 3, 4, 5]).reshape(&[2, 3])
+            Tensor::from_slice(&[1, 2, 0, 3, 4, 5]).reshape(&[2, 3])
         );
     }
 
@@ -580,8 +580,8 @@ mod tests {
         assert_eq!(
             tensors.biaffine_encodings,
             Some(BiaffineTensors {
-                heads: Tensor::of_slice(&[1, -1, 0, 1]).reshape(&[2, 2]),
-                relations: Tensor::of_slice(&[2, -1, 3, 1]).reshape(&[2, 2])
+                heads: Tensor::from_slice(&[1, -1, 0, 1]).reshape(&[2, 2]),
+                relations: Tensor::from_slice(&[2, -1, 3, 1]).reshape(&[2, 2])
             })
         );
 
@@ -592,11 +592,11 @@ mod tests {
                 vec![
                     (
                         "a".to_string(),
-                        Tensor::of_slice(&[12, 0, 13, 15]).reshape(&[2, 2])
+                        Tensor::from_slice(&[12, 0, 13, 15]).reshape(&[2, 2])
                     ),
                     (
                         "b".to_string(),
-                        Tensor::of_slice(&[21, 0, 24, 25]).reshape(&[2, 2])
+                        Tensor::from_slice(&[21, 0, 24, 25]).reshape(&[2, 2])
                     )
                 ]
                 .into_iter()
@@ -604,10 +604,10 @@ mod tests {
             )
         );
 
-        assert_eq!(*tensors.seq_lens, Tensor::of_slice(&[2, 3]));
+        assert_eq!(*tensors.seq_lens, Tensor::from_slice(&[2, 3]));
         assert_eq!(
             tensors.inputs,
-            Tensor::of_slice(&[1, 2, 0, 3, 4, 5]).reshape(&[2, 3])
+            Tensor::from_slice(&[1, 2, 0, 3, 4, 5]).reshape(&[2, 3])
         );
     }
 
@@ -664,12 +664,12 @@ mod tests {
     #[test]
     fn token_masking_is_correct() {
         let token_offsets = TokenSpans::new(
-            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
-            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
+            Tensor::from_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::from_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
         assert_eq!(
             *token_offsets.token_mask().unwrap(),
-            Tensor::of_slice(&[
+            Tensor::from_slice(&[
                 true, true, true, false, false, // Sequence 0
                 true, true, true, true, true // Sequence 1
             ])
@@ -680,13 +680,13 @@ mod tests {
     #[test]
     fn token_masking_with_root_is_correct() {
         let token_offsets = TokenSpans::new(
-            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
-            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
+            Tensor::from_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::from_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
 
         assert_eq!(
             *token_offsets.token_mask().unwrap().with_root().unwrap(),
-            Tensor::of_slice(&[
+            Tensor::from_slice(&[
                 true, true, true, true, false, false, // Sequence 0
                 true, true, true, true, true, true // Sequence 1
             ])
@@ -697,9 +697,12 @@ mod tests {
     #[test]
     fn token_sequence_lengths_are_correct() {
         let token_offsets = TokenSpans::new(
-            Tensor::of_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
-            Tensor::of_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
+            Tensor::from_slice2(&[&[1, 3, 5, -1, -1], &[1, 2, 8, 11, 13]]),
+            Tensor::from_slice2(&[&[2, 2, 1, -1, -1], &[1, 6, 3, 2, 1]]),
         );
-        assert_eq!(token_offsets.seq_lens().unwrap(), Tensor::of_slice(&[3, 5]));
+        assert_eq!(
+            token_offsets.seq_lens().unwrap(),
+            Tensor::from_slice(&[3, 5])
+        );
     }
 }

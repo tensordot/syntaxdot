@@ -14,7 +14,7 @@ ndarray = "0.15"
 sentencepiece = "0.11"
 thiserror = "1"
 udgraph = "0.8"
-wordpieces = "0.5"
+wordpieces = "0.6"
 
 [features]
 model-tests = []

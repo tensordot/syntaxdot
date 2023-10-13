@@ -14,7 +14,7 @@ conllu = "0.8"
 ndarray = "0.15"
 numberer = "0.2"
 log = "0.4"
-ordered-float = "2"
+ordered-float = "4"
 rand = "0.8"
 rand_xorshift = "0.3"
 serde = { version = "1", features = [ "derive" ] }
@@ -23,16 +23,16 @@ syntaxdot-encoders = { path = "../syntaxdot-encoders", version = "0.5.0" }
 syntaxdot-tch-ext = { path = "../syntaxdot-tch-ext", version = "0.5.0" }
 syntaxdot-tokenizers = { path = "../syntaxdot-tokenizers", default-features = false, version = "0.5.0" }
 syntaxdot-transformers = { path = "../syntaxdot-transformers", default-features = false, version = "0.5.0" }
-tch = { version = "0.11", default-features = false }
+tch = { version = "0.14", default-features = false }
 thiserror = "1"
-toml = "0.5"
+toml = "0.8"
 udgraph = "0.8"
 
 [dev-dependencies]
-approx = "0.4"
+approx = "0.5"
 lazy_static = "1"
 maplit = "1"
-wordpieces = "0.5"
+wordpieces = "0.6"
 
 [features]
 model-tests = []

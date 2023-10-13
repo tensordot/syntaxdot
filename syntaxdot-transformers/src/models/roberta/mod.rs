@@ -127,7 +127,7 @@ mod tests {
         vs.load(XLM_ROBERTA_BASE).unwrap();
 
         // Subtokenization of: Veruntreute die AWO spendengeld ?
-        let pieces = Tensor::of_slice(&[
+        let pieces = Tensor::from_slice(&[
             0i64, 310, 23451, 107, 6743, 68, 62, 43789, 207126, 49004, 705, 2,
         ])
         .reshape(&[1, 12]);
@@ -165,7 +165,7 @@ mod tests {
         vs.load(XLM_ROBERTA_BASE).unwrap();
 
         // Subtokenization of: Veruntreute die AWO spendengeld ?
-        let pieces = Tensor::of_slice(&[
+        let pieces = Tensor::from_slice(&[
             0i64, 310, 23451, 107, 6743, 68, 62, 43789, 207126, 49004, 705, 2,
         ])
         .reshape(&[1, 12]);

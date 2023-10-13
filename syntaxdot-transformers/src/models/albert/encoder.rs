@@ -185,7 +185,7 @@ mod tests {
         vs.load(ALBERT_BASE_V2).unwrap();
 
         // Pierre Vinken [...]
-        let pieces = Tensor::of_slice(&[
+        let pieces = Tensor::from_slice(&[
             5399i64, 9730, 2853, 15, 6784, 122, 315, 15, 129, 1865, 14, 686, 9,
         ])
         .reshape(&[1, 13]);
@@ -227,12 +227,12 @@ mod tests {
         vs.load(ALBERT_BASE_V2).unwrap();
 
         // Pierre Vinken [...]
-        let pieces = Tensor::of_slice(&[
+        let pieces = Tensor::from_slice(&[
             5399i64, 9730, 2853, 15, 6784, 122, 315, 15, 129, 1865, 14, 686, 9, 0, 0,
         ])
         .reshape(&[1, 15]);
 
-        let attention_mask = seqlen_to_mask(Tensor::of_slice(&[13]), pieces.size()[1]);
+        let attention_mask = seqlen_to_mask(Tensor::from_slice(&[13]), pieces.size()[1]);
 
         let embeddings = embeddings.forward_t(&pieces, false).unwrap();
 
