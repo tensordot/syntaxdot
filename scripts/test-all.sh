@@ -32,6 +32,11 @@ for var in "${!models[@]}"; do
   url="${models[$var]}"
   data="${cache_dir}/$(basename "${url}")"
 
+  # Since these checkpoints were generated, an assumption was added that
+  # .pt files are created from Python code. Rename to .ot to avoid loading
+  # issues.
+  data=${data/%.pt/.ot}
+
   if [ ! -e "${data}" ]; then
     curl -fo "${data}" "${url}"
   fi
