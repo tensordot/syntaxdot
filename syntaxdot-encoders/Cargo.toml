@@ -26,13 +26,3 @@ serde_derive = "1"
 thiserror = "1"
 udgraph = "0.8"
 unicode-normalization = "0.1"
-
-[dev-dependencies]
-criterion = "0.5"
-ndarray-rand = "0.14"
-rand = "0.8"
-rand_xorshift = "0.3"
-
-[[bench]]
-name = "mst"
-harness = false
