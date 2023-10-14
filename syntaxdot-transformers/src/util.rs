@@ -123,7 +123,7 @@ impl SinusoidalPositions for Tensor {
 
             if let Some(p) = p_norm {
                 // Compute the p-norm.
-                let norm = self.f_norm_scalaropt_dim(p, &[-1], true)?;
+                let norm = self.f_norm_scalaropt_dim(p, [-1], true)?;
 
                 // Normalize embeddings.
                 let _ = self.f_div_(&norm)?;
@@ -145,7 +145,7 @@ impl SinusoidalPositions for Tensor {
             dims
         );
 
-        let mut positions = Tensor::f_empty(&[n_positions, dims], options)?;
+        let mut positions = Tensor::f_empty([n_positions, dims], options)?;
         positions.sinusoidal_positions_(p_norm)?;
 
         Ok(positions)

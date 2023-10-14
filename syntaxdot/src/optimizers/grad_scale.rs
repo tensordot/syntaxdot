@@ -59,9 +59,9 @@ where
 
             optimizer,
 
-            found_inf: Tensor::full(&[1], 0.0, (Kind::Float, device)),
-            growth_tracker: Tensor::full(&[1], 0, (Kind::Int, device)),
-            scale: Tensor::full(&[1], init_scale, (Kind::Float, device)),
+            found_inf: Tensor::full([1], 0.0, (Kind::Float, device)),
+            growth_tracker: Tensor::full([1], 0, (Kind::Int, device)),
+            scale: Tensor::full([1], init_scale, (Kind::Float, device)),
         })
     }
 

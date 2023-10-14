@@ -155,7 +155,7 @@ impl MSELoss {
         match self.normalization {
             MSELossNormalization::Mean => loss,
             MSELossNormalization::SquaredL2Norm => {
-                let norm = target.f_frobenius_norm(&[1], true)?.f_square()?;
+                let norm = target.f_frobenius_norm([1], true)?.f_square()?;
                 let (batch_size, _) = target.size2()?;
                 loss?
                     .f_div(&norm)?

@@ -59,9 +59,9 @@ impl FallibleModule for Conv1D {
             xs,
             &self.ws,
             self.bs.as_ref(),
-            &[self.config.stride],
-            &[self.config.padding],
-            &[self.config.dilation],
+            [self.config.stride],
+            [self.config.padding],
+            [self.config.dilation],
             self.config.groups,
         )?)
     }
@@ -286,7 +286,7 @@ impl PairwiseBilinear {
 
         let (batch_size, seq_len, _) = u.size3()?;
 
-        let ones = Tensor::ones(&[batch_size, seq_len, 1], (u.kind(), u.device()));
+        let ones = Tensor::ones([batch_size, seq_len, 1], (u.kind(), u.device()));
 
         let u = if self.bias_u {
             Tensor::f_cat(&[u, &ones], -1)?
@@ -346,7 +346,7 @@ impl FallibleModuleT for VariationalDropout {
         }
 
         let (batch_size, _, repr_size) = xs.size3()?;
-        let dropout_mask = Tensor::f_ones(&[batch_size, 1, repr_size], (xs.kind(), xs.device()))?
+        let dropout_mask = Tensor::f_ones([batch_size, 1, repr_size], (xs.kind(), xs.device()))?
             .f_dropout_(self.p, true)?;
         Ok(xs.f_mul(&dropout_mask)?)
     }

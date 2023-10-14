@@ -405,7 +405,7 @@ impl DistillApp {
         let token_mask = token_mask.with_root()?;
 
         let mse_loss = MSELoss::new(MSELossNormalization::SquaredL2Norm);
-        let mut loss = Tensor::zeros(&[], (Kind::Float, self.device));
+        let mut loss = Tensor::zeros([], (Kind::Float, self.device));
 
         let (batch_size, _) = token_mask
             .size2()
@@ -427,8 +427,8 @@ impl DistillApp {
                 .f_matmul(&mapping.mapping)?
                 .f_masked_select(&token_mask.f_unsqueeze(-1)?)?;
 
-            let teacher_hidden = teacher_hidden.f_reshape(&[batch_size, -1])?;
-            let student_hidden = student_hidden.f_reshape(&[batch_size, -1])?;
+            let teacher_hidden = teacher_hidden.f_reshape([batch_size, -1])?;
+            let student_hidden = student_hidden.f_reshape([batch_size, -1])?;
 
             let _ = loss.f_add_(&mse_loss.forward(&student_hidden, &teacher_hidden)?);
         }
@@ -472,7 +472,7 @@ impl DistillApp {
         student_encoder_logits: HashMap<String, Tensor>,
         token_mask: &TokenMask,
     ) -> Result<Tensor, SyntaxDotError> {
-        let mut loss = Tensor::zeros(&[], (Kind::Float, token_mask.device()));
+        let mut loss = Tensor::zeros([], (Kind::Float, token_mask.device()));
 
         for (encoder_name, teacher_logits) in teacher_encoder_logits {
             let n_labels = teacher_logits.size()[2];
@@ -480,10 +480,10 @@ impl DistillApp {
             // Select the outputs for the relevant time steps.
             let student_logits = student_encoder_logits[&encoder_name]
                 .masked_select(&token_mask.unsqueeze(-1))
-                .reshape(&[-1, n_labels]);
+                .reshape([-1, n_labels]);
             let teacher_logits = teacher_logits
                 .masked_select(&token_mask.unsqueeze(-1))
-                .reshape(&[-1, n_labels]);
+                .reshape([-1, n_labels]);
 
             // Compute the soft loss.
             let teacher_probs = teacher_logits.f_softmax(-1, Kind::Float)?;
@@ -551,7 +551,7 @@ impl DistillApp {
                 },
             )?;
 
-            let mut soft_loss = Tensor::zeros(&[], (Kind::Float, self.device));
+            let mut soft_loss = Tensor::zeros([], (Kind::Float, self.device));
 
             // Compute biaffine encoder/decoder loss.
             match (
@@ -582,7 +582,7 @@ impl DistillApp {
             let attention_loss = if self.attention_loss {
                 self.attention_loss(&teacher_layer_outputs, &student_layer_outputs)?
             } else {
-                Tensor::zeros(&[], (Kind::Float, self.device))
+                Tensor::zeros([], (Kind::Float, self.device))
             };
 
             let hidden_loss = match auxiliary_params.hidden_mappings {
@@ -592,7 +592,7 @@ impl DistillApp {
                     &teacher_layer_outputs,
                     &student_layer_outputs,
                 )?,
-                None => Tensor::zeros(&[], (Kind::Float, self.device)),
+                None => Tensor::zeros([], (Kind::Float, self.device)),
             };
 
             Ok(DistillLoss {

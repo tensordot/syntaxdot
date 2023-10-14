@@ -59,7 +59,7 @@ impl Encoder for SqueezeBertEncoder {
         let attention_mask = attention_mask.map(LogitsMask::from_bool_mask).transpose()?;
 
         // [batch_size, seq_len, hidden_size] -> [batch_size, hidden_size, seq_len]
-        let mut hidden_states = input.f_permute(&[0, 2, 1])?;
+        let mut hidden_states = input.f_permute([0, 2, 1])?;
 
         let mut all_layer_outputs = Vec::with_capacity(self.layers.len() + 1);
         all_layer_outputs.push(LayerOutput::Embedding(hidden_states.shallow_clone()));
@@ -73,7 +73,7 @@ impl Encoder for SqueezeBertEncoder {
 
         // Convert hidden states to [batch_size, seq_len, hidden_size].
         for layer_output in &mut all_layer_outputs {
-            *layer_output.output_mut() = layer_output.output().f_permute(&[0, 2, 1])?;
+            *layer_output.output_mut() = layer_output.output().f_permute([0, 2, 1])?;
         }
 
         Ok(all_layer_outputs)

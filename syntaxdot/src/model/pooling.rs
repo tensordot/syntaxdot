@@ -141,7 +141,7 @@ impl EmbeddingsPerToken for TokenSpansWithRoot {
                 1,
                 &piece_indices
                     .f_view([batch_size, -1, 1])?
-                    .f_expand(&[-1, -1, embed_size], true)?,
+                    .f_expand([-1, -1, embed_size], true)?,
                 false,
             )?
             .f_view([batch_size, tokens_len, max_token_len, embed_size])?

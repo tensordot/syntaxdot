@@ -257,7 +257,7 @@ impl BertSelfAttention {
 
         let context_layer = attention_probs.f_matmul(&value_layer)?;
 
-        let context_layer = context_layer.f_permute(&[0, 2, 1, 3])?.f_contiguous()?;
+        let context_layer = context_layer.f_permute([0, 2, 1, 3])?.f_contiguous()?;
         let mut new_context_layer_shape = context_layer.size();
         new_context_layer_shape.splice(
             new_context_layer_shape.len() - 2..,
@@ -273,7 +273,7 @@ impl BertSelfAttention {
         new_x_shape.pop();
         new_x_shape.extend(&[self.num_attention_heads, self.attention_head_size]);
 
-        Ok(x.f_view_(&new_x_shape)?.f_permute(&[0, 2, 1, 3])?)
+        Ok(x.f_view_(&new_x_shape)?.f_permute([0, 2, 1, 3])?)
     }
 }
 
