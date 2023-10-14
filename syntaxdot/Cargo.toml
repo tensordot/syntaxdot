@@ -10,6 +10,7 @@ documentation = "https://docs.rs/syntaxdot/"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+chu-liu-edmonds = "0.1"
 conllu = "0.8"
 ndarray = "0.15"
 numberer = "0.2"

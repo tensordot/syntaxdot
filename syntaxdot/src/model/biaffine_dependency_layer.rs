@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 use std::convert::{TryFrom, TryInto};
 
+use chu_liu_edmonds::chu_liu_edmonds;
 use ndarray::{s, Array2, ArrayD, Axis};
-use syntaxdot_encoders::dependency::mst::chu_liu_edmonds;
 use syntaxdot_tch_ext::PathExt;
 use syntaxdot_transformers::activations::Activation;
 use syntaxdot_transformers::layers::{
