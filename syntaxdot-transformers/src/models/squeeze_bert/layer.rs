@@ -49,9 +49,9 @@ impl FallibleModule for SqueezeBertLayerNorm {
     type Error = TransformerError;
 
     fn forward(&self, xs: &Tensor) -> Result<Tensor, Self::Error> {
-        let xs_perm = xs.f_permute(&[0, 2, 1])?;
+        let xs_perm = xs.f_permute([0, 2, 1])?;
         let xs_perm_norm = self.layer_norm.forward(&xs_perm)?;
-        Ok(xs_perm_norm.f_permute(&[0, 2, 1])?)
+        Ok(xs_perm_norm.f_permute([0, 2, 1])?)
     }
 }
 
@@ -235,7 +235,7 @@ impl SqueezeBertSelfAttention {
             *x_size.last().unwrap(),
         ];
 
-        Ok(x.f_view_(new_x_shape)?.f_permute(&[0, 1, 3, 2])?)
+        Ok(x.f_view_(new_x_shape)?.f_permute([0, 1, 3, 2])?)
     }
 
     fn transpose_key_for_scores(&self, x: &Tensor) -> Result<Tensor, TransformerError> {
@@ -251,7 +251,7 @@ impl SqueezeBertSelfAttention {
     }
 
     fn transpose_output(&self, x: &Tensor) -> Result<Tensor, TransformerError> {
-        let x = x.f_permute(&[0, 1, 3, 2])?.f_contiguous()?;
+        let x = x.f_permute([0, 1, 3, 2])?.f_contiguous()?;
         let x_size = x.size();
         let new_x_shape = &[x_size[0], self.all_head_size, x_size[3]];
         Ok(x.f_view_(new_x_shape)?)

@@ -268,7 +268,7 @@ impl BiaffineDependencyLayer {
             1,
             &heads
                 .f_unsqueeze(-1)?
-                .f_expand(&[batch_size, n_tokens, label_hidden_size], true)?,
+                .f_expand([batch_size, n_tokens, label_hidden_size], true)?,
             false,
         )?;
 
@@ -370,8 +370,8 @@ impl BiaffineDependencyLayer {
         let head_logits = biaffine_logits
             .head_score_logits
             // Last dimension is ROOT + all tokens as head candidates.
-            .f_reshape(&[-1, seq_len + 1])?;
-        let head_targets = &targets.heads.f_view_(&[-1])?;
+            .f_reshape([-1, seq_len + 1])?;
+        let head_targets = &targets.heads.f_view_([-1])?;
         let head_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean).forward(
             &head_logits,
             head_targets,
@@ -380,18 +380,18 @@ impl BiaffineDependencyLayer {
                     // [batch_size, seq_len + 1] -> [batch_size, 1, seq_len + 1]
                     .f_unsqueeze(1)?
                     // [batch_size, 1, seq_len + 1] -> [batch_size, seq_len, seq_len + 1].
-                    .f_expand(&[-1, seq_len, -1], true)?
+                    .f_expand([-1, seq_len, -1], true)?
                     // [batch_size, seq_len, seq_len + 1] -> [batch_size * seq_len, seq_len + 1]
-                    .f_reshape(&[-1, seq_len + 1])?,
+                    .f_reshape([-1, seq_len + 1])?,
             ),
         )?;
 
         // Get the logits for the correct heads.
         let label_score_logits = biaffine_logits
             .relation_score_logits
-            .f_reshape(&[-1, self.n_relations])?;
+            .f_reshape([-1, self.n_relations])?;
 
-        let relation_targets = targets.relations.f_view_(&[-1])?;
+        let relation_targets = targets.relations.f_view_([-1])?;
         let relation_loss = CrossEntropyLoss::new(-1, label_smoothing, Reduction::Mean).forward(
             &label_score_logits,
             &relation_targets,
@@ -423,7 +423,7 @@ impl BiaffineDependencyLayer {
             .f_argmax(-1, false)?;
         let relations_correct = relations_predicted
             .f_eq_tensor(&targets.relations)?
-            .f_view_(&[batch_size, seq_len])?;
+            .f_view_([batch_size, seq_len])?;
 
         let head_and_relations_correct = head_correct.f_logical_and(&relations_correct)?;
 

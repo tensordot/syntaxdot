@@ -232,7 +232,7 @@ impl Encoder for SqueezeAlbertEncoder {
     ) -> Result<Vec<LayerOutput>, TransformerError> {
         let hidden_states = self.projection.forward(input);
 
-        let input = hidden_states.f_permute(&[0, 2, 1])?;
+        let input = hidden_states.f_permute([0, 2, 1])?;
 
         let mut all_layer_outputs = Vec::with_capacity(self.n_layers as usize + 1);
         all_layer_outputs.push(LayerOutput::Embedding(hidden_states.shallow_clone()));
@@ -256,7 +256,7 @@ impl Encoder for SqueezeAlbertEncoder {
 
         // Convert hidden states to [batch_size, seq_len, hidden_size].
         for layer_output in &mut all_layer_outputs {
-            *layer_output.output_mut() = layer_output.output().f_permute(&[0, 2, 1])?;
+            *layer_output.output_mut() = layer_output.output().f_permute([0, 2, 1])?;
         }
 
         Ok(all_layer_outputs)

@@ -333,8 +333,8 @@ impl SequenceLengths {
         Ok(Tensor::f_arange(max_len, (Kind::Int, self.inner.device()))?
             // Construct a matrix [batch_size, max_len] where each row
             // is 0..(max_len - 1).
-            .f_repeat(&[batch_size])?
-            .f_view_(&[batch_size, max_len])?
+            .f_repeat([batch_size])?
+            .f_view_([batch_size, max_len])?
             // Time steps less than the length in the sequence lengths are active.
             .f_lt_tensor(&self.inner.unsqueeze(1))?
             // For some reason the kind is Int?
@@ -403,13 +403,13 @@ impl TokenSpans {
 
         let root_offset = Tensor::from(0)
             .f_view([1, 1])?
-            .f_expand(&[batch_size, 1], true)?
+            .f_expand([batch_size, 1], true)?
             .to_device(self.offsets.device());
         let offsets = Tensor::f_cat(&[&root_offset, &self.offsets], 1)?;
 
         let root_len = Tensor::from(1)
             .f_view([1, 1])?
-            .f_expand(&[batch_size, 1], true)?
+            .f_expand([batch_size, 1], true)?
             .to_device(self.lens.device());
         let lens = Tensor::f_cat(&[&root_len, &self.lens], 1)?;
 
@@ -460,7 +460,7 @@ impl TokenMask {
         let (batch_size, _seq_len) = self.inner.size2()?;
 
         let root_mask = Tensor::from(true)
-            .f_expand(&[batch_size, 1], true)?
+            .f_expand([batch_size, 1], true)?
             .to_device(self.inner.device());
 
         let token_mask_with_root = Tensor::f_cat(&[&root_mask, &self.inner], -1)?;

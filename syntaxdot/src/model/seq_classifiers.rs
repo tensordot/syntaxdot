@@ -136,7 +136,7 @@ impl SequenceClassifiers {
         }
 
         let summed_loss = encoder_losses.values().try_fold(
-            Tensor::f_zeros(&[], (Kind::Float, layers_without_root[0].output().device()))?,
+            Tensor::f_zeros([], (Kind::Float, layers_without_root[0].output().device()))?,
             |summed_loss, loss| summed_loss.f_add(loss),
         )?;
 
