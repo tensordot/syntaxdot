@@ -8,6 +8,7 @@ homepage = "https://github.com/tensordot/syntaxdot"
 repository = "https://github.com/tensordot/syntaxdot.git"
 documentation = "https://docs.rs/syntaxdot/"
 license = "MIT OR Apache-2.0"
+rust-version = "1.70.0"
 
 [dependencies]
 chu-liu-edmonds = "0.1"
