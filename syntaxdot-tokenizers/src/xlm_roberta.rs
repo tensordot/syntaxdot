@@ -76,7 +76,7 @@ impl Tokenize for XlmRobertaTokenizer {
                 // tokens. However, the input may be corrupt and use
                 // some form of non-tab whitespace as a form, for which
                 // sentencepiece does not return any identifier.
-                pieces.push(self.spp.unk_id() as i64 + FAIRSEQ_OFFSET);
+                pieces.push(FAIRSEQ_UNK);
             }
         }
 
