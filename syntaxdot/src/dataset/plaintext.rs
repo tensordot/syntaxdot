@@ -1,10 +1,10 @@
-use std::io::{BufRead, Lines, Seek, SeekFrom};
+use std::io::{BufRead, Lines, Seek};
 
 use syntaxdot_tokenizers::{SentenceWithPieces, Tokenize};
 use udgraph::graph::Sentence;
 use udgraph::token::Token;
 
-use crate::dataset::DataSet;
+use crate::dataset::{DataSet, PairedDataSet};
 use crate::error::SyntaxDotError;
 
 /// A CoNLL-X data set.
@@ -21,25 +21,46 @@ impl<'a, R> DataSet<'a> for &'a mut PlainTextDataSet<R>
 where
     R: BufRead + Seek,
 {
-    type Iter = PlainTextIter<'a, &'a mut R>;
+    type Iter = TokenizeIter<'a, &'a mut R>;
 
-    fn sentences(self, tokenizer: &'a dyn Tokenize) -> Result<Self::Iter, SyntaxDotError> {
+    fn tokenize(self, tokenizer: &'a dyn Tokenize) -> Result<Self::Iter, SyntaxDotError> {
         // Rewind to the beginning of the dataset (if necessary).
-        self.0.seek(SeekFrom::Start(0))?;
+        self.0.rewind()?;
 
-        Ok(PlainTextIter {
+        Ok(TokenizeIter {
             lines: (&mut self.0).lines(),
             tokenizer,
         })
     }
 }
 
-pub struct PlainTextIter<'a, R> {
+impl<'a, R> PairedDataSet<'a> for &'a mut PlainTextDataSet<R>
+where
+    R: BufRead + Seek,
+{
+    type Iter = TokenizePairIter<'a, &'a mut R>;
+
+    fn tokenize_pair(
+        self,
+        tokenizer1: &'a dyn Tokenize,
+        tokenizer2: &'a dyn Tokenize,
+    ) -> Result<Self::Iter, SyntaxDotError> {
+        self.0.rewind()?;
+
+        Ok(TokenizePairIter {
+            lines: (&mut self.0).lines(),
+            tokenizer1,
+            tokenizer2,
+        })
+    }
+}
+
+pub struct TokenizeIter<'a, R> {
     lines: Lines<R>,
     tokenizer: &'a dyn Tokenize,
 }
 
-impl<'a, R> Iterator for PlainTextIter<'a, R>
+impl<'a, R> Iterator for TokenizeIter<'a, R>
 where
     R: BufRead,
 {
@@ -67,6 +88,49 @@ where
                 .collect::<Sentence>();
 
             return Some(Ok(self.tokenizer.tokenize(sentence)));
+        }
+
+        None
+    }
+}
+
+pub struct TokenizePairIter<'a, R> {
+    lines: Lines<R>,
+    tokenizer1: &'a dyn Tokenize,
+    tokenizer2: &'a dyn Tokenize,
+}
+
+impl<'a, R> Iterator for TokenizePairIter<'a, R>
+where
+    R: BufRead,
+{
+    type Item = Result<(SentenceWithPieces, SentenceWithPieces), SyntaxDotError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for line in &mut self.lines {
+            // Bubble up read errors.
+            let line = match line {
+                Ok(line) => line,
+                Err(err) => return Some(Err(SyntaxDotError::IoError(err))),
+            };
+
+            let line_trimmed = line.trim();
+
+            // Skip empty lines
+            if line_trimmed.is_empty() {
+                continue;
+            }
+
+            let sentence = line_trimmed
+                .split_terminator(' ')
+                .map(ToString::to_string)
+                .map(Token::new)
+                .collect::<Sentence>();
+
+            return Some(Ok((
+                self.tokenizer1.tokenize(sentence.clone()),
+                self.tokenizer2.tokenize(sentence),
+            )));
         }
 
         None

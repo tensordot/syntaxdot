@@ -267,7 +267,7 @@ impl FinetuneApp {
         let mut encoder_loss = BTreeMap::new();
 
         for batch in dataset
-            .sentences(tokenizer)?
+            .tokenize(tokenizer)?
             .filter_by_len(self.max_len)
             .batched_tensors(biaffine_encoder, Some(encoders), self.batch_size)
         {

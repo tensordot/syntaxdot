@@ -1,13 +1,9 @@
-use std::collections::HashMap;
-
-use ndarray::Array1;
 use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
-use syntaxdot_encoders::SentenceEncoder;
 use syntaxdot_tokenizers::SentenceWithPieces;
 
 use crate::encoders::NamedEncoder;
 use crate::error::SyntaxDotError;
-use crate::tensor::{TensorBuilder, Tensors};
+use crate::tensor::Tensors;
 
 pub trait BatchedTensors<'a> {
     /// Get an iterator over batch tensors.
@@ -61,17 +57,185 @@ where
     pub sentences: I,
 }
 
-impl<'a, I> TensorIter<'a, I>
+impl<'a, I> Iterator for TensorIter<'a, I>
 where
     I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
 {
+    type Item = Result<Tensors, SyntaxDotError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut batch_sentences = Vec::with_capacity(self.batch_size);
+        for sentence in &mut self.sentences {
+            let sentence = match sentence {
+                Ok(sentence) => sentence,
+                Err(err) => return Some(Err(err)),
+            };
+            batch_sentences.push(sentence);
+            if batch_sentences.len() == self.batch_size {
+                break;
+            }
+        }
+
+        // Check whether the reader is exhausted.
+        if batch_sentences.is_empty() {
+            return None;
+        }
+
+        Some(util::next_batch(
+            self.biaffine_encoder,
+            self.encoders,
+            batch_sentences,
+        ))
+    }
+}
+
+pub trait PairedBatchedTensors<'a> {
+    /// Get an iterator over batch tensors.
+    ///
+    /// The sequence labels using the `encoders`, syntactic
+    /// dependencies using `biaffine_encoder`.
+    ///
+    /// If `encoders` is not `None`, output tensors will be created
+    /// for the sequence labels in the data set.
+    ///
+    /// If `biaffine_encoder` is not `None`, output tensors will be
+    /// created dependency heads and relations.
+    #[allow(clippy::type_complexity)]
+    fn paired_batched_tensors(
+        self,
+        biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
+        encoders: Option<&'a [NamedEncoder]>,
+        batch_size: usize,
+    ) -> PairedTensorIter<
+        'a,
+        Box<
+            dyn Iterator<Item = Result<(SentenceWithPieces, SentenceWithPieces), SyntaxDotError>>
+                + 'a,
+        >,
+    >;
+}
+
+impl<'a, I> PairedBatchedTensors<'a> for I
+where
+    I: 'a + Iterator<Item = Result<(SentenceWithPieces, SentenceWithPieces), SyntaxDotError>>,
+{
+    #[allow(clippy::type_complexity)]
+    fn paired_batched_tensors(
+        self,
+        biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
+        encoders: Option<&'a [NamedEncoder]>,
+        batch_size: usize,
+    ) -> PairedTensorIter<
+        'a,
+        Box<
+            dyn Iterator<Item = Result<(SentenceWithPieces, SentenceWithPieces), SyntaxDotError>>
+                + 'a,
+        >,
+    > {
+        PairedTensorIter {
+            batch_size,
+            biaffine_encoder,
+            encoders,
+            sentences: Box::new(self),
+        }
+    }
+}
+
+/// An iterator returning input and (optionally) output tensors for paired inputs.
+pub struct PairedTensorIter<'a, I>
+where
+    I: Iterator<Item = Result<(SentenceWithPieces, SentenceWithPieces), SyntaxDotError>>,
+{
+    pub batch_size: usize,
+    pub biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
+    pub encoders: Option<&'a [NamedEncoder]>,
+    pub sentences: I,
+}
+
+impl<'a, I> Iterator for PairedTensorIter<'a, I>
+where
+    I: Iterator<Item = Result<(SentenceWithPieces, SentenceWithPieces), SyntaxDotError>>,
+{
+    type Item = Result<(Tensors, Tensors), SyntaxDotError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut batch_sentences1 = Vec::with_capacity(self.batch_size);
+        let mut batch_sentences2 = Vec::with_capacity(self.batch_size);
+        for sentence_pair in &mut self.sentences {
+            let (sentence1, sentence2) = match sentence_pair {
+                Ok(sentence_pair) => sentence_pair,
+                Err(err) => return Some(Err(err)),
+            };
+            batch_sentences1.push(sentence1);
+            batch_sentences2.push(sentence2);
+            if batch_sentences1.len() == self.batch_size {
+                break;
+            }
+        }
+
+        // Check whether the reader is exhausted.
+        if batch_sentences1.is_empty() {
+            return None;
+        }
+
+        let batch1 = util::next_batch(self.biaffine_encoder, self.encoders, batch_sentences1);
+        let batch2 = util::next_batch(self.biaffine_encoder, self.encoders, batch_sentences2);
+
+        Some(batch1.and_then(|batch1| Ok((batch1, batch2?))))
+    }
+}
+
+mod util {
+    use std::collections::HashMap;
+
+    use ndarray::Array1;
+    use syntaxdot_encoders::dependency::ImmutableDependencyEncoder;
+    use syntaxdot_encoders::SentenceEncoder;
+    use syntaxdot_tokenizers::SentenceWithPieces;
+
+    use crate::encoders::NamedEncoder;
+    use crate::error::SyntaxDotError;
+    use crate::tensor::{TensorBuilder, Tensors};
+
+    pub(super) fn next_batch(
+        biaffine_encoder: Option<&ImmutableDependencyEncoder>,
+        encoders: Option<&[NamedEncoder]>,
+        batch_sentences: Vec<SentenceWithPieces>,
+    ) -> Result<Tensors, SyntaxDotError> {
+        let max_seq_len = batch_sentences
+            .iter()
+            .map(|s| s.pieces.len())
+            .max()
+            .unwrap_or(0);
+
+        let max_tokens_len = batch_sentences
+            .iter()
+            .map(|s| s.token_offsets.len())
+            .max()
+            .unwrap_or(0);
+
+        match encoders {
+            Some(encoders) => next_with_labels(
+                batch_sentences,
+                max_seq_len,
+                max_tokens_len,
+                biaffine_encoder,
+                encoders,
+            ),
+            None => Ok(next_without_labels(
+                batch_sentences,
+                max_seq_len,
+                max_tokens_len,
+            )),
+        }
+    }
+
     fn next_with_labels(
-        &mut self,
         tokenized_sentences: Vec<SentenceWithPieces>,
         max_seq_len: usize,
         max_tokens_len: usize,
-        biaffine_encoder: Option<&'a ImmutableDependencyEncoder>,
-        encoders: &'a [NamedEncoder],
+        biaffine_encoder: Option<&ImmutableDependencyEncoder>,
+        encoders: &[NamedEncoder],
     ) -> Result<Tensors, SyntaxDotError> {
         let mut builder = TensorBuilder::new_with_labels(
             tokenized_sentences.len(),
@@ -102,12 +266,12 @@ where
                     }
                 });
 
-            let biaffine_encoding = match Self::encode_biaffine(biaffine_encoder, &sentence) {
+            let biaffine_encoding = match encode_biaffine(biaffine_encoder, &sentence) {
                 Ok(biaffine_encoding) => biaffine_encoding,
                 Err(err) => return Err(err),
             };
 
-            let sequence_encoding = match Self::encode_sequence(encoders, &sentence) {
+            let sequence_encoding = match encode_sequence(encoders, &sentence) {
                 Ok(sequence_encoding) => sequence_encoding,
                 Err(err) => return Err(err),
             };
@@ -168,7 +332,6 @@ where
     }
 
     fn next_without_labels(
-        &mut self,
         tokenized_sentences: Vec<SentenceWithPieces>,
         max_seq_len: usize,
         max_tokens_len: usize,
@@ -209,54 +372,5 @@ where
         }
 
         builder.into()
-    }
-}
-
-impl<'a, I> Iterator for TensorIter<'a, I>
-where
-    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
-{
-    type Item = Result<Tensors, SyntaxDotError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut batch_sentences = Vec::with_capacity(self.batch_size);
-        for sentence in &mut self.sentences {
-            let sentence = match sentence {
-                Ok(sentence) => sentence,
-                Err(err) => return Some(Err(err)),
-            };
-            batch_sentences.push(sentence);
-            if batch_sentences.len() == self.batch_size {
-                break;
-            }
-        }
-
-        // Check whether the reader is exhausted.
-        if batch_sentences.is_empty() {
-            return None;
-        }
-
-        let max_seq_len = batch_sentences
-            .iter()
-            .map(|s| s.pieces.len())
-            .max()
-            .unwrap_or(0);
-
-        let max_tokens_len = batch_sentences
-            .iter()
-            .map(|s| s.token_offsets.len())
-            .max()
-            .unwrap_or(0);
-
-        Some(match self.encoders {
-            Some(encoders) => self.next_with_labels(
-                batch_sentences,
-                max_seq_len,
-                max_tokens_len,
-                self.biaffine_encoder,
-                encoders,
-            ),
-            None => Ok(self.next_without_labels(batch_sentences, max_seq_len, max_tokens_len)),
-        })
     }
 }

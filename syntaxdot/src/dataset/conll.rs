@@ -22,7 +22,7 @@ where
 {
     type Iter = ConllIter<'a, Reader<&'a mut R>>;
 
-    fn sentences(self, tokenizer: &'a dyn Tokenize) -> Result<Self::Iter, SyntaxDotError> {
+    fn tokenize(self, tokenizer: &'a dyn Tokenize) -> Result<Self::Iter, SyntaxDotError> {
         // Rewind to the beginning of the dataset (if necessary).
         self.0.seek(SeekFrom::Start(0))?;
 

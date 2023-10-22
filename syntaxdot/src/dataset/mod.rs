@@ -11,7 +11,7 @@ mod plaintext;
 pub use plaintext::PlainTextDataSet;
 
 pub(crate) mod tensor_iter;
-pub use tensor_iter::BatchedTensors;
+pub use tensor_iter::{BatchedTensors, PairedBatchedTensors};
 
 mod sentence_itertools;
 pub use sentence_itertools::{SentenceIterTools, SequenceLength};
@@ -26,7 +26,25 @@ pub trait DataSet<'a> {
     /// Get an iterator over the sentences and pieces in a dataset.
     ///
     /// The tokens are split in pieces with the given `tokenizer`.
-    fn sentences(self, tokenizer: &'a dyn Tokenize) -> Result<Self::Iter, SyntaxDotError>;
+    fn tokenize(self, tokenizer: &'a dyn Tokenize) -> Result<Self::Iter, SyntaxDotError>;
+}
+
+/// A data set consisting of annotated or unannotated sentences.
+///
+/// A `DataSet` provides an iterator over pairs of tokenized sentences.
+/// The pairing is useful in applications where two tokenizer models
+/// are used, such as distillation.
+pub trait PairedDataSet<'a> {
+    type Iter: Iterator<Item = Result<(SentenceWithPieces, SentenceWithPieces), SyntaxDotError>>;
+
+    /// Get an iterator over the sentences and pieces in a dataset.
+    ///
+    /// The tokens are split in pieces with the given tokenizers.
+    fn tokenize_pair(
+        self,
+        tokenizer1: &'a dyn Tokenize,
+        tokenizer2: &'a dyn Tokenize,
+    ) -> Result<Self::Iter, SyntaxDotError>;
 }
 
 #[cfg(test)]
@@ -70,7 +88,7 @@ nu"#;
         I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
     {
         dataset
-            .sentences(tokenizer)?
+            .tokenize(tokenizer)?
             .map(|s| s.map(|s| s.pieces))
             .collect::<Result<Vec<_>, _>>()
     }

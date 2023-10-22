@@ -12,7 +12,8 @@ use itertools::Itertools;
 use ordered_float::NotNan;
 use syntaxdot::config::{Config, PretrainConfig};
 use syntaxdot::dataset::{
-    BatchedTensors, ConlluDataSet, DataSet, PlainTextDataSet, SentenceIterTools, SequenceLength,
+    BatchedTensors, ConlluDataSet, DataSet, PairedBatchedTensors, PairedDataSet, PlainTextDataSet,
+    SentenceIterTools, SequenceLength,
 };
 use syntaxdot::encoders::Encoders;
 use syntaxdot::error::SyntaxDotError;
@@ -283,8 +284,7 @@ impl DistillApp {
         auxiliary_params: &AuxiliaryParameters,
         teacher: &Model,
         student: &StudentModel,
-        teacher_train_file: &File,
-        student_train_file: &File,
+        distill_file: &File,
         validation_file: &mut File,
     ) -> Result<()> {
         let mut best_step = 0;
@@ -296,7 +296,7 @@ impl DistillApp {
 
         let n_steps = self
             .train_duration
-            .as_steps(teacher_train_file, self.batch_size)
+            .as_steps(distill_file, self.batch_size)
             .context("Cannot determine number of training steps")?;
 
         let train_progress = ProgressBar::new(n_steps as u64);
@@ -305,29 +305,17 @@ impl DistillApp {
         )?);
 
         while global_step < n_steps - 1 {
-            let mut teacher_train_dataset = Self::open_dataset(teacher_train_file)?;
-            let mut student_train_dataset = Self::open_dataset(student_train_file)?;
-
-            let teacher_train_batches = teacher_train_dataset
-                .sentences(&*teacher.tokenizer)?
+            let mut dataset = Self::open_dataset(distill_file)?;
+            let distill_batches = dataset
+                .tokenize_pair(&*teacher.tokenizer, &*student.tokenizer)?
                 .filter_by_len(self.max_len)
-                .batched_tensors(None, None, self.batch_size);
+                .paired_batched_tensors(None, None, self.batch_size);
 
-            let student_train_batches = student_train_dataset
-                .sentences(&*student.tokenizer)?
-                .filter_by_len(self.max_len)
-                .batched_tensors(None, None, self.batch_size);
-
-            for (teacher_steps, student_steps) in teacher_train_batches
-                .chunks(self.eval_steps)
-                .into_iter()
-                .zip(student_train_batches.chunks(self.eval_steps).into_iter())
-            {
+            for steps in distill_batches.chunks(self.eval_steps).into_iter() {
                 self.train_steps(
                     auxiliary_params,
                     &train_progress,
-                    teacher_steps,
-                    student_steps,
+                    steps,
                     &mut global_step,
                     grad_scaler,
                     &teacher.model,
@@ -612,16 +600,14 @@ impl DistillApp {
         &self,
         auxiliary_params: &AuxiliaryParameters,
         progress: &ProgressBar,
-        teacher_batches: impl Iterator<Item = Result<Tensors, SyntaxDotError>>,
-        student_batches: impl Iterator<Item = Result<Tensors, SyntaxDotError>>,
+        batches: impl Iterator<Item = Result<(Tensors, Tensors), SyntaxDotError>>,
         global_step: &mut usize,
         grad_scaler: &mut GradScaler<impl Optimizer>,
         teacher: &BertModel,
         student: &BertModel,
     ) -> Result<()> {
-        for (teacher_batch, student_batch) in teacher_batches.zip(student_batches) {
-            let teacher_batch = teacher_batch.context("Cannot read teacher batch")?;
-            let student_batch = student_batch.context("Cannot read student batch")?;
+        for batch in batches {
+            let (teacher_batch, student_batch) = batch.context("Cannot read batch")?;
 
             let distill_loss = self.student_loss(
                 auxiliary_params,
@@ -866,7 +852,7 @@ impl DistillApp {
         let mut n_tokens = 0;
 
         for batch in dataset
-            .sentences(tokenizer)?
+            .tokenize(tokenizer)?
             .filter_by_len(self.max_len)
             .batched_tensors(biaffine_encoder, Some(encoders), self.batch_size)
         {
@@ -1192,7 +1178,7 @@ impl SyntaxDotApp for DistillApp {
             .get_one::<String>(MAX_LEN)
             .map(|v| v.parse().context("Cannot parse maximum sentence length"))
             .transpose()?
-            .map(SequenceLength::Tokens)
+            .map(SequenceLength::Pieces)
             .unwrap_or(SequenceLength::Unbounded);
         let mixed_precision = matches.get_flag(MIXED_PRECISION);
         let warmup_steps = matches
@@ -1251,9 +1237,7 @@ impl SyntaxDotApp for DistillApp {
         let student_config = load_config(&self.student_config)?;
         let teacher = Model::load(&self.teacher_config, self.device, true, false, |_| 0)?;
 
-        let teacher_train_file = File::open(&self.train_data)
-            .context(format!("Cannot open train data file: {}", self.train_data))?;
-        let student_train_file = File::open(&self.train_data)
+        let distill_file = File::open(&self.train_data)
             .context(format!("Cannot open train data file: {}", self.train_data))?;
         let mut validation_file = File::open(&self.validation_data).context(format!(
             "Cannot open validation data file: {}",
@@ -1276,8 +1260,7 @@ impl SyntaxDotApp for DistillApp {
             &auxiliary_params,
             &teacher,
             &student,
-            &teacher_train_file,
-            &student_train_file,
+            &distill_file,
             &mut validation_file,
         )
         .context("Model distillation failed")

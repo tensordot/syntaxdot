@@ -17,7 +17,10 @@ pub enum SequenceLength {
 }
 
 /// Trait providing adapters for `SentenceWithPieces` iterators.
-pub trait SentenceIterTools<'a>: Sized {
+pub trait SentenceIterTools<'a>: Sized
+where
+    Self: Iterator,
+{
     /// Filter sentences by their length.
     ///
     /// If `max_len` is `None`, then the sentences will not be
@@ -34,7 +37,7 @@ pub trait SentenceIterTools<'a>: Sized {
 
 impl<'a, I> SentenceIterTools<'a> for I
 where
-    I: 'a + Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
+    I: 'a + Iterator,
 {
     fn filter_by_len(self, max_len: SequenceLength) -> LengthFilter<Self> {
         LengthFilter {
@@ -52,17 +55,43 @@ where
     }
 }
 
+trait SentenceLength {
+    fn pieces_length(&self) -> usize;
+    fn tokens_length(&self) -> usize;
+}
+
+impl SentenceLength for SentenceWithPieces {
+    fn pieces_length(&self) -> usize {
+        self.pieces.len()
+    }
+
+    fn tokens_length(&self) -> usize {
+        self.token_offsets.len()
+    }
+}
+
+impl SentenceLength for (SentenceWithPieces, SentenceWithPieces) {
+    fn pieces_length(&self) -> usize {
+        self.0.pieces.len().max(self.1.pieces.len())
+    }
+
+    fn tokens_length(&self) -> usize {
+        self.0.token_offsets.len().max(self.1.token_offsets.len())
+    }
+}
+
 /// An Iterator adapter filtering sentences by maximum length.
 pub struct LengthFilter<I> {
     inner: I,
     max_len: SequenceLength,
 }
 
-impl<I> Iterator for LengthFilter<I>
+impl<I, S> Iterator for LengthFilter<I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
+    I: Iterator<Item = Result<S, SyntaxDotError>>,
+    S: SentenceLength,
 {
-    type Item = Result<SentenceWithPieces, SyntaxDotError>;
+    type Item = Result<S, SyntaxDotError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         for sent in &mut self.inner {
@@ -70,10 +99,10 @@ where
             // will properly return the Error at a later point.
             let too_long = match self.max_len {
                 SequenceLength::Pieces(max_len) => {
-                    sent.as_ref().map(|s| s.pieces.len()).unwrap_or(0) > max_len
+                    sent.as_ref().map(|s| s.pieces_length()).unwrap_or(0) > max_len
                 }
                 SequenceLength::Tokens(max_len) => {
-                    sent.as_ref().map(|s| s.token_offsets.len()).unwrap_or(0) > max_len
+                    sent.as_ref().map(|s| s.tokens_length()).unwrap_or(0) > max_len
                 }
                 SequenceLength::Unbounded => false,
             };
@@ -93,25 +122,25 @@ where
 /// Fills a buffer with size `buffer_size` on the first
 /// call. Subsequent calls add the next incoming item to the buffer
 /// and pick a random element from the buffer.
-pub struct Shuffled<I> {
+pub struct Shuffled<I>
+where
+    I: Iterator,
+{
     inner: I,
-    buffer: RandomRemoveVec<SentenceWithPieces, XorShiftRng>,
+    buffer: RandomRemoveVec<I::Item, XorShiftRng>,
     buffer_size: usize,
 }
 
-impl<I> Iterator for Shuffled<I>
+impl<I, V> Iterator for Shuffled<I>
 where
-    I: Iterator<Item = Result<SentenceWithPieces, SyntaxDotError>>,
+    I: Iterator<Item = V>,
 {
-    type Item = Result<SentenceWithPieces, SyntaxDotError>;
+    type Item = V;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.buffer.is_empty() {
             for sent in &mut self.inner {
-                match sent {
-                    Ok(sent) => self.buffer.push(sent),
-                    Err(err) => return Some(Err(err)),
-                }
+                self.buffer.push(sent);
 
                 if self.buffer.len() == self.buffer_size {
                     break;
@@ -120,11 +149,8 @@ where
         }
 
         match self.inner.next() {
-            Some(sent) => match sent {
-                Ok(sent) => Some(Ok(self.buffer.push_and_remove_random(sent))),
-                Err(err) => Some(Err(err)),
-            },
-            None => self.buffer.remove_random().map(Result::Ok),
+            Some(sent) => Some(self.buffer.push_and_remove_random(sent)),
+            None => self.buffer.remove_random(),
         }
     }
 }
