@@ -8,7 +8,7 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use indicatif::ProgressStyle;
 use ordered_float::NotNan;
 use syntaxdot::dataset::{
-    BatchedTensors, ConlluDataSet, DataSet, SentenceIterTools, SequenceLength,
+    BatchedTensors, ConlluDataSet, DataSet, MaxSentenceLen, SentenceIterTools,
 };
 use syntaxdot::encoders::Encoders;
 use syntaxdot::lr::{ExponentialDecay, LearningRateSchedule, PlateauLearningRate};
@@ -62,7 +62,7 @@ pub struct FinetuneApp {
     continue_finetune: bool,
     device: Device,
     finetune_embeds: bool,
-    max_len: SequenceLength,
+    max_len: MaxSentenceLen,
     label_smoothing: Option<f64>,
     mixed_precision: bool,
     summary_writer: Box<dyn ScalarWriter>,
@@ -606,8 +606,8 @@ impl SyntaxDotApp for FinetuneApp {
                     .context(format!("Cannot parse maximum sentence length: {}", v))
             })
             .transpose()?
-            .map(SequenceLength::Pieces)
-            .unwrap_or(SequenceLength::Unbounded);
+            .map(MaxSentenceLen::Pieces)
+            .unwrap_or(MaxSentenceLen::Unbounded);
 
         let keep_best_epochs = matches
             .get_one::<String>(KEEP_BEST_EPOCHS)

@@ -5,12 +5,12 @@ use syntaxdot_tokenizers::SentenceWithPieces;
 use crate::error::SyntaxDotError;
 use crate::util::RandomRemoveVec;
 
-/// The length of a sequence.
+/// The maximum length of a sentence.
 ///
 /// This enum can be used to express the (maximum) length of a
 /// sentence in tokens or in pieces.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum SequenceLength {
+pub enum MaxSentenceLen {
     Tokens(usize),
     Pieces(usize),
     Unbounded,
@@ -25,7 +25,7 @@ where
     ///
     /// If `max_len` is `None`, then the sentences will not be
     /// filtered by length.
-    fn filter_by_len(self, max_len: SequenceLength) -> LengthFilter<Self>;
+    fn filter_by_len(self, max_len: MaxSentenceLen) -> LengthFilter<Self>;
 
     /// Shuffle sentences.
     ///
@@ -39,7 +39,7 @@ impl<'a, I> SentenceIterTools<'a> for I
 where
     I: 'a + Iterator,
 {
-    fn filter_by_len(self, max_len: SequenceLength) -> LengthFilter<Self> {
+    fn filter_by_len(self, max_len: MaxSentenceLen) -> LengthFilter<Self> {
         LengthFilter {
             inner: self,
             max_len,
@@ -55,27 +55,31 @@ where
     }
 }
 
-trait SentenceLength {
-    fn pieces_length(&self) -> usize;
-    fn tokens_length(&self) -> usize;
+/// Get the length of a tokenized sentence.
+trait SentenceLen {
+    /// Get the length of the sentence in pieces.
+    fn pieces_len(&self) -> usize;
+
+    /// Get the length of the sentence in tokens.
+    fn tokens_len(&self) -> usize;
 }
 
-impl SentenceLength for SentenceWithPieces {
-    fn pieces_length(&self) -> usize {
+impl SentenceLen for SentenceWithPieces {
+    fn pieces_len(&self) -> usize {
         self.pieces.len()
     }
 
-    fn tokens_length(&self) -> usize {
+    fn tokens_len(&self) -> usize {
         self.token_offsets.len()
     }
 }
 
-impl SentenceLength for (SentenceWithPieces, SentenceWithPieces) {
-    fn pieces_length(&self) -> usize {
+impl SentenceLen for (SentenceWithPieces, SentenceWithPieces) {
+    fn pieces_len(&self) -> usize {
         self.0.pieces.len().max(self.1.pieces.len())
     }
 
-    fn tokens_length(&self) -> usize {
+    fn tokens_len(&self) -> usize {
         self.0.token_offsets.len().max(self.1.token_offsets.len())
     }
 }
@@ -83,13 +87,13 @@ impl SentenceLength for (SentenceWithPieces, SentenceWithPieces) {
 /// An Iterator adapter filtering sentences by maximum length.
 pub struct LengthFilter<I> {
     inner: I,
-    max_len: SequenceLength,
+    max_len: MaxSentenceLen,
 }
 
 impl<I, S> Iterator for LengthFilter<I>
 where
     I: Iterator<Item = Result<S, SyntaxDotError>>,
-    S: SentenceLength,
+    S: SentenceLen,
 {
     type Item = Result<S, SyntaxDotError>;
 
@@ -98,13 +102,13 @@ where
             // Treat Err as length 0 to keep our type as Result<Sentence, Error>. The iterator
             // will properly return the Error at a later point.
             let too_long = match self.max_len {
-                SequenceLength::Pieces(max_len) => {
-                    sent.as_ref().map(|s| s.pieces_length()).unwrap_or(0) > max_len
+                MaxSentenceLen::Pieces(max_len) => {
+                    sent.as_ref().map(|s| s.pieces_len()).unwrap_or(0) > max_len
                 }
-                SequenceLength::Tokens(max_len) => {
-                    sent.as_ref().map(|s| s.tokens_length()).unwrap_or(0) > max_len
+                MaxSentenceLen::Tokens(max_len) => {
+                    sent.as_ref().map(|s| s.tokens_len()).unwrap_or(0) > max_len
                 }
-                SequenceLength::Unbounded => false,
+                MaxSentenceLen::Unbounded => false,
             };
 
             if too_long {

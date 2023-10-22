@@ -89,6 +89,8 @@ where
     }
 }
 
+/// An iterator returning input and (optionally) output tensors for
+/// pairs of tokenized sentences.
 pub trait PairedBatchedTensors<'a> {
     /// Get an iterator over batch tensors.
     ///

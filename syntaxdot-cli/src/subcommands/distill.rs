@@ -12,8 +12,8 @@ use itertools::Itertools;
 use ordered_float::NotNan;
 use syntaxdot::config::{Config, PretrainConfig};
 use syntaxdot::dataset::{
-    BatchedTensors, ConlluDataSet, DataSet, PairedBatchedTensors, PairedDataSet, PlainTextDataSet,
-    SentenceIterTools, SequenceLength,
+    BatchedTensors, ConlluDataSet, DataSet, MaxSentenceLen, PairedBatchedTensors, PairedDataSet,
+    PlainTextDataSet, SentenceIterTools,
 };
 use syntaxdot::encoders::Encoders;
 use syntaxdot::error::SyntaxDotError;
@@ -108,7 +108,7 @@ pub struct DistillApp {
     eval_steps: usize,
     hidden_loss: Option<Vec<(usize, usize)>>,
     keep_best_steps: Option<usize>,
-    max_len: SequenceLength,
+    max_len: MaxSentenceLen,
     mixed_precision: bool,
     lr_schedules: RefCell<LearningRateSchedules>,
     student_config: String,
@@ -1178,8 +1178,8 @@ impl SyntaxDotApp for DistillApp {
             .get_one::<String>(MAX_LEN)
             .map(|v| v.parse().context("Cannot parse maximum sentence length"))
             .transpose()?
-            .map(SequenceLength::Pieces)
-            .unwrap_or(SequenceLength::Unbounded);
+            .map(MaxSentenceLen::Pieces)
+            .unwrap_or(MaxSentenceLen::Unbounded);
         let mixed_precision = matches.get_flag(MIXED_PRECISION);
         let warmup_steps = matches
             .get_one::<String>(WARMUP)

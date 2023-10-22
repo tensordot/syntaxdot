@@ -14,7 +14,7 @@ pub(crate) mod tensor_iter;
 pub use tensor_iter::{BatchedTensors, PairedBatchedTensors};
 
 mod sentence_itertools;
-pub use sentence_itertools::{SentenceIterTools, SequenceLength};
+pub use sentence_itertools::{MaxSentenceLen, SentenceIterTools};
 
 /// A data set consisting of annotated or unannotated sentences.
 ///
